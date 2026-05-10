@@ -393,7 +393,7 @@ fn cycle_difficulty_next(app: &mut App) {
 fn apply_clock_and_start(app: &mut App, page: Pages) {
     if let Some(seconds) = app.game_mode_state.get_time_control_seconds() {
         use crate::game_logic::clock::Clock;
-        app.game.logic.clock = Some(Clock::new(seconds));
+        app.game.logic.clock = Clock::new(seconds);
     }
     finish_form(app, page);
 }

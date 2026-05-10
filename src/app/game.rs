@@ -82,7 +82,7 @@ impl App {
             && let Some(seconds) = self.game_mode_state.get_time_control_seconds()
         {
             use crate::game_logic::clock::Clock;
-            self.game.logic.clock = Some(Clock::new(seconds));
+            self.game.logic.clock = Clock::new(seconds);
         }
 
         if self
