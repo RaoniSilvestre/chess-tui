@@ -24,8 +24,7 @@
 
 - [x] Moved board rendering into `chess-tui-ui` behind the `BoardView` view model.
 - [x] Removed the temporary `src/ui` re-exports of `chess-tui-ui`.
-- [x] Moved game rendering, promotion, and end-screen popups into `chess-tui-pages`.
-- [ ] Move the remaining page-specific popups (move input, new game, resignation, puzzle end) into `chess-tui-pages`.
+- [x] Moved game rendering and all page-specific popups into `chess-tui-pages`.
 
 ## Pages migration
 
@@ -39,4 +38,4 @@
 ## Validation
 
 - [ ] Live smoke-test the Lichess and TCP multiplayer paths.
-- [x] `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, and `cargo build --release` pass.
+- [x] `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo check --no-default-features`, and `cargo build --release` pass.
