@@ -1,6 +1,5 @@
 //! Tachyonfx-based animation state.
 
-use crate::constants::Pages;
 use ratatui::prelude::Rect;
 use std::time::Instant;
 use tachyonfx::Effect;
@@ -9,7 +8,7 @@ pub struct AnimationState {
     pub effects: Vec<(Effect, Rect)>,
     pub last_frame: Instant,
     pub startup_done: bool,
-    pub last_page: Option<Pages>,
+    pub last_page: Option<std::any::TypeId>,
 }
 
 impl Default for AnimationState {

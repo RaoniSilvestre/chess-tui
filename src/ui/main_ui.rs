@@ -133,11 +133,11 @@ pub fn render_animations(frame: &mut Frame<'_>, app: &mut App, main_area: ratatu
     }
 
     let elapsed = app.animations.tick();
-    let current_page = app.ui_state.current_page;
+    let current_page = app.current_page_type_id();
 
     if !app.animations.startup_done {
         app.animations.startup_done = true;
-        app.animations.last_page = Some(current_page);
+        app.animations.last_page = current_page;
         let effect = fx::sweep_in(
             Motion::UpToDown,
             15,
@@ -146,10 +146,10 @@ pub fn render_animations(frame: &mut Frame<'_>, app: &mut App, main_area: ratatu
             (750u32, Interpolation::CubicOut),
         );
         app.animations.push(effect, main_area);
-    } else if app.animations.last_page != Some(current_page) {
+    } else if app.animations.last_page != current_page {
         let effect = fx::coalesce((300u32, Interpolation::QuadOut));
         app.animations.push(effect, main_area);
-        app.animations.last_page = Some(current_page);
+        app.animations.last_page = current_page;
     }
 
     for (effect, area) in &mut app.animations.effects {

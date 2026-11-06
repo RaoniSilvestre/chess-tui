@@ -1,4 +1,3 @@
-use chess_tui::app::App;
 use shakmaty::Color;
 
 #[test]

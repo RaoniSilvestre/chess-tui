@@ -62,6 +62,10 @@ impl Page for HomePage {
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _app: &mut App) {
         render_home(frame, area, self.cursor);
     }
+
+    fn is_home(&self) -> bool {
+        true
+    }
 }
 
 fn render_home(frame: &mut Frame, main_area: Rect, cursor: u8) {

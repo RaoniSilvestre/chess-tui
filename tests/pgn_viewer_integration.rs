@@ -7,7 +7,7 @@ mod common;
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::{Pages, Popups},
+    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use chess_tui_core::PgnViewer;
@@ -166,7 +166,7 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     // Exit viewer with Esc.
     send(&mut app, &[KeyCode::Esc])?;
 
-    assert_eq!(app.ui_state.current_page, Pages::Home);
+    assert!(app.is_home());
     assert!(app.pgn_viewer_state.is_none());
     // The critical checks - nothing from the viewer leaks into a fresh game.
     assert!(
@@ -190,11 +190,11 @@ fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
 
     // Exit PGN viewer.
     send(&mut app, &[KeyCode::Esc])?;
-    assert_eq!(app.ui_state.current_page, Pages::Home);
+    assert!(app.is_home());
 
     // Home → Play Game → Local → start game
     send(&mut app, &[KeyCode::Enter, KeyCode::Enter, KeyCode::Enter])?;
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     assert!(!app.game.ui.hide_cursor);
     Ok(())
 }

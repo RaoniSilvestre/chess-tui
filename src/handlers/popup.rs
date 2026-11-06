@@ -2,10 +2,12 @@
 
 use crate::{
     app::App,
-    constants::{Pages, Popups},
+    constants::Popups,
     handlers::{game_mode_menu::start_game, handler::fallback_key_handler},
     state::{resume::ResumeMode, ui_state::NewGame},
 };
+use chess_tui_app::GamePageKind;
+use chess_tui_pages::OngoingGamesPage;
 use chess_tui_core::square_utils::normalize_lowercase_to_san;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use shakmaty::san::San;
@@ -40,7 +42,7 @@ fn handle_enter_host_ip(app: &mut App, key_event: KeyEvent) {
     match key_event.code {
         KeyCode::Enter => {
             app.game.ui.prompt.submit_message();
-            if app.ui_state.current_page == Pages::Multiplayer {
+            if app.current_game_kind() == Some(GamePageKind::Multiplayer) {
                 app.multiplayer_state.host_ip = Some(app.game.ui.prompt.message.clone());
             }
             app.ui_state.close_popup();
@@ -51,12 +53,12 @@ fn handle_enter_host_ip(app: &mut App, key_event: KeyEvent) {
         KeyCode::Right => app.game.ui.prompt.move_cursor_right(),
         KeyCode::Esc => {
             app.ui_state.close_popup();
-            if app.ui_state.current_page == Pages::Multiplayer {
+            if app.current_game_kind() == Some(GamePageKind::Multiplayer) {
                 app.multiplayer_state.hosting = None;
                 app.game_mode_state.selected_color = None;
                 app.ui_state.menu_cursor = 0;
             }
-            app.ui_state.current_page = Pages::Home;
+            app.show_home();
         }
         _ => fallback_key_handler(app, key_event),
     }
@@ -122,14 +124,15 @@ fn handle_error_popup(app: &mut App, key_event: KeyEvent) {
     match key_event.code {
         KeyCode::Esc | KeyCode::Enter | KeyCode::Char(' ') => {
             app.ui_state.close_popup();
-            match app.ui_state.current_page {
-                Pages::Lichess | Pages::OngoingGames => {
-                    app.ui_state.current_page = Pages::LichessMenu;
-                }
-                Pages::Multiplayer | Pages::Bot => {
-                    app.ui_state.current_page = Pages::Home;
-                }
-                _ => {}
+            if app.current_game_kind() == Some(GamePageKind::Lichess)
+                || app.is_page::<OngoingGamesPage>()
+            {
+                app.show_lichess_menu();
+            } else if matches!(
+                app.current_game_kind(),
+                Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+            ) {
+                app.show_home();
             }
         }
         _ => fallback_key_handler(app, key_event),
@@ -140,19 +143,16 @@ fn handle_success_popup(app: &mut App, key_event: KeyEvent) {
     match key_event.code {
         KeyCode::Esc | KeyCode::Enter | KeyCode::Char(' ') => {
             app.ui_state.close_popup();
-            match app.ui_state.current_page {
-                Pages::Lichess => {
-                    app.ui_state.current_page = Pages::LichessMenu;
-                }
-                Pages::OngoingGames => {
-                    app.fetch_ongoing_games();
-                    app.ui_state.current_page = Pages::OngoingGames;
-                    app.ui_state.menu_cursor = 0;
-                }
-                Pages::Multiplayer | Pages::Bot => {
-                    app.ui_state.current_page = Pages::Home;
-                }
-                _ => {}
+            if app.current_game_kind() == Some(GamePageKind::Lichess) {
+                app.show_lichess_menu();
+            } else if app.is_page::<OngoingGamesPage>() {
+                app.fetch_ongoing_games();
+                app.show_ongoing_games();
+            } else if matches!(
+                app.current_game_kind(),
+                Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+            ) {
+                app.show_home();
             }
         }
         _ => fallback_key_handler(app, key_event),
@@ -170,9 +170,7 @@ fn handle_load_pgn_path(app: &mut App, key_event: KeyEvent) {
             }
             match chess_tui_core::PgnViewer::from_file(&path) {
                 Ok(games) => {
-                    app.pgn_viewer_state = Some(games);
-                    app.pgn_viewer_game_idx = 0;
-                    app.ui_state.current_page = Pages::PgnViewer;
+                    app.show_pgn_viewer(games, 0);
                     app.ui_state.current_popup = None;
                     app.game.ui.prompt.reset();
                 }
@@ -201,11 +199,11 @@ fn handle_enter_game_code(app: &mut App, key_event: KeyEvent) {
             app.game.ui.prompt.submit_message();
             let game_code = app.game.ui.prompt.message.clone();
             if !game_code.is_empty() {
-                app.ui_state.current_page = Pages::Lichess;
+                app.show_lichess();
                 app.join_lichess_game_by_code(game_code);
             } else {
                 app.ui_state.close_popup();
-                app.ui_state.current_page = Pages::LichessMenu;
+                app.show_lichess_menu();
             }
         }
         KeyCode::Char(to_insert) => app.game.ui.prompt.enter_char(to_insert),
@@ -214,7 +212,7 @@ fn handle_enter_game_code(app: &mut App, key_event: KeyEvent) {
         KeyCode::Right => app.game.ui.prompt.move_cursor_right(),
         KeyCode::Esc => {
             app.ui_state.close_popup();
-            app.ui_state.current_page = Pages::LichessMenu;
+            app.show_lichess_menu();
         }
         _ => fallback_key_handler(app, key_event),
     }
@@ -249,7 +247,7 @@ fn handle_seeking_lichess_game(app: &mut App, key_event: KeyEvent) {
             app.lichess_state.receiver = None;
             app.lichess_state.cancellation_token = None;
             app.ui_state.close_popup();
-            app.ui_state.current_page = Pages::Home;
+            app.show_home();
         }
         _ => fallback_key_handler(app, key_event),
     }
@@ -279,7 +277,7 @@ fn handle_new_game_confirmation(app: &mut App, key_event: KeyEvent) {
             if let Some(NewGame::Start(page)) = app.ui_state.pending_new_game {
                 app.ui_state.pending_new_game = None;
                 app.ui_state.close_popup();
-                let mode = if page == Pages::Bot {
+                let mode = if page == GamePageKind::Bot {
                     ResumeMode::Bot
                 } else {
                     ResumeMode::Local

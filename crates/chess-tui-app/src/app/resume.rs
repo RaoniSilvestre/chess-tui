@@ -5,7 +5,8 @@
 //! game from a saved snapshot.
 
 use crate::App;
-use crate::constants::{Pages, Popups};
+use crate::GamePageKind;
+use crate::constants::Popups;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
@@ -19,9 +20,9 @@ impl App {
     /// Multiplayer and Lichess games are not eligible — their state lives on
     /// the wire / on lichess.org.
     pub fn current_resume_mode(&self) -> Option<ResumeMode> {
-        match (self.ui_state.current_page, self.game.runtime.kind()) {
-            (Pages::Solo, chess_tui_game::GameKind::Local) => Some(ResumeMode::Local),
-            (Pages::Bot, chess_tui_game::GameKind::Bot) => Some(ResumeMode::Bot),
+        match (self.current_game_kind(), self.game.runtime.kind()) {
+            (Some(GamePageKind::Solo), chess_tui_game::GameKind::Local) => Some(ResumeMode::Local),
+            (Some(GamePageKind::Bot), chess_tui_game::GameKind::Bot) => Some(ResumeMode::Bot),
             _ => None,
         }
     }
@@ -260,7 +261,7 @@ impl App {
 
         match mode {
             ResumeMode::Local => {
-                self.ui_state.current_page = Pages::Solo;
+                self.show_solo();
                 self.last_saved_move_count = Some(0);
             }
             ResumeMode::Bot => {
@@ -297,7 +298,7 @@ impl App {
                         ),
                     )));
 
-                self.ui_state.current_page = Pages::Bot;
+                self.show_bot();
                 self.last_saved_move_count = Some(0);
 
                 // BotMode::tick starts the engine if it is the bot's turn.

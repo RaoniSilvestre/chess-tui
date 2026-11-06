@@ -1,8 +1,8 @@
 //! Shared game-mode helpers used by the page router and popup handlers.
 
 use crate::{
-    app::App,
-    constants::{BOT_DIFFICULTY_COUNT, Pages, Popups},
+    App, GamePageKind,
+    constants::{BOT_DIFFICULTY_COUNT, Popups},
     state::{resume::ResumeMode, ui_state::NewGame},
 };
 
@@ -26,11 +26,11 @@ pub fn cycle_difficulty_next(app: &mut App) {
     app.update_config_from_app();
 }
 
-pub(crate) fn finish_form(app: &mut App, page: Pages) {
+pub(crate) fn finish_form(app: &mut App, page: GamePageKind) {
     // A saved game in this mode would be lost: ask first.
     let mode = match page {
-        Pages::Solo => Some(ResumeMode::Local),
-        Pages::Bot => Some(ResumeMode::Bot),
+        GamePageKind::Solo => Some(ResumeMode::Local),
+        GamePageKind::Bot => Some(ResumeMode::Bot),
         _ => None,
     };
     if let Some(mode) = mode
@@ -45,17 +45,17 @@ pub(crate) fn finish_form(app: &mut App, page: Pages) {
 
 /// Leaves the form for `page`'s game. Starting a brand-new resumable game invalidates any
 /// previous save.
-pub fn start_game(app: &mut App, page: Pages) {
+pub fn start_game(app: &mut App, page: GamePageKind) {
     match page {
-        Pages::Solo => app.clear_resume_state(ResumeMode::Local),
-        Pages::Bot => app.clear_resume_state(ResumeMode::Bot),
+        GamePageKind::Solo => app.clear_resume_state(ResumeMode::Local),
+        GamePageKind::Bot => app.clear_resume_state(ResumeMode::Bot),
         _ => {}
     }
 
     match page {
-        Pages::Solo => app.show_solo(),
-        Pages::Bot => app.show_bot(),
-        Pages::Multiplayer => app.show_multiplayer(),
+        GamePageKind::Solo => app.show_solo(),
+        GamePageKind::Bot => app.show_bot(),
+        GamePageKind::Multiplayer => app.show_multiplayer(),
         _ => {}
     }
     app.game_mode_state.selection = None;

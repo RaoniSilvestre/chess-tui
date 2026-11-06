@@ -1,7 +1,7 @@
 //! Top-level application state and services.
 
 use crate::animations::AnimationState;
-use crate::constants::{Pages, Popups};
+use crate::constants::Popups;
 use crate::game_mode_menu::finish_form;
 use crate::state::bot_state::BotState;
 use crate::state::lichess_state::LichessState;
@@ -56,6 +56,7 @@ pub struct App {
     pub router: Option<Router>,
     pub pages: Box<dyn PageFactory>,
     pending_page: Option<Box<dyn Page>>,
+    active_game_kind: Option<GamePageKind>,
 }
 
 impl Default for App {
@@ -89,24 +90,22 @@ impl App {
             router: Some(router),
             pages,
             pending_page: None,
+            active_game_kind: None,
         }
     }
 
 
     pub fn show_solo(&mut self) {
-        self.ui_state.current_page = Pages::Solo;
         let page = self.pages.solo();
         self.set_page(page);
     }
 
     pub fn show_bot(&mut self) {
-        self.ui_state.current_page = Pages::Bot;
         let page = self.pages.bot();
         self.set_page(page);
     }
 
     pub fn show_multiplayer(&mut self) {
-        self.ui_state.current_page = Pages::Multiplayer;
         let page = self.pages.multiplayer();
         self.set_page(page);
     }
@@ -114,19 +113,22 @@ impl App {
     pub fn show_pgn_viewer(&mut self, games: Vec<chess_tui_core::PgnViewer>, game_idx: usize) {
         self.pgn_viewer_state = Some(games.clone());
         self.pgn_viewer_game_idx = game_idx;
-        self.ui_state.current_page = Pages::PgnViewer;
         let page = self.pages.pgn_viewer(games, game_idx);
         self.set_page(page);
     }
 
     pub fn show_lichess(&mut self) {
-        self.ui_state.current_page = Pages::Lichess;
         let page = self.pages.lichess();
         self.set_page(page);
     }
 
     pub fn set_page(&mut self, page: Box<dyn Page>) {
-        self.pending_page = Some(page);
+        self.active_game_kind = page.game_kind();
+        if self.router.is_some() {
+            self.router = Some(Router::new(page));
+        } else {
+            self.pending_page = Some(page);
+        }
     }
 
     pub fn take_pending_page(&mut self) -> Option<Box<dyn Page>> {
@@ -146,7 +148,22 @@ impl App {
     }
 
     pub fn current_game_kind(&self) -> Option<GamePageKind> {
-        self.router.as_ref().and_then(|router| router.page().game_kind())
+        self.router
+            .as_ref()
+            .and_then(|router| router.page().game_kind())
+            .or(self.active_game_kind)
+    }
+
+    pub fn current_page_type_id(&self) -> Option<std::any::TypeId> {
+        self.router
+            .as_ref()
+            .map(|router| router.page().as_any().type_id())
+    }
+
+    pub fn is_home(&self) -> bool {
+        self.router
+            .as_ref()
+            .is_some_and(|router| router.page().is_home())
     }
 
     pub fn is_pgn_viewer(&self) -> bool {
@@ -187,8 +204,25 @@ impl App {
         self.game_mode_state.selection = Some(AvailableGameMode::Local);
         self.game_mode_state.form_cursor = 0;
         self.game_mode_state.form_active = false;
-        self.ui_state.current_page = Pages::GameModeMenu;
         let page = self.pages.game_mode_menu();
+        self.set_page(page);
+    }
+
+    pub fn show_home(&mut self) {
+        self.ui_state.menu_cursor = 0;
+        let page = self.pages.home();
+        self.set_page(page);
+    }
+
+    pub fn show_lichess_menu(&mut self) {
+        self.ui_state.menu_cursor = 0;
+        let page = self.pages.lichess_menu(self.game_mode_state.clock_cursor);
+        self.set_page(page);
+    }
+
+    pub fn show_ongoing_games(&mut self) {
+        self.ui_state.menu_cursor = 0;
+        let page = self.pages.ongoing_games();
         self.set_page(page);
     }
 
@@ -197,10 +231,7 @@ impl App {
             self.lichess_open_token_prompt();
             return;
         }
-        self.ui_state.menu_cursor = 0;
-        self.ui_state.current_page = Pages::LichessMenu;
-        let page = self.pages.lichess_menu(self.game_mode_state.clock_cursor);
-        self.set_page(page);
+        self.show_lichess_menu();
         if self.lichess_state.user_profile.is_none() {
             self.ui_state.popup_message = Some("Loading your lichess account ...".to_string());
             self.ui_state.show_popup(Popups::Loading);
@@ -210,7 +241,6 @@ impl App {
 
     pub fn open_settings(&mut self) {
         self.ui_state.menu_cursor = 0;
-        self.ui_state.current_page = Pages::SettingsMenu;
         let page = self.pages.settings();
         self.set_page(page);
     }
@@ -220,15 +250,12 @@ impl App {
     }
 
     pub fn open_credits(&mut self) {
-        self.ui_state.current_page = Pages::Credit;
         let page = self.pages.credits();
         self.set_page(page);
     }
 
     pub fn go_home(&mut self) {
-        self.ui_state.navigate_to_homepage();
-        let page = self.pages.home();
-        self.set_page(page);
+        self.show_home();
     }
 
     pub fn settings_has_sound(&self) -> bool {
@@ -397,10 +424,10 @@ impl App {
                 self.game
                     .runtime
                     .set_clock(Clock::new(self.game_mode_state.get_time_control()));
-                finish_form(self, Pages::Solo);
+                finish_form(self, GamePageKind::Solo);
             }
-            AvailableGameMode::Bot => finish_form(self, Pages::Bot),
-            AvailableGameMode::Multiplayer => finish_form(self, Pages::Multiplayer),
+            AvailableGameMode::Bot => finish_form(self, GamePageKind::Bot),
+            AvailableGameMode::Multiplayer => finish_form(self, GamePageKind::Multiplayer),
             AvailableGameMode::PGNLoader => {}
         }
     }
@@ -442,7 +469,6 @@ impl App {
 
     pub fn lichess_seek(&mut self, cursor: u8) {
         self.ui_state.menu_cursor = 0;
-        self.ui_state.current_page = Pages::Lichess;
         let page = self.pages.lichess();
         self.set_page(page);
         self.create_lichess_opponent(cursor.clamp(3, 4));
@@ -460,7 +486,6 @@ impl App {
             );
         }
         self.fetch_ongoing_games();
-        self.ui_state.current_page = Pages::OngoingGames;
         self.ui_state.menu_cursor = 0;
         let page = self.pages.ongoing_games();
         self.set_page(page);
@@ -491,7 +516,6 @@ impl App {
 
     pub fn ongoing_games_back(&mut self) {
         self.ui_state.menu_cursor = 0;
-        self.ui_state.current_page = Pages::LichessMenu;
         let page = self.pages.lichess_menu(self.game_mode_state.clock_cursor);
         self.set_page(page);
     }

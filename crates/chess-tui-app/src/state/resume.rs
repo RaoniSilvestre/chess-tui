@@ -18,9 +18,9 @@ use crate::constants::config_dir;
 /// Which game mode a saved game belongs to. Each mode has its own file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResumeMode {
-    /// Two-player local game (Pages::Solo with no bot/opponent).
+    /// Two-player local game (Solo game page with no bot/opponent).
     Local,
-    /// Game against the bot engine (Pages::Bot).
+    /// Game against the bot engine (Bot game page).
     Bot,
 }
 

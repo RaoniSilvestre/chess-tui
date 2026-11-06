@@ -13,7 +13,7 @@ use log::LevelFilter;
 use crate::{
     app::{App, AppResult},
     config::{Args, Config},
-    constants::{Pages, SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
+    constants::{SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
     logging, sound,
     state::{bot_state::BotState, lichess_state::LichessState},
 };
@@ -178,11 +178,7 @@ fn setup_pgn(app: &mut App, args: &Args) -> AppResult<()> {
         std::process::exit(1);
     });
 
-    app.pgn_viewer_state = Some(games.clone());
-    app.pgn_viewer_game_idx = 0;
-    app.ui_state.current_page = Pages::PgnViewer;
-    let page = app.pages.pgn_viewer(games, 0);
-    app.set_page(page);
+    app.show_pgn_viewer(games, 0);
 
     Ok(())
 }

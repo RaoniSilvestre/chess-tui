@@ -65,39 +65,6 @@ pub fn config_dir() -> Result<PathBuf, &'static str> {
     }
 }
 
-/// TUI navigation targets — the full-screen "page" currently being rendered.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Pages {
-    /// Main menu.
-    Home,
-    /// Local two-player game.
-    Solo,
-    /// TCP peer-to-peer game.
-    Multiplayer,
-    /// Active Lichess game board.
-    Lichess,
-    /// Lichess landing menu.
-    LichessMenu,
-    /// Ongoing Lichess games list.
-    OngoingGames,
-    /// Game against the chess engine.
-    Bot,
-    /// Credits / about page.
-    Credit,
-    /// Game-mode selection form.
-    GameModeMenu,
-    /// PGN replay viewer.
-    PgnViewer,
-    /// Settings menu.
-    SettingsMenu,
-}
-impl Pages {
-    #[must_use]
-    pub fn variant_count() -> usize {
-        9
-    }
-}
-
 /// Overlay popup kinds rendered on top of the active page.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Popups {

@@ -9,7 +9,7 @@ use std::{path::PathBuf, time::Instant};
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::{Pages, Popups},
+    constants::Popups,
     handlers::handler::handle_key_events,
     state::resume::{ClockState, ResumeMode, SavedGame, has_save, save, save_path},
 };
@@ -170,7 +170,7 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
 
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     assert_eq!(app.game.runtime.state(), GameState::Playing);
     assert_eq!(
         app.game.runtime.turn(),
@@ -261,7 +261,7 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
         !has_save(ResumeMode::Local),
         "Confirming a new game from the Local form should wipe the old save",
     );
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     assert_eq!(app.ui_state.current_popup, None);
     Ok(())
 }
@@ -292,7 +292,7 @@ fn new_game_over_a_save_can_be_cancelled() -> AppResult<()> {
             has_save(ResumeMode::Local),
             "{cancel:?} must not discard the save"
         );
-        assert_eq!(app.ui_state.current_page, Pages::GameModeMenu);
+        assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>());
     }
     Ok(())
 }
@@ -305,7 +305,7 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     assert_eq!(app.ui_state.current_popup, None);
     assert_eq!(app.game.runtime.moves().len(), 2);
     assert!(has_save(ResumeMode::Local));
@@ -376,7 +376,7 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     assert!(
         !app.game_mode_state.form_active,
         "Form should close on resume"
@@ -521,7 +521,7 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert_eq!(app.ui_state.current_page, Pages::Solo);
+    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
     let fen_now = app.game.runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
@@ -674,11 +674,8 @@ fn r_with_no_save_is_inert() -> AppResult<()> {
     send(&mut app, &[KeyCode::Enter])?; // Home -> GameModeMenu, Local highlighted
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert_eq!(
-        app.ui_state.current_page,
-        Pages::GameModeMenu,
-        "R without a save must stay on the menu",
-    );
+    assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>(),
+        "R without a save must stay on the menu");
     Ok(())
 }
 

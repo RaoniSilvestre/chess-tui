@@ -1,6 +1,6 @@
 use chess_tui::{
     app::{App, AppResult},
-    constants::{Pages, Popups},
+    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -30,10 +30,10 @@ fn open_settings_menu() -> AppResult<App> {
 #[test]
 fn open_close_settings_menu() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     send(&mut app, &[KeyCode::Esc])?;
-    assert_eq!(app.ui_state.current_page, Pages::Home);
+    assert!(app.is_home());
     Ok(())
 }
 
@@ -41,7 +41,7 @@ fn open_close_settings_menu() -> AppResult<()> {
 #[cfg(feature = "sound")]
 fn toggle_sound() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     let original_sound_status = app.sound_enabled;
     send(&mut app, &[KeyCode::Down, KeyCode::Enter])?;
@@ -57,7 +57,7 @@ fn toggle_sound() -> AppResult<()> {
 #[test]
 fn toggle_animations() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     let original_anim_status = app.animations_enabled;
     send(
@@ -81,7 +81,7 @@ fn toggle_animations() -> AppResult<()> {
 #[test]
 fn open_close_chess_engine_path_popup() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     send(
         &mut app,
@@ -97,7 +97,7 @@ fn open_close_chess_engine_path_popup() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Esc])?;
     assert_eq!(app.ui_state.current_popup, None);
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     Ok(())
 }
@@ -105,7 +105,7 @@ fn open_close_chess_engine_path_popup() -> AppResult<()> {
 #[test]
 fn change_bot_difficulty() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert_eq!(app.ui_state.current_page, Pages::SettingsMenu);
+    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     let original_difficulty = app.bot_state.bot_difficulty;
     send(

@@ -13,7 +13,7 @@ use ratatui::{
 
 /// Renders the help popup, delegating to the PGN-specific variant when in the PGN viewer.
 pub fn render_help_popup(frame: &mut Frame, app: &crate::app::App) {
-    if app.ui_state.current_page == crate::constants::Pages::PgnViewer {
+    if app.is_pgn_viewer() {
         render_pgn_help_popup(frame);
         return;
     }

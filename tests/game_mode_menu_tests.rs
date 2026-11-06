@@ -3,7 +3,7 @@
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::{Pages, Popups},
+    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -37,7 +37,7 @@ fn open_pgn_loader_popup() -> AppResult<App> {
 #[test]
 fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
-    assert_eq!(app.ui_state.current_page, Pages::GameModeMenu);
+    assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>());
     assert_eq!(app.ui_state.current_popup, Some(Popups::LoadPgnPath));
     assert_eq!(app.ui_state.menu_cursor, 3);
 

@@ -1,15 +1,15 @@
 //! Tracks the active page, current popup overlay, menu cursor position, and transient UI flags.
 
-use crate::constants::{Pages, Popups};
+use crate::GamePageKind;
+use crate::constants::Popups;
 
 /// Navigation and overlay state held by [`crate::App`].
 ///
 /// Tracks which page and popup are currently rendered, the shared `menu_cursor`
 /// used by all list-based pages, and transient flags like `end_screen_dismissed`
 /// that coordinate popup visibility across ticks.
+#[derive(Default)]
 pub struct UIState {
-    /// Current page to render
-    pub current_page: Pages,
     /// Current popup to render
     pub current_popup: Option<Popups>,
     /// Error message for Error popup
@@ -25,23 +25,10 @@ pub struct UIState {
 /// A new game that would discard a resume save, held until the user confirms it.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NewGame {
-    /// From the game-mode form: start a game on this page.
-    Start(Pages),
+    /// From the game-mode form: start a game page.
+    Start(GamePageKind),
     /// From a game in progress: restart it.
     Restart,
-}
-
-impl Default for UIState {
-    fn default() -> Self {
-        Self {
-            current_page: Pages::Home,
-            current_popup: None,
-            popup_message: None,
-            end_screen_dismissed: false,
-            menu_cursor: 0,
-            pending_new_game: None,
-        }
-    }
 }
 
 impl UIState {
@@ -59,20 +46,11 @@ impl UIState {
         self.current_popup = None;
         self.popup_message = None;
     }
-    /// Toggles between the credits page and the home page.
-    pub fn toggle_credit_popup(&mut self) {
-        if self.current_page == Pages::Home {
-            self.current_page = Pages::Credit;
-        } else {
-            self.navigate_to_homepage();
-        }
-    }
-
-    /// Switches to the home page and resets the menu cursor to 0.
+    /// Resets the shared menu cursor when returning home.
     pub fn navigate_to_homepage(&mut self) {
-        self.current_page = Pages::Home;
         self.menu_cursor = 0;
     }
+
     /// Opens a popup without attaching a message.
     pub fn show_popup(&mut self, popup_type: Popups) {
         self.current_popup = Some(popup_type);

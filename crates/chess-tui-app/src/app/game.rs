@@ -1,7 +1,8 @@
 //! Game end detection and restart.
 
 use crate::App;
-use crate::constants::{Pages, Popups};
+use crate::GamePageKind;
+use crate::constants::Popups;
 use crate::game::Game;
 use chess_tui_core::Clock;
 use chess_tui_game::{Bot, BotMode, GameKind};
@@ -23,7 +24,7 @@ impl App {
         // PGN viewer drives its own game state via sync_pgn_to_board; running
         // update_game_state here would flip it to Checkmate/Draw on the final
         // position and open the EndScreen popup, which blocks viewer navigation.
-        if self.ui_state.current_page == Pages::PgnViewer {
+        if self.is_pgn_viewer() {
             return;
         }
 
@@ -72,7 +73,7 @@ impl App {
         let display_mode = self.game.ui.display_mode;
         // Check if we're in a local game or bot game to preserve clock
         let is_local_game =
-            self.ui_state.current_page == Pages::Solo && mode_kind == GameKind::Local;
+            self.current_game_kind() == Some(GamePageKind::Solo) && mode_kind == GameKind::Local;
         let is_bot_game = mode_kind == GameKind::Bot;
 
         if is_bot_game && self.game_mode_state.is_random_color {

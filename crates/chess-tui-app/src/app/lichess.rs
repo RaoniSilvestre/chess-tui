@@ -1,7 +1,7 @@
 //! Lichess authentication, game streaming, and puzzle management.
 
 use crate::App;
-use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Pages, Popups, SLEEP_DURATION_RESIGN_MS};
+use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Popups, SLEEP_DURATION_RESIGN_MS};
 use crate::puzzle::PuzzleGame;
 use crate::state::lichess_state::LichessUpdate;
 use chess_tui_core::Clock;
@@ -31,8 +31,8 @@ impl App {
                 self.update_config_from_app();
 
                 // Navigate to Lichess menu if we're on Home page, otherwise stay on current page
-                if self.ui_state.current_page == Pages::Home {
-                    self.ui_state.current_page = Pages::LichessMenu;
+                if self.is_home() {
+                    self.show_lichess_menu();
                 }
 
                 // Close the popup and show success message
@@ -419,7 +419,7 @@ impl App {
         }
 
         // Switch to Lichess page to show the game board
-        self.ui_state.current_page = Pages::Lichess;
+        self.show_lichess();
     }
 
     /// Fetches the list of ongoing Lichess games and stores them in `lichess_state`.
@@ -666,7 +666,7 @@ impl App {
             self.game.runtime.set_flipped(false);
         }
         // Switch to Solo page to show the board
-        self.ui_state.current_page = Pages::Solo;
+        self.show_solo();
     }
 
     /// Validates a puzzle move after execution. Returns `true` if correct.

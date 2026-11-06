@@ -60,6 +60,10 @@ pub trait Page: AsAny {
     fn is_pgn_viewer(&self) -> bool {
         false
     }
+
+    fn is_home(&self) -> bool {
+        false
+    }
 }
 
 /// Owns the active page and applies navigation results.
