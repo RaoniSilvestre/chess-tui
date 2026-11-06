@@ -128,9 +128,11 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         .black_material_render(board_block.inner(right_box_layout[0]), frame, &black_taken);
 
     // History area
-    app.game
-        .ui
-        .history_render(board_block.inner(right_box_layout[1]), frame, &app.game);
+    app.game.ui.history_render(
+        board_block.inner(right_box_layout[1]),
+        frame,
+        &app.game.logic,
+    );
 
     //bottom box for white material
     let white_taken = app.game.logic.white_taken_pieces();

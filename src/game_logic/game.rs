@@ -93,6 +93,28 @@ impl GameLogic {
     }
 }
 
+impl chess_tui_ui::board::BoardView for GameLogic {
+    fn board(&self) -> &Board {
+        self.runtime.board()
+    }
+
+    fn turn(&self) -> Color {
+        self.runtime.turn()
+    }
+
+    fn flipped(&self) -> bool {
+        self.runtime.is_flipped()
+    }
+
+    fn kind(&self) -> GameKind {
+        self.runtime.kind()
+    }
+
+    fn shows_last_move_from(&self, color: Color) -> bool {
+        self.runtime.mode().shows_last_move_from(color)
+    }
+}
+
 #[derive(Default)]
 pub struct Game {
     pub logic: GameLogic,

@@ -60,7 +60,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 tempfile = "3.8"
 
 [features]
-sound = ["rodio"]
+sound = ["rodio", "chess-tui-ui/sound"]
 default = ["sound"]
 
 [profile.release]

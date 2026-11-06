@@ -497,10 +497,12 @@ name = "chess-tui-ui"
 version = "2.8.0"
 dependencies = [
  "chess-tui-core",
+ "chess-tui-game",
  "chess-tui-theme",
  "image",
  "ratatui",
  "ratatui-image",
+ "rodio",
  "shakmaty",
 ]
 
