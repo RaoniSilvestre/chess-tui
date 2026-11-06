@@ -2,11 +2,11 @@
 
 use crate::app::App;
 use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Pages, Popups, SLEEP_DURATION_RESIGN_MS};
-use crate::game_logic::opponent::Opponent;
 use crate::game_logic::puzzle::PuzzleGame;
-use crate::lichess::models::LichessClient;
 use crate::state::lichess_state::LichessUpdate;
 use chess_tui_core::Clock;
+use chess_tui_game::LichessMode;
+use chess_tui_lichess::LichessClient;
 use shakmaty::Color;
 use std::sync::mpsc::channel;
 
@@ -390,54 +390,26 @@ impl App {
             );
             return;
         };
-        let (lichess_to_app_tx, lichess_to_app_rx) = channel::<String>();
-        let (app_to_lichess_tx, app_to_lichess_rx) = channel::<String>();
-        let (player_move_tx, _player_move_rx) = channel::<()>();
-
-        // Send last move immediately if we have it (before starting stream)
-        // This ensures it shows in green right away instead of waiting for first poll
-        if let Some(last_move) = immediate_last_move {
-            log::info!("Sending last move immediately: {}", last_move);
-            let _ = lichess_to_app_tx.send(last_move);
-            // Also send INIT_MOVES to set the initial move count correctly
-            if initial_move_count > 0 {
-                let _ = lichess_to_app_tx.send(format!("INIT_MOVES:{}", initial_move_count));
-            }
-        }
-
-        // Start streaming game events (clone the sender since it's moved)
-        let lichess_to_app_tx_clone = lichess_to_app_tx.clone();
-        if let Err(e) = client.stream_game(game_id.clone(), lichess_to_app_tx_clone, Some(color)) {
-            log::error!("Failed to stream Lichess game: {}", e);
-            self.ui_state
-                .show_message_popup(format!("Failed to stream game: {}", e), Popups::Error);
-            return;
-        }
-
-        // Spawn thread to handle outgoing moves
-        let client_clone = client.clone();
-
-        let game_id_clone = game_id.clone();
-        std::thread::spawn(move || {
-            while let Ok(move_str) = app_to_lichess_rx.recv() {
-                if let Err(e) = client_clone.make_move(&game_id_clone, &move_str) {
-                    log::error!("Failed to make move on Lichess: {}", e);
-                }
-            }
-        });
-
-        let opponent = Opponent::new_lichess(
+        let mode = match LichessMode::new(
+            client.clone(),
             game_id,
             color,
-            lichess_to_app_rx,
-            app_to_lichess_tx,
             initial_move_count,
-            Some(player_move_tx),
-        );
+            immediate_last_move,
+        ) {
+            Ok(mode) => mode,
+            Err(e) => {
+                log::error!("Failed to stream Lichess game: {}", e);
+                self.ui_state
+                    .show_message_popup(format!("Failed to stream game: {}", e), Popups::Error);
+                return;
+            }
+        };
+        self.game.logic.set_mode(Box::new(mode));
+        self.game.logic.opponent = None;
 
         self.game_mode_state.selected_color = Some(color);
         self.game_mode_state.is_random_color = false;
-        self.game.logic.opponent = Some(opponent);
 
         if color == Color::Black {
             self.game.logic.flip();
@@ -644,8 +616,10 @@ impl App {
         self.ui_state.popup_message = None;
         self.lichess_state.puzzle_game = None;
 
-        // Clear opponent - puzzles don't use Lichess multiplayer, so no polling needed
-        // This stops any polling threads from previous Lichess games
+        // Puzzles use a local board with Lichess-provided moves.
+        self.game
+            .logic
+            .set_mode(Box::new(chess_tui_game::LocalMode));
         self.game.logic.opponent = None;
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;

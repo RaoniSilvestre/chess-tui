@@ -4,6 +4,7 @@ use std::{
 };
 
 use chess_tui_core::PgnViewer;
+use chess_tui_lichess::LichessClient;
 use dirs::config_dir;
 use log::LevelFilter;
 
@@ -11,9 +12,7 @@ use crate::{
     app::{App, AppResult},
     config::{Args, Config},
     constants::{DisplayMode, Pages, SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
-    graphics,
-    lichess::models::LichessClient,
-    logging,
+    graphics, logging,
     skin::{PieceStyle, Skin},
     sound,
     state::{bot_state::BotState, lichess_state::LichessState},

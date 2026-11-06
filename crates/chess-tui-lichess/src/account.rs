@@ -1,7 +1,7 @@
 //! Account and profile endpoints.
 
-use crate::constants::LICHESS_API_URL;
-use crate::lichess::models::{
+use crate::LICHESS_API_URL;
+use crate::models::{
     LichessClient, OngoingGame, OngoingGamesResponse, RatingHistoryEntry, UserProfile,
 };
 use std::error::Error;

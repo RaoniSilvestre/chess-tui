@@ -43,12 +43,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
 
     // Create layout for board + file labels + clock
     let has_clock = app.game.logic.clock().state() != ClockState::Disabled
-        || app
-            .game
-            .logic
-            .opponent
-            .as_ref()
-            .is_some_and(|o| o.is_lichess());
+        || app.game.logic.kind() == chess_tui_game::GameKind::Lichess;
     let board_with_labels = if has_clock {
         Layout::default()
             .direction(Direction::Vertical)
@@ -163,13 +158,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         && app.ui_state.current_popup == Some(Popups::EndScreen)
     {
         // Check if it's Lichess multiplayer (restart not available in Lichess)
-        let is_lichess = app
-            .game
-            .logic
-            .opponent
-            .as_ref()
-            .map(|opp| opp.is_lichess())
-            .unwrap_or(false);
+        let is_lichess = app.game.logic.kind() == chess_tui_game::GameKind::Lichess;
 
         render_end_popup(frame, &outcome_message(outcome), is_lichess);
     }

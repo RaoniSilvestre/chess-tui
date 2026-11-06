@@ -10,7 +10,6 @@ pub mod event;
 pub mod game_logic;
 pub mod graphics;
 pub mod handlers;
-pub mod lichess;
 pub mod logging;
 pub mod pieces;
 pub mod server;

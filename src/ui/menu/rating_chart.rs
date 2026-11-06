@@ -1,7 +1,7 @@
 //! Rating history chart rendering for the Lichess menu.
 
 use crate::constants::{RATING_HISTORY_DAYS, SECONDS_PER_DAY};
-use crate::lichess::models::RatingHistoryEntry;
+use chess_tui_lichess::RatingHistoryEntry;
 use chrono::{DateTime, NaiveDate, Utc};
 use ratatui::{
     Frame,

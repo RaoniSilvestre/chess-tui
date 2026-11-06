@@ -1,8 +1,8 @@
 //! Holds the API token, the [`LichessClient`], incoming event channels, and the active puzzle game if any.
 
-use crate::{
-    game_logic::puzzle::PuzzleGame,
-    lichess::models::{LichessClient, LichessError, OngoingGame, RatingHistoryEntry, UserProfile},
+use crate::game_logic::puzzle::PuzzleGame;
+use chess_tui_lichess::{
+    LichessClient, LichessError, OngoingGame, RatingHistoryEntry, UserProfile,
 };
 use shakmaty::Color;
 use std::sync::mpsc::Receiver;

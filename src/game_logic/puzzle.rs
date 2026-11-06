@@ -1,9 +1,9 @@
 //! Lichess puzzle state and move validation.
 
 use crate::game_logic::game::Game;
-use crate::lichess::models::{LichessClient, Puzzle};
 use chess_tui_core::GameBoard;
 use chess_tui_core::square_utils::get_coord_from_square;
+use chess_tui_lichess::{LichessClient, Puzzle};
 use shakmaty::{Position, Square};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};

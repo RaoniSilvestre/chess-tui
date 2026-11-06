@@ -1,7 +1,7 @@
 //! Game seek, join, and resign endpoints.
 
-use crate::constants::LICHESS_API_URL;
-use crate::lichess::models::{GameEvent, LichessClient};
+use crate::LICHESS_API_URL;
+use crate::models::{GameEvent, LichessClient};
 use shakmaty::Color;
 use std::error::Error;
 use std::io::{BufRead, BufReader};

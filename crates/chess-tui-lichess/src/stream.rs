@@ -1,8 +1,8 @@
 //! Board event streaming.
 
-use crate::constants::LICHESS_API_URL;
-use crate::lichess;
-use crate::lichess::models::{EventStreamEvent, GameEvent, LichessClient};
+use crate::LICHESS_API_URL;
+use crate::models;
+use crate::models::{EventStreamEvent, GameEvent, LichessClient};
 use reqwest::blocking::Client;
 use shakmaty::Color;
 use std::error::Error;
@@ -33,7 +33,7 @@ fn send_status_message(status: &str, move_tx: &Sender<String>) {
 
 /// Sends the server-reported remaining times so the app clock can resync.
 /// The player to move is derived from move-count parity (white on even turns).
-fn send_clock_sync(state: &lichess::models::GameState, move_tx: &Sender<String>) {
+fn send_clock_sync(state: &models::GameState, move_tx: &Sender<String>) {
     let turns = state.moves.split_whitespace().count();
     let active = if turns.is_multiple_of(2) {
         "white"

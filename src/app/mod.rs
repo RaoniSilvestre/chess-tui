@@ -12,6 +12,7 @@ use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_core::ClockState;
 use chess_tui_core::GameOutcome;
+use chess_tui_game::GameKind;
 use log::LevelFilter;
 use std::error;
 use std::time::Instant;
@@ -122,12 +123,7 @@ impl App {
             self.lichess_state.puzzle_game = Some(puzzle_game);
         }
 
-        let is_lichess = self
-            .game
-            .logic
-            .opponent
-            .as_ref()
-            .is_some_and(|o| o.is_lichess());
+        let is_lichess = self.game.logic.kind() == GameKind::Lichess;
 
         let clock = &self.game.logic.clock();
 
@@ -155,33 +151,13 @@ impl App {
             return; // Puzzles have all moves pre-loaded, no need to check for opponent moves
         }
 
-        // For Lichess, we need to check here because moves come from polling
-        // We check regardless of whose turn it is, because moves arrive asynchronously
-        // and the turn state might be out of sync with the actual game state on Lichess
-        // For TCP multiplayer, this is handled in main.rs
+        // TCP multiplayer moves are polled here. Lichess moves are handled by
+        // LichessMode::tick in the main loop.
         if let Some(opponent) = self.game.logic.opponent.as_ref() {
-            // Always check for Lichess moves - they arrive asynchronously via polling
-            if let Some(crate::game_logic::opponent::OpponentKind::Lichess { .. }) = opponent.kind {
-                // Check if there's a move available in the channel
-                // execute_opponent_move() uses try_recv() which is non-blocking
-                // This may also process status updates (GAME_STATUS messages)
-                let move_executed = self.game.logic.execute_opponent_move();
-                if move_executed {
-                    log::info!("tick(): Opponent move executed, switching turn");
-                    self.game.logic.switch_player_turn();
-                    self.check_and_show_game_end();
-                } else {
-                    // Even if no move was executed, check for game end
-                    // (status updates like draw/checkmate don't execute moves)
-                    self.check_and_show_game_end();
-                }
-            } else {
-                // For TCP multiplayer, only check when it's the opponent's turn
-                let is_opponent_turn = self.game.logic.turn() == opponent.color;
-                if is_opponent_turn && self.game.logic.execute_opponent_move() {
-                    self.game.logic.switch_player_turn();
-                    self.check_and_show_game_end();
-                }
+            let is_opponent_turn = self.game.logic.turn() == opponent.color;
+            if is_opponent_turn && self.game.logic.execute_opponent_move() {
+                self.game.logic.switch_player_turn();
+                self.check_and_show_game_end();
             }
         }
     }

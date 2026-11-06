@@ -56,7 +56,7 @@ pub fn render(app: &mut App, frame: &mut Frame<'_>) {
         Pages::Solo => render_game_ui(frame, app, main_area),
         Pages::Multiplayer => render_multiplayer_page(frame, app, main_area),
         Pages::Lichess => {
-            if app.game.logic.opponent.is_some() {
+            if app.game.logic.kind() == chess_tui_game::GameKind::Lichess {
                 render_game_ui(frame, app, main_area);
             }
         }

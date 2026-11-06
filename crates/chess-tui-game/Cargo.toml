@@ -10,4 +10,6 @@ publish = false
 [dependencies]
 chess-tui-core = { path = "../chess-tui-core" }
 chess-tui-engine = { path = "../chess-tui-engine" }
+chess-tui-lichess = { path = "../chess-tui-lichess" }
+log = "0.4.32"
 shakmaty = "0.27.3"
