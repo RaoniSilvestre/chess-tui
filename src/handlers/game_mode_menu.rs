@@ -9,18 +9,7 @@ use crate::{
 use chess_tui_core::Clock;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
-/// The four game modes available from the game-mode selection menu.
-#[derive(PartialEq, Clone, Copy)]
-pub enum AvailableGameMode {
-    Local,
-    Multiplayer,
-    Bot,
-    PGNLoader,
-}
-
-impl AvailableGameMode {
-    pub const COUNT: u8 = 4;
-}
+pub use chess_tui_app::AvailableGameMode;
 
 /// Form fields for the local two-player game configuration.
 #[derive(PartialEq, Clone, Copy)]
@@ -431,7 +420,7 @@ fn apply_clock_and_start(app: &mut App, page: Pages) {
     finish_form(app, page);
 }
 
-fn finish_form(app: &mut App, page: Pages) {
+pub(crate) fn finish_form(app: &mut App, page: Pages) {
     // A saved game in this mode would be lost: ask first.
     let mode = match page {
         Pages::Solo => Some(ResumeMode::Local),

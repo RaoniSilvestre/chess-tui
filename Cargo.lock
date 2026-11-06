@@ -414,7 +414,10 @@ dependencies = [
 name = "chess-tui-app"
 version = "2.8.0"
 dependencies = [
+ "chess-tui-core",
+ "rand 0.10.3",
  "ratatui",
+ "shakmaty",
 ]
 
 [[package]]
@@ -471,6 +474,7 @@ dependencies = [
  "chess-tui-app",
  "chess-tui-ui",
  "ratatui",
+ "shakmaty",
 ]
 
 [[package]]

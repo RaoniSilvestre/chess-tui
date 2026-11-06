@@ -2,6 +2,9 @@
 
 use std::path::PathBuf;
 
+pub use chess_tui_app::game_mode::{
+    BOT_DIFFICULTY_COUNT, BOT_DIFFICULTY_NAMES, TIME_CONTROL_CUSTOM_INDEX, TIME_CONTROL_OPTIONS,
+};
 use ratatui::style::Color;
 use throbber_widgets_tui::Set;
 
@@ -32,9 +35,6 @@ pub const RATING_HISTORY_DAYS: i64 = 90;
 pub const SKIN_NAME_DEFAULT: &str = "Default";
 /// Name of the built-in ASCII skin entry.
 pub const SKIN_NAME_ASCII: &str = "ASCII";
-
-/// Index into [`TIME_CONTROL_OPTIONS`] that selects the "Custom" entry.
-pub const TIME_CONTROL_CUSTOM_INDEX: u8 = 6;
 
 /// A Lichess seek preset: its speed category name, base minutes, and increment
 /// in seconds.
@@ -70,23 +70,6 @@ pub const LICHESS_TIME_CONTROLS: [LichessTimeControl; 2] = [
         minutes: 30,
         increment: 0,
     },
-];
-
-/// Display labels for the four bot difficulty presets.
-pub const BOT_DIFFICULTY_NAMES: [&str; 4] =
-    ["Easy (400)", "Medium (900)", "Hard (1500)", "Magnus (2700)"];
-/// Number of bot difficulty presets.
-pub const BOT_DIFFICULTY_COUNT: usize = 4;
-
-/// Time control options displayed in the game-mode configuration form.
-pub const TIME_CONTROL_OPTIONS: &[&str] = &[
-    "UltraBullet",
-    "Bullet",
-    "Blitz",
-    "Rapid",
-    "Classical",
-    "No clock",
-    "Custom",
 ];
 
 /// Default selected time control index (Rapid).

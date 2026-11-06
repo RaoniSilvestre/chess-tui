@@ -1,7 +1,6 @@
 //! Runtime state containers.
 
 pub mod bot_state;
-pub mod game_mode_state;
 pub mod lichess_state;
 pub mod multiplayer_state;
 pub mod resume;

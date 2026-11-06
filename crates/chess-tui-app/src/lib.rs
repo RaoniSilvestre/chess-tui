@@ -1,5 +1,7 @@
 //! Page and modal framework for the application.
 
+pub mod game_mode;
+
 use ratatui::Frame;
 use ratatui::crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::Rect;
@@ -94,4 +96,51 @@ impl<C: AppContext> Router<C> {
             Nav::Quit => ctx.quit(),
         }
     }
+}
+
+/// Settings-specific context.
+pub trait SettingsContext: AppContext {
+    fn settings_has_sound(&self) -> bool;
+    fn settings_kitty_available(&self) -> bool;
+
+    fn settings_skin_label(&self) -> String;
+    fn settings_sound_label(&self) -> String;
+    fn settings_animations_label(&self) -> String;
+    fn settings_bot_depth_label(&self) -> String;
+    fn settings_bot_difficulty_label(&self) -> String;
+    fn settings_kitty_label(&self) -> String;
+
+    fn settings_cycle_skin(&mut self, next: bool);
+    fn settings_toggle_sound(&mut self);
+    fn settings_toggle_animations(&mut self);
+    fn settings_open_engine_path(&mut self);
+    fn settings_bot_depth_down(&mut self);
+    fn settings_bot_depth_up(&mut self);
+    fn settings_cycle_difficulty(&mut self, next: bool);
+    fn settings_toggle_kitty(&mut self);
+}
+
+pub use game_mode::{AvailableGameMode, GameModeState};
+
+/// Game-mode menu context.
+pub trait GameModeContext: AppContext {
+    fn game_mode_menu_cursor(&self) -> u8;
+    fn game_mode_set_menu_cursor(&mut self, cursor: u8);
+
+    fn game_mode_state(&self) -> &GameModeState;
+    fn game_mode_state_mut(&mut self) -> &mut GameModeState;
+
+    fn game_mode_bot_depth(&self) -> u8;
+    fn game_mode_set_bot_depth(&mut self, depth: u8);
+    fn game_mode_bot_difficulty(&self) -> Option<u8>;
+    fn game_mode_cycle_difficulty(&mut self, next: bool);
+    fn game_mode_engine_path(&self) -> Option<String>;
+
+    fn game_mode_hosting(&self) -> Option<bool>;
+    fn game_mode_set_hosting(&mut self, hosting: Option<bool>);
+
+    fn game_mode_has_resume(&self, kind: AvailableGameMode) -> bool;
+    fn game_mode_resume(&mut self, kind: AvailableGameMode);
+    fn game_mode_submit(&mut self, kind: AvailableGameMode);
+    fn game_mode_open_pgn_loader(&mut self);
 }

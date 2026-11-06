@@ -5,16 +5,18 @@ use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
 use crate::handlers::handler::{handle_mouse_events, handle_page_input};
 use crate::state::bot_state::BotState;
-use crate::state::game_mode_state::GameModeState;
 use crate::state::lichess_state::LichessState;
 use crate::state::multiplayer_state::MultiplayerState;
+use crate::state::resume::ResumeMode;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
-use chess_tui_app::{AppContext, Page, Router};
-use chess_tui_core::ClockState;
+use chess_tui_app::GameModeState;
+use chess_tui_app::{AppContext, GameModeContext, Page, Router, SettingsContext};
 use chess_tui_core::GameOutcome;
+use chess_tui_core::{Clock, ClockState};
 use chess_tui_game::GameKind;
-use chess_tui_pages::{CreditsPage, HomePage};
+use chess_tui_pages::{CreditsPage, GameModeMenuPage, HomePage, SettingsPage};
+use chess_tui_theme::DisplayMode;
 use chess_tui_ui::graphics::KittyPieces;
 use log::LevelFilter;
 use std::error;
@@ -194,8 +196,205 @@ impl AppContext for App {
         Some(match current {
             Pages::Home => Box::new(HomePage::new()),
             Pages::Credit => Box::new(CreditsPage::new()),
+            Pages::SettingsMenu => Box::new(SettingsPage::new()),
+            Pages::GameModeMenu => Box::new(GameModeMenuPage::new()),
             _ => Box::new(LegacyPage),
         })
+    }
+}
+
+impl SettingsContext for App {
+    fn settings_has_sound(&self) -> bool {
+        cfg!(feature = "sound")
+    }
+
+    fn settings_kitty_available(&self) -> bool {
+        self.kitty_pieces.is_some()
+    }
+
+    fn settings_skin_label(&self) -> String {
+        let skin_name = match self.game.ui.display_mode {
+            DisplayMode::DEFAULT => "Default",
+            DisplayMode::ASCII => "ASCII",
+            DisplayMode::CUSTOM => self.game.ui.skin.name.as_str(),
+        };
+        format!("Skin: {skin_name}")
+    }
+
+    fn settings_sound_label(&self) -> String {
+        let status = if self.sound_enabled {
+            "On 🔊"
+        } else {
+            "Off 🔇"
+        };
+        format!("Sound: {status}")
+    }
+
+    fn settings_animations_label(&self) -> String {
+        let status = if self.animations_enabled { "On" } else { "Off" };
+        format!("Animations: {status}")
+    }
+
+    fn settings_bot_depth_label(&self) -> String {
+        format!("Bot Depth: -  {}  +", self.bot_state.bot_depth)
+    }
+
+    fn settings_bot_difficulty_label(&self) -> String {
+        let difficulty = match self.bot_state.bot_difficulty {
+            Some(0) => "Easy",
+            Some(1) => "Medium",
+            Some(2) => "Hard",
+            Some(3) => "Magnus",
+            _ => "Off",
+        };
+        format!("Bot Difficulty: {difficulty}")
+    }
+
+    fn settings_kitty_label(&self) -> String {
+        let status = if self.kitty_graphics_enabled {
+            "On"
+        } else {
+            "Off"
+        };
+        format!("Kitty Graphics: {status}")
+    }
+
+    fn settings_cycle_skin(&mut self, next: bool) {
+        self.cycle_skin(next);
+        self.update_config_from_app();
+    }
+
+    fn settings_toggle_sound(&mut self) {
+        #[cfg(feature = "sound")]
+        {
+            self.sound_enabled = !self.sound_enabled;
+            crate::sound::set_sound_enabled(self.sound_enabled);
+            self.update_config_from_app();
+        }
+    }
+
+    fn settings_toggle_animations(&mut self) {
+        self.animations_enabled = !self.animations_enabled;
+        self.update_config_from_app();
+    }
+
+    fn settings_open_engine_path(&mut self) {
+        self.ui_state.current_popup = Some(Popups::EnterEnginePath);
+        self.game.ui.prompt.input = self.bot_state.chess_engine_path.clone().unwrap_or_default();
+        self.game.ui.prompt.character_index = self.game.ui.prompt.input.chars().count();
+    }
+
+    fn settings_bot_depth_down(&mut self) {
+        if self.bot_state.bot_depth > 1 {
+            self.bot_state.bot_depth -= 1;
+            self.update_config_from_app();
+        }
+    }
+
+    fn settings_bot_depth_up(&mut self) {
+        if self.bot_state.bot_depth < 20 {
+            self.bot_state.bot_depth += 1;
+            self.update_config_from_app();
+        }
+    }
+
+    fn settings_cycle_difficulty(&mut self, next: bool) {
+        self.cycle_bot_difficulty(next);
+    }
+
+    fn settings_toggle_kitty(&mut self) {
+        self.kitty_graphics_enabled = !self.kitty_graphics_enabled;
+        self.update_config_from_app();
+    }
+}
+
+impl GameModeContext for App {
+    fn game_mode_menu_cursor(&self) -> u8 {
+        self.ui_state.menu_cursor
+    }
+
+    fn game_mode_set_menu_cursor(&mut self, cursor: u8) {
+        self.ui_state.menu_cursor = cursor;
+    }
+
+    fn game_mode_state(&self) -> &chess_tui_app::GameModeState {
+        &self.game_mode_state
+    }
+
+    fn game_mode_state_mut(&mut self) -> &mut chess_tui_app::GameModeState {
+        &mut self.game_mode_state
+    }
+
+    fn game_mode_bot_depth(&self) -> u8 {
+        self.bot_state.bot_depth
+    }
+
+    fn game_mode_set_bot_depth(&mut self, depth: u8) {
+        self.bot_state.bot_depth = depth;
+        self.update_config_from_app();
+    }
+
+    fn game_mode_bot_difficulty(&self) -> Option<u8> {
+        self.bot_state.bot_difficulty
+    }
+
+    fn game_mode_cycle_difficulty(&mut self, next: bool) {
+        self.cycle_bot_difficulty(next);
+    }
+
+    fn game_mode_engine_path(&self) -> Option<String> {
+        self.bot_state.chess_engine_path.clone()
+    }
+
+    fn game_mode_hosting(&self) -> Option<bool> {
+        self.multiplayer_state.hosting
+    }
+
+    fn game_mode_set_hosting(&mut self, hosting: Option<bool>) {
+        self.multiplayer_state.hosting = hosting;
+    }
+
+    fn game_mode_has_resume(&self, kind: chess_tui_app::AvailableGameMode) -> bool {
+        match kind {
+            chess_tui_app::AvailableGameMode::Local => self.has_resume_save(ResumeMode::Local),
+            chess_tui_app::AvailableGameMode::Bot => self.has_resume_save(ResumeMode::Bot),
+            _ => false,
+        }
+    }
+
+    fn game_mode_resume(&mut self, kind: chess_tui_app::AvailableGameMode) {
+        match kind {
+            chess_tui_app::AvailableGameMode::Local => {
+                self.resume_from_saved(ResumeMode::Local);
+            }
+            chess_tui_app::AvailableGameMode::Bot => {
+                self.resume_from_saved(ResumeMode::Bot);
+            }
+            _ => {}
+        }
+    }
+
+    fn game_mode_submit(&mut self, kind: chess_tui_app::AvailableGameMode) {
+        match kind {
+            chess_tui_app::AvailableGameMode::Local => {
+                self.game
+                    .logic
+                    .set_clock(Clock::new(self.game_mode_state.get_time_control()));
+                crate::handlers::game_mode_menu::finish_form(self, Pages::Solo);
+            }
+            chess_tui_app::AvailableGameMode::Bot => {
+                crate::handlers::game_mode_menu::finish_form(self, Pages::Bot);
+            }
+            chess_tui_app::AvailableGameMode::Multiplayer => {
+                crate::handlers::game_mode_menu::finish_form(self, Pages::Multiplayer);
+            }
+            chess_tui_app::AvailableGameMode::PGNLoader => {}
+        }
+    }
+
+    fn game_mode_open_pgn_loader(&mut self) {
+        self.ui_state.current_popup = Some(Popups::LoadPgnPath);
+        self.game.ui.prompt.reset();
     }
 }
 
