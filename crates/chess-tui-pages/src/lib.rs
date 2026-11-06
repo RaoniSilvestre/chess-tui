@@ -6,6 +6,7 @@ pub mod game_mode;
 pub mod home;
 pub mod lichess;
 pub mod pgn;
+pub mod popups;
 pub mod settings;
 
 pub use credits::CreditsPage;

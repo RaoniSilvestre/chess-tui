@@ -14,19 +14,19 @@ use crate::{
         error::render_error_popup,
         help::render_help_popup,
         lichess::{
-            game_code::render_enter_game_code_popup, puzzle_end::render_puzzle_end_popup,
-            token::render_enter_lichess_token_popup,
+            game_code::render_enter_game_code_popup, token::render_enter_lichess_token_popup,
         },
         loading::render_loading_popup,
-        move_input::render_move_input_popup,
         multiplayer::{
             enter_ip::render_enter_multiplayer_ip, wait_for_player::render_wait_for_other_player,
         },
-        new_game::render_new_game_confirmation_popup,
         pgn::path::render_load_pgn_popup,
-        resignation::render_resign_confirmation_popup,
         success::render_success_popup,
     },
+};
+use chess_tui_pages::popups::{
+    move_input::render_move_input_popup, new_game::render_new_game_confirmation_popup,
+    puzzle_end::render_puzzle_end_popup, resignation::render_resign_confirmation_popup,
 };
 use chess_tui_ui::components::centered_rect::centered_rect;
 
@@ -78,10 +78,18 @@ pub fn render_popups(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::l
             render_enter_lichess_token_popup(frame, &app.game.ui.prompt);
         }
         Some(Popups::ResignConfirmation) => {
-            render_resign_confirmation_popup(frame, app);
+            let opponent = app
+                .lichess_state
+                .ongoing_games
+                .get(app.ui_state.menu_cursor as usize)
+                .map(|game| game.opponent.username.as_str());
+            render_resign_confirmation_popup(frame, opponent);
         }
         Some(Popups::NewGameConfirmation) => {
-            render_new_game_confirmation_popup(frame, app);
+            render_new_game_confirmation_popup(
+                frame,
+                app.ui_state.pending_new_game == Some(crate::state::ui_state::NewGame::Restart),
+            );
         }
         Some(Popups::PuzzleEndScreen) => {
             let message = if let Some(ref msg) = app.ui_state.popup_message {

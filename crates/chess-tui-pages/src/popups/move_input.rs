@@ -1,6 +1,6 @@
 //! SAN move-entry popup anchored to the right side of the screen.
 
-use crate::constants::WHITE;
+use chess_tui_ui::color::board_white;
 use chess_tui_ui::components::right_rect::right_rect;
 use chess_tui_ui::prompt::Prompt;
 use ratatui::{
@@ -18,7 +18,7 @@ pub fn render_move_input_popup(frame: &mut Frame, prompt: &Prompt) {
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .padding(Padding::horizontal(1))
-        .border_style(Style::default().fg(WHITE));
+        .border_style(Style::default().fg(board_white()));
     let area = right_rect(23, 40, frame.area());
 
     let current_input = prompt.input.as_str();

@@ -1,6 +1,6 @@
 //! Resignation confirmation popup.
 
-use crate::{app::App, constants::WHITE};
+use chess_tui_ui::color::board_white;
 use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
@@ -11,24 +11,18 @@ use ratatui::{
 };
 
 /// Renders a "Yes / No" confirmation dialog before resigning the current game.
-pub fn render_resign_confirmation_popup(frame: &mut Frame, app: &App) {
+pub fn render_resign_confirmation_popup(frame: &mut Frame, opponent_name: Option<&str>) {
     let block = Block::default()
         .title("Resign Game")
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .padding(Padding::horizontal(1))
-        .border_style(Style::default().fg(WHITE));
+        .border_style(Style::default().fg(board_white()));
     let area = centered_rect(50, 30, frame.area());
 
-    let opponent_name = if let Some(game) = app
-        .lichess_state
-        .ongoing_games
-        .get(app.ui_state.menu_cursor as usize)
-    {
-        format!("vs {}", game.opponent.username)
-    } else {
-        "this game".to_string()
-    };
+    let opponent_name = opponent_name
+        .map(|name| format!("vs {name}"))
+        .unwrap_or_else(|| "this game".to_string());
 
     let text = vec![
         Line::from(""),

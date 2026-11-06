@@ -1,6 +1,6 @@
 //! Confirmation before a new game replaces a saved one.
 
-use crate::{app::App, constants::WHITE, state::ui_state::NewGame};
+use chess_tui_ui::color::board_white;
 use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
@@ -11,14 +11,13 @@ use ratatui::{
 };
 
 /// Renders the "discard the saved game?" dialog for `app.ui_state.pending_new_game`.
-pub fn render_new_game_confirmation_popup(frame: &mut Frame, app: &App) {
-    let restart = app.ui_state.pending_new_game == Some(NewGame::Restart);
+pub fn render_new_game_confirmation_popup(frame: &mut Frame, restart: bool) {
     let block = Block::default()
         .title(if restart { "Restart Game" } else { "New Game" })
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .padding(Padding::horizontal(1))
-        .border_style(Style::default().fg(WHITE));
+        .border_style(Style::default().fg(board_white()));
     let area = centered_rect(50, 30, frame.area());
 
     let key = |k: &'static str, color: Color| {
