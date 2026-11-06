@@ -58,6 +58,7 @@ theme = { path = "crates/theme" }
 ui = { path = "crates/ui" }
 app = { path = "crates/app" }
 pages = { path = "crates/pages" }
+session = { path = "crates/session" }
 clap.workspace = true
 dirs.workspace = true
 ratatui.workspace = true

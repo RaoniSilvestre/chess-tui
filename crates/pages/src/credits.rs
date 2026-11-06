@@ -1,6 +1,6 @@
 //! Credits page.
 
-use app::{App, Nav, Page};
+use page::{Page, PageAction, PageContext};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -26,16 +26,15 @@ impl Default for CreditsPage {
 }
 
 impl Page for CreditsPage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
         match key.code {
-            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => app.go_home(),
-            KeyCode::Char('q') => app.quit(),
-            _ => {}
+            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => PageAction::OpenHome,
+            KeyCode::Char('q') => PageAction::Quit,
+            _ => PageAction::None,
         }
-        Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _app: &mut App) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut PageContext<'_>) {
         render_credits(frame, area);
     }
 }

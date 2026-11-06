@@ -49,9 +49,9 @@ fn help_popup_opens_in_pgn_mode() -> AppResult<()> {
 fn p_and_n_navigate_prev_next() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('N'), KeyCode::Char('N')])?;
-    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(), 2);
+    assert_eq!(app.pgn_viewer().unwrap().pgn_games()[0].current_ply(), 2);
     send(&mut app, &[KeyCode::Char('P')])?;
-    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(), 1);
+    assert_eq!(app.pgn_viewer().unwrap().pgn_games()[0].current_ply(), 1);
     Ok(())
 }
 
@@ -59,12 +59,12 @@ fn p_and_n_navigate_prev_next() -> AppResult<()> {
 fn g_and_capital_g_jump_to_start_and_end() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('G')])?;
-    let v = &app.pgn_viewer_state.as_ref().unwrap()[0];
+    let v = &app.pgn_viewer().unwrap().pgn_games()[0];
     assert!(v.is_at_end());
     let total = v.total_plies();
 
     send(&mut app, &[KeyCode::Char('g')])?;
-    let v = &app.pgn_viewer_state.as_ref().unwrap()[0];
+    let v = &app.pgn_viewer().unwrap().pgn_games()[0];
     assert_eq!(v.current_ply(), 0);
     assert!(total > 0);
     Ok(())
@@ -74,12 +74,12 @@ fn g_and_capital_g_jump_to_start_and_end() -> AppResult<()> {
 fn h_dismisses_end_banner_and_step_back_restores_it() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('G')])?;
-    assert!(app.pgn_viewer_state.as_ref().unwrap()[0].is_at_end());
+    assert!(app.pgn_viewer().unwrap().pgn_games()[0].is_at_end());
 
     // Pressing `h` at the end banner should hide it, NOT step back.
-    let end_ply = app.pgn_viewer_state.as_ref().unwrap()[0].current_ply();
+    let end_ply = app.pgn_viewer().unwrap().pgn_games()[0].current_ply();
     send(&mut app, &[KeyCode::Char('h')])?;
-    let v = &app.pgn_viewer_state.as_ref().unwrap()[0];
+    let v = &app.pgn_viewer().unwrap().pgn_games()[0];
     assert_eq!(
         v.current_ply(),
         end_ply,
@@ -90,15 +90,15 @@ fn h_dismisses_end_banner_and_step_back_restores_it() -> AppResult<()> {
     // After dismissal, `h` falls through to Previous move.
     send(&mut app, &[KeyCode::Char('h')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(),
+        app.pgn_viewer().unwrap().pgn_games()[0].current_ply(),
         end_ply - 1
     );
 
     // Stepping back clears the dismissal so re-entering the end shows it again.
-    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed());
+    assert!(!app.pgn_viewer().unwrap().pgn_games()[0].end_banner_dismissed());
     send(&mut app, &[KeyCode::Char('N')])?;
-    assert!(app.pgn_viewer_state.as_ref().unwrap()[0].is_at_end());
-    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed());
+    assert!(app.pgn_viewer().unwrap().pgn_games()[0].is_at_end());
+    assert!(!app.pgn_viewer().unwrap().pgn_games()[0].end_banner_dismissed());
     Ok(())
 }
 
@@ -106,45 +106,45 @@ fn h_dismisses_end_banner_and_step_back_restores_it() -> AppResult<()> {
 fn speed_steps_through_multipliers() -> AppResult<()> {
     let mut app = load_sample_viewer();
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "1x"
     );
 
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "1.5x"
     );
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "2x"
     );
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "2.5x"
     );
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "3x"
     );
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "4x"
     );
     // Capped
     send(&mut app, &[KeyCode::Char('+')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "4x"
     );
 
     send(&mut app, &[KeyCode::Char('-')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].speed_label(),
+        app.pgn_viewer().unwrap().pgn_games()[0].speed_label(),
         "3x"
     );
     Ok(())
@@ -154,37 +154,28 @@ fn speed_steps_through_multipliers() -> AppResult<()> {
 fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     let mut app = load_sample_viewer();
 
-    // Inject the state that a real render pass would install.
-    use chess_tui::presentation::pgn_viewer_ui::sync_pgn_to_board;
-    sync_pgn_to_board(&mut app);
-    assert!(app.game.ui.hide_cursor, "precondition: viewer hides cursor");
-    assert!(!app.game.runtime.positions().is_empty());
-
     // Exit viewer with Esc.
     send(&mut app, &[KeyCode::Esc])?;
 
     assert!(app.is_home());
-    assert!(app.pgn_viewer_state.is_none());
+    assert!(app.pgn_viewer().is_none());
     // The critical checks - nothing from the viewer leaks into a fresh game.
     assert!(
-        !app.game.ui.hide_cursor,
+        !app.game_mut().ui.hide_cursor,
         "cursor must be visible after exit"
     );
     assert_eq!(
-        app.game.runtime.positions().len(),
+        app.game_mut().runtime.positions().len(),
         1,
         "new game must start with just the initial position"
     );
-    assert!(app.game.runtime.moves().is_empty());
+    assert!(app.game_mut().runtime.moves().is_empty());
     Ok(())
 }
 
 #[test]
 fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
     let mut app = load_sample_viewer();
-    use chess_tui::presentation::pgn_viewer_ui::sync_pgn_to_board;
-    sync_pgn_to_board(&mut app);
-
     // Exit PGN viewer.
     send(&mut app, &[KeyCode::Esc])?;
     assert!(app.is_home());
@@ -195,6 +186,6 @@ fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
         app.current_game_kind(),
         Some(app::GamePageKind::Solo)
     ));
-    assert!(!app.game.ui.hide_cursor);
+    assert!(!app.game_mut().ui.hide_cursor);
     Ok(())
 }

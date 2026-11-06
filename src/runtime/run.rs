@@ -40,7 +40,8 @@ fn handle_events(app: &mut App, tui: &mut Tui) -> AppResult<()> {
 }
 
 fn handle_game_events(app: &mut App) {
-    for event in app.game.runtime.take_events() {
+    let events = app.game_mut().runtime.take_events();
+    for event in events {
         match event {
             GameEvent::MovePlayed => play_move_sound(),
             GameEvent::Error(message) => {

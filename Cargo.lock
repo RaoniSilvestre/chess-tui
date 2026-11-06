@@ -127,10 +127,12 @@ dependencies = [
  "log",
  "model",
  "net",
+ "page",
  "rand 0.10.3",
  "ratatui",
  "serde",
  "serde_json",
+ "session",
  "shakmaty",
  "tachyonfx",
  "theme",
@@ -423,6 +425,7 @@ dependencies = [
  "ruci",
  "serde",
  "serde_json",
+ "session",
  "shakmaty",
  "simplelog",
  "tachyonfx",
@@ -2179,15 +2182,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
-name = "pages"
+name = "page"
 version = "2.8.0"
 dependencies = [
- "app",
- "chrono",
- "game",
  "lichess",
  "model",
  "ratatui",
+ "session",
+ "shakmaty",
+ "theme",
+ "ui",
+]
+
+[[package]]
+name = "pages"
+version = "2.8.0"
+dependencies = [
+ "chrono",
+ "game",
+ "lichess",
+ "log",
+ "model",
+ "page",
+ "ratatui",
+ "session",
  "shakmaty",
  "ui",
 ]
@@ -3191,6 +3209,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "session"
+version = "2.8.0"
+dependencies = [
+ "game",
+ "log",
+ "model",
+ "shakmaty",
+ "ui",
 ]
 
 [[package]]

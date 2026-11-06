@@ -8,10 +8,12 @@ repository = "https://github.com/thomas-mauran/chess-tui"
 publish = false
 
 [dependencies]
-app = { path = "../app" }
 model = { path = "../model" }
+session = { path = "../session" }
+page = { path = "../page" }
 game = { path = "../game" }
 lichess = { path = "../lichess" }
+log.workspace = true
 chrono.workspace = true
 ui = { path = "../ui" }
 ratatui.workspace = true

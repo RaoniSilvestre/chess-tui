@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use app::game_state::Game;
+    use session::Game;
     use model::GameState;
 
     use shakmaty::{Color, Position, Square};

@@ -3,7 +3,7 @@
 use crate::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
 use crate::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
-use crate::game_state::Game;
+use session::Game;
 use theme::DisplayMode;
 use ui::sound::play_menu_nav_sound;
 impl App {
@@ -18,7 +18,7 @@ impl App {
         // Update selected skin name and apply it
         self.theme_state.loaded_skin = Some(future_skin.clone());
         self.theme_state.selected_skin_name = future_skin_name.clone();
-        self.game.ui.skin = future_skin;
+        self.game_mut().ui.skin = future_skin;
 
         // Set display mode based on skin name
         let display_mode = match future_skin_name.as_str() {
@@ -27,7 +27,7 @@ impl App {
             _ => DisplayMode::CUSTOM,
         };
 
-        self.game.ui.display_mode = display_mode;
+        self.game_mut().ui.display_mode = display_mode;
     }
 
     /// Cycles to the next or previous bot difficulty level.
@@ -52,9 +52,8 @@ impl App {
         self.flush_resume_state();
 
         // Preserve display mode and skin preference
-        let display_mode = self.game.ui.display_mode;
-        let current_skin = self.game.ui.skin.clone();
-        self.ui_state.end_screen_dismissed = false;
+        let display_mode = self.game_mut().ui.display_mode;
+        let current_skin = self.game_mut().ui.skin.clone();
 
         // Cancel any active Lichess seek before resetting
         if let Some(cancellation_token) = &self.lichess_state.cancellation_token {
@@ -69,7 +68,7 @@ impl App {
         self.game_mode_state.is_random_color = false;
 
         // Clean up any active network mode.
-        self.game.runtime.disconnect();
+        self.game_mut().runtime.disconnect();
         self.multiplayer_state.hosting = None;
         self.multiplayer_state.host_ip = None;
 
@@ -77,14 +76,12 @@ impl App {
         self.lichess_state.puzzle_game = None;
 
         // Reset game completely but preserve display mode, skin and piece styles
-        self.game = Game::default();
-        self.game.ui.display_mode = display_mode;
-        self.game.ui.skin = current_skin;
-        self.game.ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
-        self.ui_state.end_screen_dismissed = false;
+        self.replace_game(Game::default());
+        self.game_mut().ui.display_mode = display_mode;
+        self.game_mut().ui.skin = current_skin;
+        self.game_mut().ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
         self.game_mode_state.clock_cursor = 3; // Reset to default (Rapid)
         self.game_mode_state.custom_time_minutes = 10; // Reset custom time
-        self.ui_state.navigate_to_homepage();
         let page = self.pages.home();
         self.set_page(page);
         self.close_modal();
@@ -96,7 +93,6 @@ impl App {
         self.close_modal();
         self.game_mode_state.clock_cursor = DEFAULT_TIME_CONTROL_SELECTED; // Reset to default (Rapid)
         self.game_mode_state.custom_time_minutes = DEFAULT_CUSTOM_TIME_VALUE; // Reset custom time
-        self.ui_state.navigate_to_homepage();
         let page = self.pages.home();
         self.set_page(page);
     }

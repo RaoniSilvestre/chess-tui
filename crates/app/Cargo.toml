@@ -9,6 +9,8 @@ publish = false
 
 [dependencies]
 model = { path = "../model" }
+page = { path = "../page" }
+session = { path = "../session" }
 game = { path = "../game" }
 ui = { path = "../ui" }
 theme = { path = "../theme" }

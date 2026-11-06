@@ -30,11 +30,7 @@ impl Tui {
     pub fn draw(&mut self, app: &mut App) -> AppResult<()> {
         self.terminal.draw(|frame| {
             let area = frame.area();
-            app.sync_page();
-            if let Some(mut router) = app.router.take() {
-                router.render(frame, area, app);
-                app.router = Some(router);
-            }
+            app.render_page(frame, area);
             main_ui::render_popups(frame, app, area);
             main_ui::render_animations(frame, app, area);
         })?;

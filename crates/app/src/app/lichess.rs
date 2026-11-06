@@ -70,7 +70,7 @@ impl App {
         self.update_config_from_app();
 
         // Navigate back to home menu
-        self.ui_state.navigate_to_homepage();
+        self.show_home();
 
         // Show success message
         let msg = "Disconnected from Lichess successfully!\n\n Your token has been removed.\n\n You can reconnect anytime from the Lichess menu.".to_string();
@@ -295,18 +295,22 @@ impl App {
                         .into_position::<shakmaty::Chess>(shakmaty::CastlingMode::Standard)
                     {
                         Ok(position) => {
-                            let halfmove_clock = self.game.runtime.halfmove_clock();
-                            if let Err(e) = self.game.runtime.load_history(
-                                vec![position],
-                                vec![],
-                                vec![],
-                                halfmove_clock,
-                            ) {
+                            let load_result = {
+                                let mut game = self.game_mut();
+                                let halfmove_clock = game.runtime.halfmove_clock();
+                                game.runtime.load_history(
+                                    vec![position],
+                                    vec![],
+                                    vec![],
+                                    halfmove_clock,
+                                )
+                            };
+                            if let Err(e) = load_result {
                                 log::error!("Failed to load Lichess position: {e}");
                                 self.show_error(format!("Failed to load position: {e}"));
                                 return false;
                             }
-                            self.game.runtime.sync_turn_with_position();
+                            self.game_mut().runtime.sync_turn_with_position();
                             // Send last move immediately if we have it, so it shows in green right away
                             self.setup_lichess_game(
                                 game_id,
@@ -348,12 +352,11 @@ impl App {
         immediate_last_move: Option<String>,
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
-        self.game.runtime.start_playing();
+        self.game_mut().runtime.start_playing();
         self.close_modal();
-        self.ui_state.end_screen_dismissed = false;
 
         // Best-effort initial clock; the first game event resyncs with the server.
-        self.game
+        self.game_mut()
             .runtime
             .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
@@ -375,17 +378,17 @@ impl App {
                 return;
             }
         };
-        self.game.runtime.set_mode(Box::new(mode));
+        self.game_mut().runtime.set_mode(Box::new(mode));
 
         self.game_mode_state.selected_color = Some(color);
         self.game_mode_state.is_random_color = false;
 
         if color == Color::Black {
-            self.game.runtime.flip();
+            self.game_mut().runtime.flip();
         }
         // Ensure skin is preserved
         if let Some(skin) = &self.theme_state.loaded_skin {
-            self.game.ui.skin = skin.clone();
+            self.game_mut().ui.skin = skin.clone();
         }
 
         // Switch to Lichess page to show the game board
@@ -414,11 +417,11 @@ impl App {
     }
 
     /// Resigns the currently selected game in a background thread and shows a success popup.
-    pub fn confirm_resign_game(&mut self) {
+    pub fn confirm_resign_game(&mut self, index: usize) {
         if let Some(game) = self
             .lichess_state
             .ongoing_games
-            .get(self.ui_state.menu_cursor as usize)
+            .get(index)
         {
             let game_id = game.game_id.clone();
             let opponent_name = game.opponent.username.clone();
@@ -522,18 +525,11 @@ impl App {
         });
     }
 
-    /// Joins the ongoing Lichess game at the current menu cursor position, restoring board state from FEN.
-    pub fn select_ongoing_game(&mut self) {
-        log::debug!(
-            "select_ongoing_game called, menu_cursor: {}",
-            self.ui_state.menu_cursor
-        );
+    /// Joins the ongoing Lichess game at `index`, restoring board state from FEN.
+    pub fn select_ongoing_game(&mut self, index: usize) {
+        log::debug!("select_ongoing_game called, index: {}", index);
 
-        if let Some(game) = self
-            .lichess_state
-            .ongoing_games
-            .get(self.ui_state.menu_cursor as usize)
-        {
+        if let Some(game) = self.lichess_state.ongoing_games.get(index) {
             let game_id = game.game_id.clone();
             let color_str = game.color.clone();
             let fen = game.fen.clone();
@@ -564,13 +560,13 @@ impl App {
         self.lichess_state.puzzle_game = None;
 
         // Puzzles use a local board with Lichess-provided moves.
-        self.game.runtime.set_mode(Box::new(::game::LocalMode));
+        self.game_mut().runtime.set_mode(Box::new(::game::LocalMode));
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;
 
         // Reset game state to Playing (in case it was Checkmate/Draw from previous puzzle)
         // This must be done early to prevent check_and_show_game_end from re-showing the popup
-        self.game.runtime.start_playing();
+        self.game_mut().runtime.start_playing();
 
         // Fetch fresh user profile to get the latest puzzle rating
         // This ensures we use the correct baseline rating after any previous puzzle's Elo change
@@ -580,6 +576,7 @@ impl App {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
+        let client = client.clone();
 
         // Get rating before
         let mut rating_before = None;
@@ -591,7 +588,11 @@ impl App {
         }
 
         // Initialize PuzzleGame
-        let puzzle = match PuzzleGame::load(client, self.game.runtime.session_mut().board_mut()) {
+        let load_result = {
+            let mut game = self.game_mut();
+            PuzzleGame::load(&client, game.runtime.session_mut().board_mut())
+        };
+        let puzzle = match load_result {
             Ok(p) => p,
             Err(e) => {
                 self.show_error(e);
@@ -600,13 +601,13 @@ impl App {
         };
 
         // Sync the player turn with the position's turn
-        self.game.runtime.sync_turn_with_position();
+        self.game_mut().runtime.sync_turn_with_position();
 
         self.lichess_state.puzzle_game = Some(PuzzleGame::new(puzzle, rating_before));
 
         // Ensure board stays unflipped in puzzle mode
         if self.lichess_state.puzzle_game.is_some() {
-            self.game.runtime.set_flipped(false);
+            self.game_mut().runtime.set_flipped(false);
         }
         // Switch to Solo page to show the board
         self.show_solo();
@@ -635,7 +636,7 @@ impl App {
         if let Some(mut puzzle_game) = self.lichess_state.puzzle_game.take() {
             let (is_correct, message) = puzzle_game.validate_move(
                 move_uci,
-                &mut self.game,
+                &mut self.game_mut(),
                 self.lichess_state.token.clone(),
             );
 

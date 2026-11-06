@@ -5,4 +5,3 @@ pub mod lichess_state;
 pub mod multiplayer_state;
 pub mod resume;
 pub mod theme_state;
-pub mod ui_state;

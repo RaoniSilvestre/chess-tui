@@ -1,7 +1,7 @@
 //! Renders the user profile, rating sparkline, and menu options for the Lichess landing page.
 
 use super::rating_chart::render_rating_history_chart;
-use app::{App, Nav, Page};
+use page::{LichessAction, Page, PageAction, PageContext};
 use lichess::LICHESS_TIME_CONTROLS;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -68,14 +68,30 @@ impl LichessLayout {
     }
 }
 
+struct RenderState<'c> {
+    ctx: &'c PageContext<'c>,
+}
+
+impl RenderState<'_> {
+    fn lichess_profile(&self) -> Option<&lichess::UserProfile> {
+        self.ctx.lichess.profile
+    }
+
+    fn lichess_rating_history(&self) -> Option<&[lichess::RatingHistoryEntry]> {
+        self.ctx.lichess.rating_history
+    }
+}
+
 fn render_lichess_menu(
     frame: &mut Frame,
     area: Rect,
-    app: &App,
-    cursor: u8,
-    stats_scroll: u16,
-    time_control: u8,
+    ctx: &mut PageContext<'_>,
+    page: &LichessMenuPage,
 ) {
+    let state = RenderState { ctx };
+    let cursor = page.cursor;
+    let stats_scroll = page.stats_scroll;
+    let time_control = page.time_control;
     let layout = LichessLayout::new(area);
 
     // Title
@@ -95,8 +111,8 @@ fn render_lichess_menu(
 
     render_menu_panel(frame, layout.menu, cursor);
     render_time_control(frame, layout.time_control, time_control);
-    render_user_stats_panel(frame, app, layout.profile, stats_scroll);
-    render_chart_panel(frame, app, layout.chart);
+    render_user_stats_panel(frame, &state, layout.profile, stats_scroll);
+    render_chart_panel(frame, &state, layout.chart);
 
     // Footer with controls
     let footer = Paragraph::new(vec![Line::from(vec![
@@ -259,7 +275,7 @@ fn rating_line(label: &str, rating: u16, prog: Option<i16>) -> Line<'static> {
     ])
 }
 
-fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect, stats_scroll: u16) {
+fn render_user_stats_panel(frame: &mut Frame, state: &RenderState<'_>, area: Rect, stats_scroll: u16) {
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -279,7 +295,7 @@ fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect, stats_scrol
     let scroll_offset = stats_scroll as usize;
     let max_visible = inner_area.height as usize;
 
-    if let Some(profile) = app.lichess_profile() {
+    if let Some(profile) = state.lichess_profile() {
         // --- LEFT: username, online, bio, location, country, created at ---
         let mut left: Vec<Line> = vec![Line::from("")];
 
@@ -517,11 +533,11 @@ fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect, stats_scrol
     }
 }
 
-fn render_chart_panel(frame: &mut Frame, app: &App, area: Rect) {
-    if let Some(history) = app.lichess_rating_history() {
+fn render_chart_panel(frame: &mut Frame, state: &RenderState<'_>, area: Rect) {
+    if let Some(history) = state.lichess_rating_history() {
         render_rating_history_chart(frame, history, area);
     } else {
-        let msg = if app.lichess_profile().is_some() {
+        let msg = if state.lichess_profile().is_some() {
             "Loading rating history..."
         } else {
             "Loading..."
@@ -547,32 +563,27 @@ pub struct LichessMenuPage {
 }
 
 impl LichessMenuPage {
-    pub fn new(time_control: u8) -> Self {
+    pub fn new() -> Self {
         Self {
             cursor: 0,
             stats_scroll: 0,
-            time_control: time_control.clamp(3, 4),
+            time_control: 3,
         }
     }
 
-    fn require_token(&self, app: &mut App) -> bool {
-        if app.lichess_has_token() {
-            true
-        } else {
-            app.lichess_open_token_prompt();
-            false
-        }
+    fn require_token(ctx: &PageContext<'_>) -> bool {
+        ctx.lichess.has_token
     }
 }
 
 impl Default for LichessMenuPage {
     fn default() -> Self {
-        Self::new(3)
+        Self::new()
     }
 }
 
 impl Page for LichessMenuPage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, ctx: &PageContext<'_>) -> PageAction {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -582,11 +593,9 @@ impl Page for LichessMenuPage {
             }
             KeyCode::Right | KeyCode::Char('l') => {
                 self.time_control = if self.time_control >= 4 { 3 } else { 4 };
-                app.lichess_set_time_control(self.time_control);
             }
             KeyCode::Left | KeyCode::Char('h') => {
                 self.time_control = if self.time_control <= 3 { 4 } else { 3 };
-                app.lichess_set_time_control(self.time_control);
             }
             KeyCode::PageUp => {
                 self.stats_scroll = self.stats_scroll.saturating_sub(3);
@@ -594,46 +603,32 @@ impl Page for LichessMenuPage {
             KeyCode::PageDown => {
                 self.stats_scroll = self.stats_scroll.saturating_add(3);
             }
-            KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
-                0 => {
-                    if self.require_token(app) {
-                        app.lichess_seek(self.time_control);
-                    }
+            KeyCode::Char(' ') | KeyCode::Enter => {
+                if self.cursor == 4 {
+                    return PageAction::Lichess(LichessAction::Disconnect);
                 }
-                1 => {
-                    if self.require_token(app) {
-                        app.lichess_start_puzzle();
-                    }
+                if !Self::require_token(ctx) {
+                    return PageAction::Lichess(LichessAction::PromptToken);
                 }
-                2 => {
-                    if self.require_token(app) {
-                        app.lichess_open_ongoing_games();
-                    }
-                }
-                3 => {
-                    if self.require_token(app) {
-                        app.lichess_open_join_code();
-                    }
-                }
-                4 => app.lichess_disconnect(),
-                _ => {}
-            },
-            KeyCode::Esc | KeyCode::Char('b') => app.go_home(),
-            KeyCode::Char('?') => app.open_help(),
-            KeyCode::Char('q') => app.quit(),
+                return match self.cursor {
+                    0 => PageAction::Lichess(LichessAction::Seek {
+                        time_control: self.time_control,
+                    }),
+                    1 => PageAction::Lichess(LichessAction::Puzzle),
+                    2 => PageAction::Lichess(LichessAction::OpenOngoingGames),
+                    3 => PageAction::Lichess(LichessAction::JoinByCode),
+                    _ => PageAction::None,
+                };
+            }
+            KeyCode::Esc | KeyCode::Char('b') => return PageAction::OpenHome,
+            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
-        Nav::None
+        PageAction::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
-        render_lichess_menu(
-            frame,
-            area,
-            app,
-            self.cursor,
-            self.stats_scroll,
-            self.time_control,
-        );
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
+        render_lichess_menu(frame, area, ctx, self);
     }
 }

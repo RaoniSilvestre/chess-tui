@@ -1,0 +1,15 @@
+[package]
+name = "session"
+version = "2.8.0"
+edition = "2024"
+license = "MIT"
+authors = ["Thomas Mauran"]
+repository = "https://github.com/thomas-mauran/chess-tui"
+publish = false
+
+[dependencies]
+game = { path = "../game" }
+log.workspace = true
+model = { path = "../model" }
+shakmaty.workspace = true
+ui = { path = "../ui" }

@@ -36,7 +36,7 @@ fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
     assert!(app.is_page::<pages::GameModeMenuPage>());
     assert!(app.has_modal::<app::modal::PromptModal>());
-    assert_eq!(app.ui_state.menu_cursor, 3);
+    assert_eq!(app.menu_cursor(), Some(3));
 
     // A single Esc must close the popup *and* hand control back to the menu.
     send(&mut app, &[KeyCode::Esc])?;
@@ -47,7 +47,7 @@ fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
     // the cursor (wrapping 3 -> 0).
     send(&mut app, &[KeyCode::Down])?;
     assert_eq!(
-        app.ui_state.menu_cursor, 0,
+        app.menu_cursor(), Some(0),
         "menu must be navigable with the arrow keys after closing the popup once"
     );
 
@@ -65,7 +65,7 @@ fn esc_with_empty_path_closes_popup_and_returns_control_to_menu() -> AppResult<(
 
     send(&mut app, &[KeyCode::Down])?;
     assert_eq!(
-        app.ui_state.menu_cursor, 0,
+        app.menu_cursor(), Some(0),
         "menu must be navigable after dismissing the popup with an empty path"
     );
 

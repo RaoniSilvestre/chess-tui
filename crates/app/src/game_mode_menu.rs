@@ -3,10 +3,17 @@
 use crate::{
     App, GamePageKind,
     constants::BOT_DIFFICULTY_COUNT,
-    state::{resume::ResumeMode, ui_state::NewGame},
+    state::resume::ResumeMode,
 };
 
 pub use crate::game_mode::AvailableGameMode;
+
+/// A new game that would discard a resume save, held until the user confirms it.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum NewGame {
+    Start(GamePageKind),
+    Restart,
+}
 
 pub fn cycle_difficulty_prev(app: &mut App) {
     match app.bot_state.bot_difficulty {
@@ -36,8 +43,7 @@ pub(crate) fn finish_form(app: &mut App, page: GamePageKind) {
     if let Some(mode) = mode
         && app.has_resume_save(mode)
     {
-        app.ui_state.pending_new_game = Some(NewGame::Start(page));
-        app.show_new_game_confirmation();
+        app.show_new_game_confirmation(NewGame::Start(page));
         return;
     }
     start_game(app, page);
@@ -58,7 +64,4 @@ pub fn start_game(app: &mut App, page: GamePageKind) {
         GamePageKind::Multiplayer => app.show_multiplayer(),
         _ => {}
     }
-    app.game_mode_state.selection = None;
-    app.game_mode_state.form_cursor = 0;
-    app.game_mode_state.form_active = false;
 }

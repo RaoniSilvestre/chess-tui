@@ -2,7 +2,7 @@
 
 use crate::App;
 use crate::GamePageKind;
-use crate::game_state::Game;
+use session::Game;
 use ::game::{Bot, BotMode, GameKind};
 use model::Clock;
 use shakmaty::Color;
@@ -12,8 +12,6 @@ impl App {
     pub fn show_end_screen(&mut self) {
         if self.lichess_state.puzzle_game.is_some() {
             self.show_puzzle_end(String::new());
-        } else {
-            self.ui_state.end_screen_visible = true;
         }
     }
 
@@ -27,15 +25,13 @@ impl App {
             return;
         }
 
-        let previous_state = self.game.runtime.state();
-        self.game.runtime.update_game_state();
-        let new_state = self.game.runtime.state();
+        let previous_state = self.game_mut().runtime.state();
+        self.game_mut().runtime.update_game_state();
+        let new_state = self.game_mut().runtime.state();
 
         if previous_state != new_state && new_state.is_finished() {
-            self.show_end_screen();
-            // Player-induced terminal states reach this branch (bot-induced
-            // ones go through `check_and_show_game_end`). Either way the
-            // game is over, so the resume save must go.
+            // Game over: drop the resume save. End-screen visibility is owned
+            // by the game page.
             self.clear_resume_state_for_current_mode();
         }
     }
@@ -47,8 +43,7 @@ impl App {
             .current_resume_mode()
             .is_some_and(|mode| self.has_resume_save(mode))
         {
-            self.ui_state.pending_new_game = Some(crate::state::ui_state::NewGame::Restart);
-            self.show_new_game_confirmation();
+            self.show_new_game_confirmation(crate::game_mode_menu::NewGame::Restart);
         } else {
             self.restart();
         }
@@ -65,11 +60,10 @@ impl App {
 
         // Clear puzzle state when restarting (for normal games)
         self.lichess_state.puzzle_game = None;
-        self.ui_state.end_screen_dismissed = false;
-        let mode_kind = self.game.runtime.kind();
+        let mode_kind = self.game_mut().runtime.kind();
         // Preserve skin and display mode
-        let current_skin = self.game.ui.skin.clone();
-        let display_mode = self.game.ui.display_mode;
+        let current_skin = self.game_mut().ui.skin.clone();
+        let display_mode = self.game_mut().ui.display_mode;
         // Check if we're in a local game or bot game to preserve clock
         let is_local_game =
             self.current_game_kind() == Some(GamePageKind::Solo) && mode_kind == GameKind::Local;
@@ -83,7 +77,7 @@ impl App {
             });
         }
 
-        self.game = Game::default();
+        self.replace_game(Game::default());
 
         if is_bot_game {
             let bot_starting =
@@ -95,22 +89,22 @@ impl App {
                 self.bot_state.bot_depth,
                 self.bot_state.bot_difficulty,
             );
-            self.game.runtime.set_mode(Box::new(BotMode::new(bot)));
+            self.game_mut().runtime.set_mode(Box::new(BotMode::new(bot)));
             if bot_starting {
                 // Flip the board once so Black player sees from their perspective.
-                self.game.runtime.flip();
+                self.game_mut().runtime.flip();
             }
         }
 
         // Restore skin, display mode and piece styles
-        self.game.ui.skin = current_skin;
-        self.game.ui.display_mode = display_mode;
-        self.game.ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
+        self.game_mut().ui.skin = current_skin;
+        self.game_mut().ui.display_mode = display_mode;
+        self.game_mut().ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
         self.close_modal();
 
         // Re-initialize clock for local games and bot games
         if is_local_game || is_bot_game {
-            self.game
+            self.game_mut()
                 .runtime
                 .set_clock(Clock::new(self.game_mode_state.get_time_control()));
         }
@@ -120,22 +114,14 @@ impl App {
     /// This consolidates the repeated game end checking logic.
     pub fn check_and_show_game_end(&mut self) {
         // Update game state first (this will stop the clock if game ended)
-        self.game.runtime.update_game_state();
+        self.game_mut().runtime.update_game_state();
 
-        if self.game.runtime.state().is_finished() {
-            // Game ended - only show end screen if it's not already shown and not dismissed
-            if !self.ui_state.end_screen_visible
-                && !self.has_modal::<crate::modal::PuzzleEndModal>()
-                && !self.ui_state.end_screen_dismissed
-            {
-                self.show_end_screen();
-            }
+        if self.game_mut().runtime.state().is_finished() {
             // Drop any resume save: the game is over, there is nothing left to continue.
             self.clear_resume_state_for_current_mode();
         } else {
             // Game is no longer ended, reset the dismissed flag
-            self.ui_state.end_screen_dismissed = false;
-        }
+            }
     }
 }
 
@@ -185,7 +171,7 @@ impl App {
         }
 
         self.game_mode_state.resolve_selected_color();
-        if self.game.runtime.kind() != ::game::GameKind::Bot {
+        if self.game_mut().runtime.kind() != ::game::GameKind::Bot {
             self.bot_setup();
             false
         } else {
@@ -199,7 +185,7 @@ impl App {
         if self.has_modal::<crate::modal::MessageModal>() {
             return false;
         }
-        if self.game.runtime.kind() != ::game::GameKind::Tcp {
+        if self.game_mut().runtime.kind() != ::game::GameKind::Tcp {
             if self.multiplayer_state.host_ip.is_none() {
                 if self.multiplayer_state.hosting == Some(true) {
                     if let Some(color) = self.game_mode_state.selected_color {
@@ -214,7 +200,7 @@ impl App {
             }
             false
         } else {
-            self.game.runtime.is_ready()
+            self.game_mut().runtime.is_ready()
         }
     }
 }

@@ -1,6 +1,6 @@
 //! Lichess puzzle state and move validation.
 
-use crate::game_state::Game;
+use session::Game;
 use lichess::{LichessClient, Puzzle};
 use model::Board;
 use model::square_utils::get_coord_from_square;

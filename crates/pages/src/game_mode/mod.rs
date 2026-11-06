@@ -2,8 +2,11 @@
 
 mod render;
 
-use app::game_mode::{BOT_DIFFICULTY_COUNT, TIME_CONTROL_CUSTOM_INDEX};
-use app::{App, AvailableGameMode, Nav, Page};
+use model::TimeControl;
+use page::{
+    AvailableGameMode, BOT_DIFFICULTY_COUNT, GameModeAction, Page, PageAction, PageContext,
+    SettingsAction, TIME_CONTROL_CUSTOM_INDEX,
+};
 use ratatui::Frame;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Rect;
@@ -61,12 +64,28 @@ impl From<u8> for BotFormField {
 }
 
 pub struct GameModeMenuPage {
-    cursor: u8,
+    pub(crate) cursor: u8,
+    pub(crate) form_active: bool,
+    pub(crate) form_cursor: u8,
+    pub(crate) clock_cursor: u8,
+    pub(crate) custom_time_minutes: u16,
+    pub(crate) selected_color: Option<Color>,
+    pub(crate) is_random_color: bool,
+    pub(crate) hosting: Option<bool>,
 }
 
 impl GameModeMenuPage {
     pub fn new() -> Self {
-        Self { cursor: 0 }
+        Self {
+            cursor: 0,
+            form_active: false,
+            form_cursor: 0,
+            clock_cursor: 3,
+            custom_time_minutes: 10,
+            selected_color: None,
+            is_random_color: false,
+            hosting: None,
+        }
     }
 
     fn current_mode(&self) -> Option<AvailableGameMode> {
@@ -79,225 +98,351 @@ impl GameModeMenuPage {
         }
     }
 
-    fn form_left(&self, app: &mut App, kind: AvailableGameMode) {
-        let state = app.game_mode_state_mut();
-        match kind {
-            AvailableGameMode::Local => match LocalFormField::from(state.form_cursor) {
-                LocalFormField::TimeControl => {
-                    if state.clock_cursor > 0 {
-                        state.clock_cursor -= 1;
-                    }
-                }
-                LocalFormField::CustomTime => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX
-                        && state.custom_time_minutes > 1
-                    {
-                        state.custom_time_minutes -= 1;
-                    }
-                }
-            },
-            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(state.form_cursor) {
-                MultiplayerFormField::HostSelection => app.game_mode_set_hosting(Some(true)),
-                MultiplayerFormField::ColorSelection => {
-                    if app.game_mode_hosting() == Some(true) {
-                        app.game_mode_state_mut().select_previous_color_option();
-                    }
-                }
-            },
-            AvailableGameMode::Bot => match BotFormField::from(state.form_cursor) {
-                BotFormField::TimeControl => {
-                    if state.clock_cursor > 0 {
-                        state.clock_cursor -= 1;
-                    }
-                }
-                BotFormField::CustomTime => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        if state.custom_time_minutes > 1 {
-                            state.custom_time_minutes -= 1;
-                        }
-                    } else {
-                        app.game_mode_state_mut().select_previous_color_option();
-                    }
-                }
-                BotFormField::ColorSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        app.game_mode_state_mut().select_previous_color_option();
-                    } else if app.game_mode_bot_depth() > 1 {
-                        let depth = app.game_mode_bot_depth() - 1;
-                        app.game_mode_set_bot_depth(depth);
-                    }
-                }
-                BotFormField::BotDepthSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        if app.game_mode_bot_depth() > 1 {
-                            let depth = app.game_mode_bot_depth() - 1;
-                            app.game_mode_set_bot_depth(depth);
-                        }
-                    } else {
-                        app.game_mode_cycle_difficulty(false);
-                    }
-                }
-                BotFormField::DifficultySelection => app.game_mode_cycle_difficulty(false),
-            },
-            AvailableGameMode::PGNLoader => {}
+    pub(crate) fn get_time_control_name(&self) -> &'static str {
+        match self.clock_cursor {
+            0 => "UltraBullet",
+            1 => "Bullet",
+            2 => "Blitz",
+            3 => "Rapid",
+            4 => "Classical",
+            5 => "No clock",
+            x if x == TIME_CONTROL_CUSTOM_INDEX => "Custom",
+            _ => "Rapid",
         }
     }
 
-    fn form_right(&self, app: &mut App, kind: AvailableGameMode) {
-        let state = app.game_mode_state_mut();
-        match kind {
-            AvailableGameMode::Local => match LocalFormField::from(state.form_cursor) {
-                LocalFormField::TimeControl => {
-                    if state.clock_cursor < TIME_CONTROL_CUSTOM_INDEX {
-                        state.clock_cursor += 1;
-                    }
-                }
-                LocalFormField::CustomTime => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX
-                        && state.custom_time_minutes < 120
-                    {
-                        state.custom_time_minutes += 1;
-                    }
-                }
-            },
-            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(state.form_cursor) {
-                MultiplayerFormField::HostSelection => app.game_mode_set_hosting(Some(false)),
-                MultiplayerFormField::ColorSelection => {
-                    if app.game_mode_hosting() == Some(true) {
-                        app.game_mode_state_mut().select_next_color_option();
-                    }
-                }
-            },
-            AvailableGameMode::Bot => match BotFormField::from(state.form_cursor) {
-                BotFormField::TimeControl => {
-                    if state.clock_cursor < TIME_CONTROL_CUSTOM_INDEX {
-                        state.clock_cursor += 1;
-                    }
-                }
-                BotFormField::CustomTime => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        if state.custom_time_minutes < 120 {
-                            state.custom_time_minutes += 1;
-                        }
-                    } else {
-                        app.game_mode_state_mut().select_next_color_option();
-                    }
-                }
-                BotFormField::ColorSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        app.game_mode_state_mut().select_next_color_option();
-                    } else if app.game_mode_bot_depth() < 20 {
-                        let depth = app.game_mode_bot_depth() + 1;
-                        app.game_mode_set_bot_depth(depth);
-                    }
-                }
-                BotFormField::BotDepthSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        if app.game_mode_bot_depth() < 20 {
-                            let depth = app.game_mode_bot_depth() + 1;
-                            app.game_mode_set_bot_depth(depth);
-                        }
-                    } else {
-                        app.game_mode_cycle_difficulty(true);
-                    }
-                }
-                BotFormField::DifficultySelection => app.game_mode_cycle_difficulty(true),
-            },
-            AvailableGameMode::PGNLoader => {}
+    pub(crate) fn get_time_control_seconds(&self) -> Option<u32> {
+        match self.clock_cursor {
+            0 => Some(15),
+            1 => Some(60),
+            2 => Some(5 * 60),
+            3 => Some(10 * 60),
+            4 => Some(60 * 60),
+            5 => None,
+            x if x == TIME_CONTROL_CUSTOM_INDEX => Some((self.custom_time_minutes * 60).into()),
+            _ => Some(10 * 60),
         }
     }
 
-    fn form_enter(&self, app: &mut App, kind: AvailableGameMode) {
-        let state = app.game_mode_state_mut();
+    pub(crate) fn get_time_control(&self) -> TimeControl {
+        match self.clock_cursor {
+            0 => TimeControl::UltraBullet,
+            1 => TimeControl::Bullet,
+            2 => TimeControl::Blitz,
+            3 => TimeControl::Rapid,
+            4 => TimeControl::Classical,
+            5 => TimeControl::NoClock,
+            x if x == TIME_CONTROL_CUSTOM_INDEX => {
+                TimeControl::Custom(self.custom_time_minutes as u64)
+            }
+            _ => TimeControl::Rapid,
+        }
+    }
+
+    pub(crate) fn get_time_control_description(&self) -> String {
+        match self.clock_cursor {
+            0 => "Lightning fast (15 seconds per side)".to_string(),
+            1 => "Very short games (e.g., 1 minute per side)".to_string(),
+            2 => "Fast games (e.g., 5 minutes)".to_string(),
+            3 => "Medium games (e.g., 10 minutes)".to_string(),
+            4 => "Longer games (e.g., 60 minutes)".to_string(),
+            5 => "Play without any time limits".to_string(),
+            x if x == TIME_CONTROL_CUSTOM_INDEX => {
+                format!("Custom time: {} minutes per side", self.custom_time_minutes)
+            }
+            _ => "Medium games (e.g., 10 minutes)".to_string(),
+        }
+    }
+
+    fn select_previous_color_option(&mut self) {
+        if self.selected_color == Some(Color::White)
+            || self.selected_color.is_none() && !self.is_random_color
+        {
+            self.selected_color = None;
+            self.is_random_color = true;
+        } else if self.is_random_color {
+            self.selected_color = Some(Color::Black);
+            self.is_random_color = false;
+        } else if self.selected_color == Some(Color::Black) {
+            self.selected_color = Some(Color::White);
+            self.is_random_color = false;
+        }
+    }
+
+    fn select_next_color_option(&mut self) {
+        if self.selected_color == Some(Color::White)
+            || self.selected_color.is_none() && !self.is_random_color
+        {
+            self.selected_color = Some(Color::Black);
+            self.is_random_color = false;
+        } else if self.selected_color == Some(Color::Black) {
+            self.selected_color = None;
+            self.is_random_color = true;
+        } else if self.is_random_color {
+            self.selected_color = Some(Color::White);
+            self.is_random_color = false;
+        }
+    }
+
+    fn resolved_color(&mut self) -> Option<Color> {
+        if !self.is_random_color && self.selected_color.is_none() {
+            self.selected_color = Some(Color::White);
+        }
+        self.selected_color
+    }
+
+    fn start_action(&mut self, mode: AvailableGameMode) -> PageAction {
+        let color = match mode {
+            AvailableGameMode::Local => None,
+            AvailableGameMode::Multiplayer | AvailableGameMode::Bot => self.resolved_color(),
+            AvailableGameMode::PGNLoader => None,
+        };
+        PageAction::GameMode(GameModeAction::Start {
+            mode,
+            time_control: self.get_time_control(),
+            color,
+            random_color: self.is_random_color,
+            hosting: self.hosting,
+        })
+    }
+
+    fn form_left(&mut self, ctx: &PageContext<'_>, kind: AvailableGameMode) -> PageAction {
         match kind {
-            AvailableGameMode::Local => match LocalFormField::from(state.form_cursor) {
+            AvailableGameMode::Local => match LocalFormField::from(self.form_cursor) {
                 LocalFormField::TimeControl => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        state.form_cursor = 1;
-                    } else {
-                        app.game_mode_submit(AvailableGameMode::Local);
+                    if self.clock_cursor > 0 {
+                        self.clock_cursor -= 1;
                     }
                 }
-                LocalFormField::CustomTime => app.game_mode_submit(AvailableGameMode::Local),
+                LocalFormField::CustomTime => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX
+                        && self.custom_time_minutes > 1
+                    {
+                        self.custom_time_minutes -= 1;
+                    }
+                }
             },
-            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(state.form_cursor) {
+            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(self.form_cursor) {
+                MultiplayerFormField::HostSelection => self.hosting = Some(true),
+                MultiplayerFormField::ColorSelection => {
+                    if self.hosting == Some(true) {
+                        self.select_previous_color_option();
+                    }
+                }
+            },
+            AvailableGameMode::Bot => match BotFormField::from(self.form_cursor) {
+                BotFormField::TimeControl => {
+                    if self.clock_cursor > 0 {
+                        self.clock_cursor -= 1;
+                    }
+                }
+                BotFormField::CustomTime => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        if self.custom_time_minutes > 1 {
+                            self.custom_time_minutes -= 1;
+                        }
+                    } else {
+                        self.select_previous_color_option();
+                    }
+                }
+                BotFormField::ColorSelection => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        self.select_previous_color_option();
+                    } else if ctx.game_mode.bot_depth > 1 {
+                        return PageAction::Settings(SettingsAction::BotDepthDown);
+                    }
+                }
+                BotFormField::BotDepthSelection => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        if ctx.game_mode.bot_depth > 1 {
+                            return PageAction::Settings(SettingsAction::BotDepthDown);
+                        }
+                    } else {
+                        return PageAction::Settings(SettingsAction::CycleDifficulty(false));
+                    }
+                }
+                BotFormField::DifficultySelection => {
+                    return PageAction::Settings(SettingsAction::CycleDifficulty(false));
+                }
+            },
+            AvailableGameMode::PGNLoader => {}
+        }
+        PageAction::None
+    }
+
+    fn form_right(&mut self, ctx: &PageContext<'_>, kind: AvailableGameMode) -> PageAction {
+        match kind {
+            AvailableGameMode::Local => match LocalFormField::from(self.form_cursor) {
+                LocalFormField::TimeControl => {
+                    if self.clock_cursor < TIME_CONTROL_CUSTOM_INDEX {
+                        self.clock_cursor += 1;
+                    }
+                }
+                LocalFormField::CustomTime => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX
+                        && self.custom_time_minutes < 120
+                    {
+                        self.custom_time_minutes += 1;
+                    }
+                }
+            },
+            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(self.form_cursor) {
+                MultiplayerFormField::HostSelection => self.hosting = Some(false),
+                MultiplayerFormField::ColorSelection => {
+                    if self.hosting == Some(true) {
+                        self.select_next_color_option();
+                    }
+                }
+            },
+            AvailableGameMode::Bot => match BotFormField::from(self.form_cursor) {
+                BotFormField::TimeControl => {
+                    if self.clock_cursor < TIME_CONTROL_CUSTOM_INDEX {
+                        self.clock_cursor += 1;
+                    }
+                }
+                BotFormField::CustomTime => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        if self.custom_time_minutes < 120 {
+                            self.custom_time_minutes += 1;
+                        }
+                    } else {
+                        self.select_next_color_option();
+                    }
+                }
+                BotFormField::ColorSelection => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        self.select_next_color_option();
+                    } else if ctx.game_mode.bot_depth < 20 {
+                        return PageAction::Settings(SettingsAction::BotDepthUp);
+                    }
+                }
+                BotFormField::BotDepthSelection => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        if ctx.game_mode.bot_depth < 20 {
+                            return PageAction::Settings(SettingsAction::BotDepthUp);
+                        }
+                    } else {
+                        return PageAction::Settings(SettingsAction::CycleDifficulty(true));
+                    }
+                }
+                BotFormField::DifficultySelection => {
+                    return PageAction::Settings(SettingsAction::CycleDifficulty(true));
+                }
+            },
+            AvailableGameMode::PGNLoader => {}
+        }
+        PageAction::None
+    }
+
+    fn form_enter(&mut self, kind: AvailableGameMode) -> PageAction {
+        match kind {
+            AvailableGameMode::Local => match LocalFormField::from(self.form_cursor) {
+                LocalFormField::TimeControl => {
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        self.form_cursor = 1;
+                        PageAction::None
+                    } else {
+                        self.start_action(AvailableGameMode::Local)
+                    }
+                }
+                LocalFormField::CustomTime => self.start_action(AvailableGameMode::Local),
+            },
+            AvailableGameMode::Multiplayer => match MultiplayerFormField::from(self.form_cursor) {
                 MultiplayerFormField::HostSelection => {
-                    if app.game_mode_hosting().is_none() {
-                        app.game_mode_set_hosting(Some(true));
+                    if self.hosting.is_none() {
+                        self.hosting = Some(true);
                     }
-                    if app.game_mode_hosting() == Some(true) {
-                        app.game_mode_state_mut().form_cursor = 1;
+                    if self.hosting == Some(true) {
+                        self.form_cursor = 1;
+                        PageAction::None
                     } else {
-                        app.game_mode_submit(AvailableGameMode::Multiplayer);
+                        self.start_action(AvailableGameMode::Multiplayer)
                     }
                 }
                 MultiplayerFormField::ColorSelection => {
-                    let state = app.game_mode_state_mut();
-                    if state.selected_color.is_none() && !state.is_random_color {
-                        state.selected_color = Some(Color::White);
-                    }
-                    app.game_mode_submit(AvailableGameMode::Multiplayer);
+                    self.start_action(AvailableGameMode::Multiplayer)
                 }
             },
-            AvailableGameMode::Bot => match BotFormField::from(state.form_cursor) {
-                BotFormField::TimeControl => state.form_cursor = 1,
+            AvailableGameMode::Bot => match BotFormField::from(self.form_cursor) {
+                BotFormField::TimeControl => {
+                    self.form_cursor = 1;
+                    PageAction::None
+                }
                 BotFormField::CustomTime => {
-                    if state.clock_cursor != TIME_CONTROL_CUSTOM_INDEX
-                        && state.selected_color.is_none()
-                        && !state.is_random_color
-                    {
-                        state.selected_color = Some(Color::White);
+                    if self.clock_cursor != TIME_CONTROL_CUSTOM_INDEX {
+                        self.resolved_color();
                     }
-                    state.form_cursor = 2;
+                    self.form_cursor = 2;
+                    PageAction::None
                 }
                 BotFormField::ColorSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX
-                        && state.selected_color.is_none()
-                        && !state.is_random_color
-                    {
-                        state.selected_color = Some(Color::White);
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        self.resolved_color();
                     }
-                    state.form_cursor = 3;
+                    self.form_cursor = 3;
+                    PageAction::None
                 }
                 BotFormField::BotDepthSelection => {
-                    if state.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
-                        state.form_cursor = 4;
+                    if self.clock_cursor == TIME_CONTROL_CUSTOM_INDEX {
+                        self.form_cursor = 4;
+                        PageAction::None
                     } else {
-                        app.game_mode_submit(AvailableGameMode::Bot);
+                        self.start_action(AvailableGameMode::Bot)
                     }
                 }
-                BotFormField::DifficultySelection => app.game_mode_submit(AvailableGameMode::Bot),
+                BotFormField::DifficultySelection => self.start_action(AvailableGameMode::Bot),
             },
-            AvailableGameMode::PGNLoader => {}
+            AvailableGameMode::PGNLoader => PageAction::None,
         }
     }
 
-    fn handle_form(&mut self, key: KeyEvent, app: &mut App, kind: AvailableGameMode) {
+    fn has_resume(&self, ctx: &PageContext<'_>, kind: AvailableGameMode) -> bool {
+        match kind {
+            AvailableGameMode::Local => ctx.game_mode.has_local_resume,
+            AvailableGameMode::Bot => ctx.game_mode.has_bot_resume,
+            _ => false,
+        }
+    }
+
+    fn handle_form(
+        &mut self,
+        key: KeyEvent,
+        ctx: &PageContext<'_>,
+        kind: AvailableGameMode,
+    ) -> PageAction {
         match key.code {
             KeyCode::Esc => {
-                let state = app.game_mode_state_mut();
-                state.form_active = false;
-                state.form_cursor = 0;
+                self.form_active = false;
+                self.form_cursor = 0;
+                PageAction::None
             }
-            KeyCode::Up | KeyCode::Char('k') | KeyCode::Down | KeyCode::Char('j') => {}
-            KeyCode::Left | KeyCode::Char('h') => self.form_left(app, kind),
-            KeyCode::Right | KeyCode::Char('l') => self.form_right(app, kind),
-            KeyCode::Char(' ') | KeyCode::Enter => self.form_enter(app, kind),
+            KeyCode::Up | KeyCode::Char('k') | KeyCode::Down | KeyCode::Char('j') => {
+                PageAction::None
+            }
+            KeyCode::Left | KeyCode::Char('h') => self.form_left(ctx, kind),
+            KeyCode::Right | KeyCode::Char('l') => self.form_right(ctx, kind),
+            KeyCode::Char(' ') | KeyCode::Enter => self.form_enter(kind),
             KeyCode::Char('r' | 'R') => {
-                if app.game_mode_has_resume(kind) {
-                    let state = app.game_mode_state_mut();
-                    state.form_active = false;
-                    state.form_cursor = 0;
-                    app.game_mode_resume(kind);
+                if self.has_resume(ctx, kind) {
+                    self.form_active = false;
+                    self.form_cursor = 0;
+                    PageAction::GameMode(GameModeAction::Resume(kind))
+                } else {
+                    PageAction::None
                 }
             }
-            KeyCode::Char('?') => app.open_help(),
-            KeyCode::Char('q') => app.quit(),
-            _ => {}
+            KeyCode::Char('?') => PageAction::OpenHelp,
+            KeyCode::Char('q') => PageAction::Quit,
+            _ => PageAction::None,
         }
     }
 
-    fn handle_menu(&mut self, key: KeyEvent, app: &mut App, kind: AvailableGameMode) {
+    fn handle_menu(
+        &mut self,
+        key: KeyEvent,
+        ctx: &PageContext<'_>,
+        kind: AvailableGameMode,
+    ) -> PageAction {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 {
@@ -319,46 +464,38 @@ impl GameModeMenuPage {
                     self.cursor += 1;
                 }
             }
-            KeyCode::Char(' ') | KeyCode::Enter => {
-                let state = app.game_mode_state_mut();
-                state.form_active = true;
-                state.form_cursor = 0;
-                state.selection = Some(kind);
-                match kind {
-                    AvailableGameMode::Local => {
-                        if state.clock_cursor > TIME_CONTROL_CUSTOM_INDEX {
-                            state.clock_cursor = 3;
-                        }
-                    }
-                    AvailableGameMode::PGNLoader => {
-                        state.form_active = false;
-                        app.game_mode_open_pgn_loader();
-                    }
-                    _ => {
-                        app.game_mode_set_hosting(None);
-                        app.game_mode_state_mut().selected_color = None;
+            KeyCode::Char(' ') | KeyCode::Enter => match kind {
+                AvailableGameMode::PGNLoader => return PageAction::GameMode(GameModeAction::OpenPgnLoader),
+                _ => {
+                    self.form_active = true;
+                    self.form_cursor = 0;
+                    self.hosting = None;
+                    self.selected_color = None;
+                    self.is_random_color = false;
+                    if kind == AvailableGameMode::Local
+                        && self.clock_cursor > TIME_CONTROL_CUSTOM_INDEX
+                    {
+                        self.clock_cursor = 3;
                     }
                 }
-            }
+            },
             KeyCode::Char('r' | 'R') => {
-                if app.game_mode_has_resume(kind) {
-                    app.game_mode_resume(kind);
+                if self.has_resume(ctx, kind) {
+                    return PageAction::GameMode(GameModeAction::Resume(kind));
                 }
             }
             KeyCode::Esc | KeyCode::Char('b') => {
-                let state = app.game_mode_state_mut();
-                state.selection = None;
-                state.form_cursor = 0;
-                state.form_active = false;
-                state.clock_cursor = 3;
-                state.custom_time_minutes = 10;
-                app.go_home();
+                self.form_active = false;
+                self.form_cursor = 0;
+                self.clock_cursor = 3;
+                self.custom_time_minutes = 10;
+                return PageAction::OpenHome;
             }
-            KeyCode::Char('?') => app.open_help(),
-            KeyCode::Char('q') => app.quit(),
+            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
-        app.game_mode_set_menu_cursor(self.cursor);
+        PageAction::None
     }
 }
 
@@ -369,23 +506,30 @@ impl Default for GameModeMenuPage {
 }
 
 impl Page for GameModeMenuPage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, ctx: &PageContext<'_>) -> PageAction {
         if self.cursor >= AvailableGameMode::COUNT {
             self.cursor = 0;
         }
         let Some(kind) = self.current_mode() else {
-            return Nav::None;
+            return PageAction::None;
         };
-        if app.game_mode_state().form_active {
-            self.handle_form(key, app, kind);
+        if self.form_active {
+            self.handle_form(key, ctx, kind)
         } else {
-            self.handle_menu(key, app, kind);
+            self.handle_menu(key, ctx, kind)
         }
-        Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
-        render::render_game_mode_menu(frame, area, app, self.cursor);
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
+        render::render_game_mode_menu(frame, area, ctx, self);
+    }
+
+    fn menu_cursor(&self) -> Option<u8> {
+        Some(self.cursor)
+    }
+
+    fn form_active(&self) -> Option<bool> {
+        Some(self.form_active)
     }
 }
 

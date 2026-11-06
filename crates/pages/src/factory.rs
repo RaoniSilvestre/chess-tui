@@ -1,6 +1,7 @@
 //! Default page factory used by the application bootstrap.
 
-use app::{GamePageKind, Page, PageFactory};
+use page::{GamePageKind, Page, PageFactory};
+use session::GameHandle;
 use model::PgnViewer;
 
 use crate::{
@@ -16,24 +17,24 @@ impl PageFactory for DefaultPageFactory {
         Box::new(HomePage::new())
     }
 
-    fn solo(&self) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Solo))
+    fn solo(&self, game: GameHandle) -> Box<dyn Page> {
+        Box::new(GamePage::new(GamePageKind::Solo, game))
     }
 
-    fn bot(&self) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Bot))
+    fn bot(&self, game: GameHandle) -> Box<dyn Page> {
+        Box::new(GamePage::new(GamePageKind::Bot, game))
     }
 
-    fn multiplayer(&self) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Multiplayer))
+    fn multiplayer(&self, game: GameHandle) -> Box<dyn Page> {
+        Box::new(GamePage::new(GamePageKind::Multiplayer, game))
     }
 
-    fn lichess(&self) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Lichess))
+    fn lichess(&self, game: GameHandle) -> Box<dyn Page> {
+        Box::new(GamePage::new(GamePageKind::Lichess, game))
     }
 
-    fn lichess_menu(&self, time_control: u8) -> Box<dyn Page> {
-        Box::new(LichessMenuPage::new(time_control))
+    fn lichess_menu(&self) -> Box<dyn Page> {
+        Box::new(LichessMenuPage::new())
     }
 
     fn ongoing_games(&self) -> Box<dyn Page> {

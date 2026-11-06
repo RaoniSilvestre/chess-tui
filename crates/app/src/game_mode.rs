@@ -3,38 +3,13 @@
 use model::TimeControl;
 use shakmaty::Color;
 
-pub const TIME_CONTROL_CUSTOM_INDEX: u8 = 6;
-pub const TIME_CONTROL_OPTIONS: &[&str] = &[
-    "UltraBullet",
-    "Bullet",
-    "Blitz",
-    "Rapid",
-    "Classical",
-    "No clock",
-    "Custom",
-];
-pub const BOT_DIFFICULTY_NAMES: [&str; 4] =
-    ["Easy (400)", "Medium (900)", "Hard (1500)", "Magnus (2700)"];
-pub const BOT_DIFFICULTY_COUNT: usize = 4;
-
-/// The four game modes available from the game-mode selection menu.
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum AvailableGameMode {
-    Local,
-    Multiplayer,
-    Bot,
-    PGNLoader,
-}
-
-impl AvailableGameMode {
-    pub const COUNT: u8 = 4;
-}
+pub use page::{
+    AvailableGameMode, BOT_DIFFICULTY_COUNT, BOT_DIFFICULTY_NAMES, TIME_CONTROL_CUSTOM_INDEX,
+    TIME_CONTROL_OPTIONS,
+};
 
 /// Form state and settings captured during game-mode configuration.
 pub struct GameModeState {
-    pub selection: Option<AvailableGameMode>,
-    pub form_cursor: u8,
-    pub form_active: bool,
     pub clock_cursor: u8,
     pub custom_time_minutes: u16,
     pub is_random_color: bool,
@@ -44,9 +19,6 @@ pub struct GameModeState {
 impl Default for GameModeState {
     fn default() -> Self {
         Self {
-            selection: None,
-            form_cursor: 0,
-            form_active: false,
             clock_cursor: 3,
             custom_time_minutes: 10,
             selected_color: None,

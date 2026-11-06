@@ -2,7 +2,7 @@
 
 use super::popup_end::render_end_popup;
 use super::popup_promotion::render_promotion_popup;
-use app::game_state::Game;
+use session::Game;
 use model::{Clock, ClockState, DrawReason, GameOutcome};
 use ratatui::{
     Frame,
@@ -23,7 +23,7 @@ pub fn render_game_ui(
     frame: &mut Frame<'_>,
     main_area: Rect,
     game: &mut Game,
-    kitty_pieces: &mut Option<KittyPieces>,
+    kitty_pieces: Option<&mut KittyPieces>,
     kitty_graphics_enabled: bool,
     is_puzzle_mode: bool,
     end_screen_visible: bool,
@@ -115,7 +115,7 @@ pub fn render_game_ui(
         board_inner,
         frame,
         logic,
-        kitty_pieces.as_mut().filter(|_| kitty_graphics_enabled),
+        kitty_pieces.filter(|_| kitty_graphics_enabled),
     );
 
     // Render rank labels (1-8) on the left - aligned with board's inner area

@@ -33,7 +33,16 @@
 - [x] Move page-local state into page structs and the concrete `App` into `app`.
 - [x] Remove `LegacyPage`, the `Pages` routing enum, and the central page dispatch.
 - [x] Replace the `Popups` enum with modal objects owned by the application.
-- [x] Remove the temporary per-page context traits; pages receive `&mut App` directly.
+- [x] Remove the temporary per-page context traits.
+- [x] Add the `page` crate for `Page`, `PageAction`, `PageContext`, `Router`, and `PageFactory`.
+- [x] Remove the `pages` crate's dependency on `app`; pages now return actions instead of mutating `App`.
+- [x] Move page-local state into pages (Home, Settings, GameModeMenu, LichessMenu, OngoingGames, PgnViewer, GamePage).
+- [x] Give `GamePage` ownership of the game handle and board view state.
+
+## App phase 2 follow-ups
+
+- [ ] Extract `LichessService`, `ResumeService`, and game setup from `App` into dedicated service structs.
+- [ ] Remove the shared `GameHandle` once game services consume page-emitted events instead of borrowing the game.
 
 ## Validation
 

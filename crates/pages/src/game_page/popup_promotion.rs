@@ -1,6 +1,6 @@
 //! Pawn promotion piece-selection popup.
 
-use app::game_state::Game;
+use session::Game;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},

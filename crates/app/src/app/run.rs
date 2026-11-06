@@ -56,7 +56,7 @@ impl App {
     }
 
     fn handle_game_events(&mut self) {
-        for event in self.game.runtime.take_events() {
+        for event in self.game_mut().runtime.take_events() {
             match event {
                 GameEvent::MovePlayed => play_move_sound(),
                 GameEvent::Error(message) => {

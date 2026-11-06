@@ -10,7 +10,7 @@ use ratatui::{
 };
 use ui::components::centered_rect::centered_rect;
 
-/// Renders the "discard the saved game?" dialog for `app.ui_state.pending_new_game`.
+/// Renders the "discard the saved game?" dialog for the pending game transition.
 pub fn render_new_game_confirmation_popup(frame: &mut Frame, restart: bool) {
     let block = Block::default()
         .title(if restart { "Restart Game" } else { "New Game" })

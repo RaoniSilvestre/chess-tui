@@ -8,22 +8,22 @@ use shakmaty::CastlingMode;
 impl App {
     /// Moves the board cursor one square to the left.
     pub fn go_left_in_game(&mut self) {
-        self.game.ui.cursor_left();
+        self.game_mut().ui.cursor_left();
     }
 
     /// Moves the board cursor one square to the right.
     pub fn go_right_in_game(&mut self) {
-        self.game.ui.cursor_right();
+        self.game_mut().ui.cursor_right();
     }
 
     /// Moves the board cursor one square up.
     pub fn go_up_in_game(&mut self) {
-        self.game.ui.cursor_up();
+        self.game_mut().ui.cursor_up();
     }
 
     /// Moves the board cursor one square down.
     pub fn go_down_in_game(&mut self) {
-        self.game.ui.cursor_down();
+        self.game_mut().ui.cursor_down();
     }
 
     /// Handles a confirm/select action on the current cursor square. Dispatches to promotion
@@ -32,16 +32,17 @@ impl App {
         // Handle promotion directly (like mouse handler does)
         // Note: Promotion state should always allow input, even if turn has switched
         // because the player needs to select the promotion piece after making the move
-        if self.game.runtime.state().is_promotion() {
+        if self.game_mut().runtime.state().is_promotion() {
             // Track if the move was correct (for puzzle mode)
             let mut move_was_correct = true;
 
             // If we have a pending promotion move, validate it now with the selected promotion piece
-            if let Some(pending) = self.game.runtime.promotion() {
+            let pending = self.game().runtime.promotion();
+            if let Some(pending) = pending {
                 let from = pending.from();
                 let to = pending.to();
                 // Get the promotion piece from the cursor
-                let promotion_char = match self.game.ui.promotion_cursor {
+                let promotion_char = match self.game_mut().ui.promotion_cursor {
                     0 => 'q', // Queen
                     1 => 'r', // Rook
                     2 => 'b', // Bishop
@@ -53,17 +54,15 @@ impl App {
                 let move_uci = format!("{}{}{}", from, to, promotion_char);
 
                 // Validate the puzzle move with the complete UCI
-                if self.lichess_state.puzzle_game.is_some()
-                    && let Some(mut puzzle_game) = self.lichess_state.puzzle_game.take()
-                {
-                    let (is_correct, message) = puzzle_game.validate_move(
-                        move_uci,
-                        &mut self.game,
-                        self.lichess_state.token.clone(),
-                    );
+                let mut puzzle_game = self.lichess_state.puzzle_game.take();
+                if let Some(puzzle_game) = puzzle_game.as_mut() {
+                    let token = self.lichess_state.token.clone();
+                    let (is_correct, message) = {
+                        let mut game = self.game_mut();
+                        puzzle_game.validate_move(move_uci, &mut game, token)
+                    };
 
                     move_was_correct = is_correct;
-                    self.lichess_state.puzzle_game = Some(puzzle_game);
 
                     if let Some(msg) = message {
                         if is_correct {
@@ -73,6 +72,7 @@ impl App {
                         }
                     }
                 }
+                self.lichess_state.puzzle_game = puzzle_game;
             }
             // The promotion state carries the move squares. The move is already in
             // history and only needs to be replayed with the selected piece.
@@ -82,13 +82,13 @@ impl App {
             if move_was_correct || self.lichess_state.puzzle_game.is_none() {
                 // Don't flip board in puzzle mode or in multiplayer/Lichess mode
                 let should_flip =
-                    self.lichess_state.puzzle_game.is_none() && self.game.runtime.flip_after_move();
-                self.game.handle_promotion(should_flip);
+                    self.lichess_state.puzzle_game.is_none() && self.game_mut().runtime.flip_after_move();
+                self.game_mut().handle_promotion(should_flip);
             } else {
                 // Move was incorrect in puzzle mode - ensure game state is reset
                 // reset_last_move should have already handled this, but make sure
-                if self.game.runtime.state().is_promotion() {
-                    self.game.runtime.start_playing();
+                if self.game_mut().runtime.state().is_promotion() {
+                    self.game_mut().runtime.start_playing();
                 }
             }
 
@@ -99,22 +99,21 @@ impl App {
 
             // Store move info before execution for puzzle validation
             let puzzle_move_info = if self.lichess_state.puzzle_game.is_some()
-                && self.game.ui.is_cell_selected()
+                && self.game_mut().ui.is_cell_selected()
             {
-                if let Some(selected_square) = self.game.ui.selected_square {
-                    let cursor_square = self.game.ui.cursor_coordinates.into();
+                if let Some(selected_square) = self.game_mut().ui.selected_square {
+                    let cursor_square = self.game_mut().ui.cursor_coordinates.into();
 
                     let from =
-                        flip_square_if_needed(selected_square, self.game.runtime.is_flipped());
-                    let to = flip_square_if_needed(cursor_square, self.game.runtime.is_flipped());
+                        flip_square_if_needed(selected_square, self.game_mut().runtime.is_flipped());
+                    let to = flip_square_if_needed(cursor_square, self.game_mut().runtime.is_flipped());
 
                     // Check if it is a valid move. This could be improved by having a single source
                     // of truth. Maybe the game return an Option<(Square, Square)> so anyone can see
                     // if a move was actually made by a movement.
-                    let authorized_positions = self
-                        .game
+                    let authorized_positions = self.game_mut()
                         .runtime
-                        .get_authorized_positions(self.game.runtime.turn(), &from);
+                        .get_authorized_positions(self.game_mut().runtime.turn(), &from);
 
                     if authorized_positions.contains(&to) {
                         Some((from, to))
@@ -128,11 +127,11 @@ impl App {
                 None
             };
 
-            self.game.handle_cell_click();
+            self.game_mut().handle_cell_click();
 
             // Validate puzzle moves after execution. Promotion validation happens
             // when the player chooses the piece.
-            if !self.game.runtime.state().is_promotion()
+            if !self.game_mut().runtime.state().is_promotion()
                 && let Some((from, to)) = puzzle_move_info
             {
                 self.validate_puzzle_move_after_execution(from, to);
@@ -140,7 +139,7 @@ impl App {
 
             // Ensure board stays unflipped in puzzle mode
             if self.lichess_state.puzzle_game.is_some() {
-                self.game.runtime.set_flipped(false);
+                self.game_mut().runtime.set_flipped(false);
             }
 
             self.check_and_show_game_end();
@@ -154,8 +153,7 @@ impl App {
             return false;
         };
 
-        if !self
-            .game
+        if !self.game_mut()
             .apply_player_move(from, chess_move.to(), chess_move.promotion())
         {
             return false;
@@ -165,7 +163,7 @@ impl App {
             // Standard UCI so castling is "e1g1" (not king to rook) and promotions keep their piece
             let move_uci = chess_move.to_uci(CastlingMode::Standard).to_string();
             self.validate_puzzle_move_uci(move_uci);
-            self.game.runtime.set_flipped(false);
+            self.game_mut().runtime.set_flipped(false);
         }
 
         self.check_and_show_game_end();
@@ -175,24 +173,24 @@ impl App {
     /// Attempts to move the selected piece to `target_square` via mouse click.
     /// Returns `true` if the target is a legal destination and the move was executed.
     pub fn try_mouse_move(&mut self, target_square: shakmaty::Square, coords: Coord) -> bool {
-        if self.game.ui.selected_square.is_none() {
+        if self.game_mut().ui.selected_square.is_none() {
             return false;
         }
 
-        let Some(selected_square) = self.game.ui.selected_square else {
+        let Some(selected_square) = self.game_mut().ui.selected_square else {
             return false;
         };
-        let authorized_positions = self.game.runtime.get_authorized_positions(
-            self.game.runtime.turn(),
-            &flip_square_if_needed(selected_square, self.game.runtime.is_flipped()),
+        let authorized_positions = self.game_mut().runtime.get_authorized_positions(
+            self.game_mut().runtime.turn(),
+            &flip_square_if_needed(selected_square, self.game_mut().runtime.is_flipped()),
         );
 
         // Check if target square is a valid move destination
         if authorized_positions.contains(&flip_square_if_needed(
             target_square,
-            self.game.runtime.is_flipped(),
+            self.game_mut().runtime.is_flipped(),
         )) {
-            self.game.ui.cursor_coordinates = coords;
+            self.game_mut().ui.cursor_coordinates = coords;
             self.process_cell_click();
             return true;
         }

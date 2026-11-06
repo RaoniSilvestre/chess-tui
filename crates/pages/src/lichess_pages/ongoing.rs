@@ -1,6 +1,6 @@
 //! Ongoing Lichess games list.
 
-use app::{App, Nav, Page};
+use page::{OngoingAction, Page, PageAction, PageContext};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -11,7 +11,7 @@ use ratatui::{
 };
 
 /// Renders the ongoing Lichess games list with navigation hints.
-fn render_ongoing_games(frame: &mut Frame, area: Rect, app: &App, cursor: u8) {
+fn render_ongoing_games(frame: &mut Frame, area: Rect, ctx: &PageContext<'_>, cursor: u8) {
     // Create layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -38,7 +38,7 @@ fn render_ongoing_games(frame: &mut Frame, area: Rect, app: &App, cursor: u8) {
     frame.render_widget(title, chunks[0]);
 
     // Games list
-    let games = app.ongoing_games();
+    let games = ctx.lichess.ongoing_games;
     let mut game_lines = vec![Line::from("")];
 
     if games.is_empty() {
@@ -141,32 +141,34 @@ impl Default for OngoingGamesPage {
 }
 
 impl Page for OngoingGamesPage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, ctx: &PageContext<'_>) -> PageAction {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = self.cursor.saturating_sub(1);
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if (self.cursor as usize) < app.ongoing_games().len().saturating_sub(1) {
+                if (self.cursor as usize) < ctx.lichess.ongoing_games.len().saturating_sub(1) {
                     self.cursor += 1;
                 }
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
-                app.ongoing_game_open(self.cursor as usize);
+                return PageAction::Ongoing(OngoingAction::Open(self.cursor as usize));
             }
             KeyCode::Char('r' | 'R') => {
-                app.ongoing_game_request_resign(self.cursor as usize);
+                return PageAction::Ongoing(OngoingAction::RequestResign(self.cursor as usize));
             }
-            KeyCode::Esc | KeyCode::Char('b') => app.ongoing_games_back(),
-            KeyCode::Char('?') => app.open_help(),
-            KeyCode::Char('q') => app.quit(),
+            KeyCode::Esc | KeyCode::Char('b') => {
+                return PageAction::Ongoing(OngoingAction::Back);
+            }
+            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
-        Nav::None
+        PageAction::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
-        render_ongoing_games(frame, area, app, self.cursor);
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
+        render_ongoing_games(frame, area, ctx, self.cursor);
     }
 
     fn is_ongoing_games(&self) -> bool {

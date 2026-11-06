@@ -1,7 +1,11 @@
 //! Renders the two-phase game-mode screen: mode list then the per-mode configuration form.
 
-use app::game_mode::{BOT_DIFFICULTY_NAMES, TIME_CONTROL_CUSTOM_INDEX, TIME_CONTROL_OPTIONS};
-use app::{App, AvailableGameMode};
+use page::{
+    AvailableGameMode, BOT_DIFFICULTY_NAMES, PageContext, TIME_CONTROL_CUSTOM_INDEX,
+    TIME_CONTROL_OPTIONS,
+};
+
+use super::GameModeMenuPage;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -12,11 +16,46 @@ use ratatui::{
 use shakmaty::Color as ShakmatyColor;
 
 const DOCS_URL: &str = "https://thomas-mauran.github.io/chess-tui/docs";
+
+struct RenderState<'p, 'c> {
+    page: &'p GameModeMenuPage,
+    ctx: &'c PageContext<'c>,
+}
+
+impl RenderState<'_, '_> {
+    fn game_mode_state(&self) -> &GameModeMenuPage {
+        self.page
+    }
+
+    fn game_mode_bot_depth(&self) -> u8 {
+        self.ctx.game_mode.bot_depth
+    }
+
+    fn game_mode_bot_difficulty(&self) -> Option<u8> {
+        self.ctx.game_mode.bot_difficulty
+    }
+
+    fn game_mode_engine_path(&self) -> Option<String> {
+        self.ctx.game_mode.engine_path.clone()
+    }
+
+    fn game_mode_hosting(&self) -> Option<bool> {
+        self.page.hosting
+    }
+
+    fn game_mode_has_resume(&self, kind: AvailableGameMode) -> bool {
+        match kind {
+            AvailableGameMode::Local => self.ctx.game_mode.has_local_resume,
+            AvailableGameMode::Bot => self.ctx.game_mode.has_bot_resume,
+            _ => false,
+        }
+    }
+}
 /// Renders the time control selection UI (buttons and custom time field if needed)
 /// Returns the updated chunk index after rendering
 fn render_time_control_ui(
     frame: &mut Frame,
-    app: &App,
+    state: &RenderState<'_, '_>,
     time_control_area: Rect,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
@@ -34,7 +73,7 @@ fn render_time_control_ui(
         .split(time_control_area);
 
     let is_time_control_focused =
-        is_active && app.game_mode_state().form_cursor == time_control_cursor;
+        is_active && state.game_mode_state().form_cursor == time_control_cursor;
     let time_control_label_style = if !is_active {
         Style::default().fg(grey_color)
     } else {
@@ -47,7 +86,7 @@ fn render_time_control_ui(
         .alignment(Alignment::Left);
     frame.render_widget(time_control_label, time_control_label_area[0]);
 
-    let current_index = app
+    let current_index = state
         .game_mode_state()
         .clock_cursor
         .min(TIME_CONTROL_CUSTOM_INDEX) as usize;
@@ -94,7 +133,7 @@ fn render_time_control_ui(
     }
 
     // Show custom time adjustment field if Custom is selected
-    if app.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX && is_active {
+    if state.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX && is_active {
         *chunk_idx += 1;
         if *chunk_idx < form_chunks.len() {
             let custom_time_area = Layout::default()
@@ -103,7 +142,7 @@ fn render_time_control_ui(
                 .split(form_chunks[*chunk_idx]);
 
             let custom_time_cursor = time_control_cursor + 1;
-            let is_custom_time_focused = app.game_mode_state().form_cursor == custom_time_cursor;
+            let is_custom_time_focused = state.game_mode_state().form_cursor == custom_time_cursor;
             let custom_time_label_style = if is_custom_time_focused {
                 Style::default()
                     .fg(Color::Cyan)
@@ -148,7 +187,7 @@ fn render_time_control_ui(
             } else {
                 Style::default().fg(Color::White)
             };
-            let custom_time_display = format!("  {}", app.game_mode_state().custom_time_minutes);
+            let custom_time_display = format!("  {}", state.game_mode_state().custom_time_minutes);
             let custom_time_value_text = Paragraph::new(custom_time_display)
                 .alignment(Alignment::Center)
                 .style(custom_time_value_style);
@@ -173,7 +212,7 @@ fn render_time_control_ui(
 
 fn render_color_selection_ui(
     frame: &mut Frame,
-    app: &App,
+    state: &RenderState<'_, '_>,
     color_area: Rect,
     is_active: bool,
     is_enabled: bool,
@@ -208,13 +247,13 @@ fn render_color_selection_ui(
         ])
         .split(color_area[1]);
 
-    let is_focused = is_active && app.game_mode_state().form_cursor == color_cursor;
-    let white_selected = app.game_mode_state().selected_color == Some(ShakmatyColor::White)
-        && !app.game_mode_state().is_random_color;
+    let is_focused = is_active && state.game_mode_state().form_cursor == color_cursor;
+    let white_selected = state.game_mode_state().selected_color == Some(ShakmatyColor::White)
+        && !state.game_mode_state().is_random_color;
     let white_focused = is_enabled
         && is_focused
-        && app.game_mode_state().selected_color.is_none()
-        && !app.game_mode_state().is_random_color;
+        && state.game_mode_state().selected_color.is_none()
+        && !state.game_mode_state().is_random_color;
     let white_style = if !is_enabled {
         Style::default().fg(grey_color)
     } else if white_selected {
@@ -235,8 +274,8 @@ fn render_color_selection_ui(
         .style(white_style);
     frame.render_widget(white_text, color_button_area[0]);
 
-    let black_selected = app.game_mode_state().selected_color == Some(ShakmatyColor::Black)
-        && !app.game_mode_state().is_random_color;
+    let black_selected = state.game_mode_state().selected_color == Some(ShakmatyColor::Black)
+        && !state.game_mode_state().is_random_color;
     let black_style = if !is_enabled {
         Style::default().fg(grey_color)
     } else if black_selected {
@@ -252,7 +291,7 @@ fn render_color_selection_ui(
         .style(black_style);
     frame.render_widget(black_text, color_button_area[2]);
 
-    let random_selected = app.game_mode_state().is_random_color;
+    let random_selected = state.game_mode_state().is_random_color;
     let random_style = if !is_enabled {
         Style::default().fg(grey_color)
     } else if random_selected {
@@ -269,7 +308,14 @@ fn render_color_selection_ui(
     frame.render_widget(random_text, color_button_area[4]);
 }
 
-pub fn render_game_mode_menu(frame: &mut Frame, area: Rect, app: &App, cursor: u8) {
+pub fn render_game_mode_menu(
+    frame: &mut Frame,
+    area: Rect,
+    ctx: &mut PageContext<'_>,
+    page: &GameModeMenuPage,
+) {
+    let state = RenderState { page, ctx };
+    let cursor = page.cursor;
     let game_mode = match cursor {
         0 => AvailableGameMode::Local,
         1 => AvailableGameMode::Multiplayer,
@@ -371,13 +417,13 @@ pub fn render_game_mode_menu(frame: &mut Frame, area: Rect, app: &App, cursor: u
     frame.render_widget(menu, left_chunks[0]);
 
     // Render the form based on selected game mode (greyed if not active)
-    render_game_mode_form(frame, app, left_chunks[1], game_mode);
+    render_game_mode_form(frame, &state, left_chunks[1], game_mode);
 
     // Render details panel on the right
-    render_details_panel(frame, app, content_chunks[1], game_mode);
+    render_details_panel(frame, &state, content_chunks[1], game_mode);
 
     // Footer with controls
-    let footer_text = if app.game_mode_state().form_active {
+    let footer_text = if state.game_mode_state().form_active {
         vec![Line::from(vec![
             Span::styled("↑/↓", Style::default().fg(Color::Cyan)),
             Span::raw(" Navigate form  "),
@@ -408,7 +454,7 @@ pub fn render_game_mode_menu(frame: &mut Frame, area: Rect, app: &App, cursor: u
     frame.render_widget(footer, main_chunks[2]);
 }
 
-fn build_local_detail_lines(app: &App) -> Vec<Line<'static>> {
+fn build_local_detail_lines(state: &RenderState<'_, '_>) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![Span::styled(
             "Local Game",
@@ -422,7 +468,7 @@ fn build_local_detail_lines(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
     ];
 
-    if app.game_mode_has_resume(AvailableGameMode::Local) {
+    if state.game_mode_has_resume(AvailableGameMode::Local) {
         lines.push(Line::from(vec![Span::styled(
             "Saved game available — press R to resume",
             Style::default()
@@ -439,8 +485,8 @@ fn build_local_detail_lines(app: &App) -> Vec<Line<'static>> {
             .add_modifier(Modifier::BOLD),
     )]));
 
-    let current_time_control = app.game_mode_state().get_time_control_name();
-    let time_label = if let Some(seconds) = app.game_mode_state().get_time_control_seconds() {
+    let current_time_control = state.game_mode_state().get_time_control_name();
+    let time_label = if let Some(seconds) = state.game_mode_state().get_time_control_seconds() {
         if seconds < 60 {
             format!("  {} ({} sec)", current_time_control, seconds)
         } else {
@@ -458,7 +504,7 @@ fn build_local_detail_lines(app: &App) -> Vec<Line<'static>> {
     lines.push(Line::from(""));
     lines.push(Line::from(format!(
         "  {}",
-        app.game_mode_state().get_time_control_description()
+        state.game_mode_state().get_time_control_description()
     )));
     lines.push(Line::from(""));
     lines.extend([
@@ -528,7 +574,7 @@ fn build_multiplayer_detail_lines() -> Vec<Line<'static>> {
     ]
 }
 
-fn build_bot_detail_lines(app: &App) -> Vec<Line<'static>> {
+fn build_bot_detail_lines(state: &RenderState<'_, '_>) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![Span::styled(
             "Play Bot",
@@ -542,7 +588,7 @@ fn build_bot_detail_lines(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
     ];
 
-    if app.game_mode_has_resume(AvailableGameMode::Bot) {
+    if state.game_mode_has_resume(AvailableGameMode::Bot) {
         lines.push(Line::from(vec![Span::styled(
             "Saved game available — press R to resume",
             Style::default()
@@ -566,7 +612,7 @@ fn build_bot_detail_lines(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
     ]);
 
-    if let Some(ref path) = app.game_mode_engine_path() {
+    if let Some(ref path) = state.game_mode_engine_path() {
         let display_path = if path.len() > 25 {
             format!("...{}", &path[path.len() - 22..])
         } else {
@@ -590,7 +636,7 @@ fn build_bot_detail_lines(app: &App) -> Vec<Line<'static>> {
         )]));
     }
 
-    let difficulty_display = app
+    let difficulty_display = state
         .game_mode_bot_difficulty()
         .and_then(|i| {
             ((i as usize) < BOT_DIFFICULTY_NAMES.len()).then_some(BOT_DIFFICULTY_NAMES[i as usize])
@@ -604,7 +650,7 @@ fn build_bot_detail_lines(app: &App) -> Vec<Line<'static>> {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )]),
-        Line::from(format!("  {}", app.game_mode_bot_depth())),
+        Line::from(format!("  {}", state.game_mode_bot_depth())),
         Line::from(""),
         Line::from(vec![Span::styled(
             "Difficulty:",
@@ -659,7 +705,7 @@ fn build_pgn_detail_lines() -> Vec<Line<'static>> {
     ]
 }
 
-fn render_details_panel(frame: &mut Frame, app: &App, area: Rect, game_mode: AvailableGameMode) {
+fn render_details_panel(frame: &mut Frame, state: &RenderState<'_, '_>, area: Rect, game_mode: AvailableGameMode) {
     let panel_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -669,9 +715,9 @@ fn render_details_panel(frame: &mut Frame, app: &App, area: Rect, game_mode: Ava
 
     let mut info_lines = vec![Line::from("")];
     info_lines.extend(match game_mode {
-        AvailableGameMode::Local => build_local_detail_lines(app),
+        AvailableGameMode::Local => build_local_detail_lines(state),
         AvailableGameMode::Multiplayer => build_multiplayer_detail_lines(),
-        AvailableGameMode::Bot => build_bot_detail_lines(app),
+        AvailableGameMode::Bot => build_bot_detail_lines(state),
         AvailableGameMode::PGNLoader => build_pgn_detail_lines(),
     });
 
@@ -757,7 +803,7 @@ fn render_spinner(
 
 fn render_multiplayer_form(
     frame: &mut Frame,
-    app: &App,
+    state: &RenderState<'_, '_>,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
     is_active: bool,
@@ -791,9 +837,9 @@ fn render_multiplayer_form(
         ])
         .split(mode_area[1]);
 
-    let is_focused = is_active && app.game_mode_state().form_cursor == 0;
-    let host_selected = app.game_mode_hosting() == Some(true);
-    let host_focused = is_focused && app.game_mode_hosting().is_none();
+    let is_focused = is_active && state.game_mode_state().form_cursor == 0;
+    let host_selected = state.game_mode_hosting() == Some(true);
+    let host_focused = is_focused && state.game_mode_hosting().is_none();
     let host_style = if !is_active {
         Style::default().fg(grey_color)
     } else if host_selected {
@@ -816,7 +862,7 @@ fn render_multiplayer_form(
         button_area[0],
     );
 
-    let join_selected = app.game_mode_hosting() == Some(false);
+    let join_selected = state.game_mode_hosting() == Some(false);
     let join_style = if !is_active {
         Style::default().fg(grey_color)
     } else if join_selected {
@@ -837,10 +883,10 @@ fn render_multiplayer_form(
 
     render_color_selection_ui(
         frame,
-        app,
+        state,
         form_chunks[*chunk_idx],
         is_active,
-        is_active && app.game_mode_hosting() == Some(true),
+        is_active && state.game_mode_hosting() == Some(true),
         grey_color,
         1,
     );
@@ -848,7 +894,7 @@ fn render_multiplayer_form(
 
 fn render_bot_form(
     frame: &mut Frame,
-    app: &App,
+    state: &RenderState<'_, '_>,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
     is_active: bool,
@@ -856,7 +902,7 @@ fn render_bot_form(
 ) {
     render_time_control_ui(
         frame,
-        app,
+        state,
         form_chunks[*chunk_idx],
         form_chunks,
         chunk_idx,
@@ -865,11 +911,11 @@ fn render_bot_form(
     );
     *chunk_idx += 1;
 
-    let is_custom = app.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX;
+    let is_custom = state.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX;
     let color_cursor = if is_custom { 2 } else { 1 };
     render_color_selection_ui(
         frame,
-        app,
+        state,
         form_chunks[*chunk_idx],
         is_active,
         is_active,
@@ -882,16 +928,16 @@ fn render_bot_form(
     render_spinner(
         frame,
         "Bot Depth",
-        &format!("{}", app.game_mode_bot_depth()),
+        &format!("{}", state.game_mode_bot_depth()),
         form_chunks[*chunk_idx],
         is_active,
-        is_active && app.game_mode_state().form_cursor == depth_cursor,
+        is_active && state.game_mode_state().form_cursor == depth_cursor,
         6,
     );
     *chunk_idx += 1;
 
     let elo_cursor = if is_custom { 4 } else { 3 };
-    let elo_display = app
+    let elo_display = state
         .game_mode_bot_difficulty()
         .and_then(|i| {
             ((i as usize) < BOT_DIFFICULTY_NAMES.len()).then_some(BOT_DIFFICULTY_NAMES[i as usize])
@@ -904,13 +950,13 @@ fn render_bot_form(
         &elo_display,
         form_chunks[*chunk_idx],
         is_active,
-        is_active && app.game_mode_state().form_cursor == elo_cursor,
+        is_active && state.game_mode_state().form_cursor == elo_cursor,
         16,
     );
 }
 
-fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: AvailableGameMode) {
-    let is_active = app.game_mode_state().form_active;
+fn render_game_mode_form(frame: &mut Frame, state: &RenderState<'_, '_>, area: Rect, game_mode: AvailableGameMode) {
+    let is_active = state.game_mode_state().form_active;
     let grey_color = if is_active {
         Color::White
     } else {
@@ -931,7 +977,7 @@ fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: Av
     let inner_form_area = form_block.inner(area);
     frame.render_widget(form_block, area);
 
-    let is_custom = app.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX;
+    let is_custom = state.game_mode_state().clock_cursor == TIME_CONTROL_CUSTOM_INDEX;
     let form_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(match game_mode {
@@ -979,7 +1025,7 @@ fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: Av
     match game_mode {
         AvailableGameMode::Local => render_time_control_ui(
             frame,
-            app,
+            state,
             form_chunks[chunk_idx],
             &form_chunks,
             &mut chunk_idx,
@@ -988,7 +1034,7 @@ fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: Av
         ),
         AvailableGameMode::Multiplayer => render_multiplayer_form(
             frame,
-            app,
+            state,
             &form_chunks,
             &mut chunk_idx,
             is_active,
@@ -996,7 +1042,7 @@ fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: Av
         ),
         AvailableGameMode::Bot => render_bot_form(
             frame,
-            app,
+            state,
             &form_chunks,
             &mut chunk_idx,
             is_active,

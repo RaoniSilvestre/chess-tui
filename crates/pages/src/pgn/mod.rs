@@ -1,7 +1,8 @@
 //! PGN viewer page: playback, game switching, footer, and result banner.
 
-use app::{App, Nav, Page};
+use page::{Page, PageAction, PageContext, PgnAction, PgnViewerAccess};
 use model::PgnViewer;
+use session::Game;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -17,24 +18,64 @@ use ui::components::centered_rect::centered_rect;
 pub struct PgnViewerPage {
     games: Vec<PgnViewer>,
     game_idx: usize,
+    game: Game,
 }
 
 impl PgnViewerPage {
     pub fn new(games: Vec<PgnViewer>, game_idx: usize) -> Self {
-        Self { games, game_idx }
+        Self {
+            games,
+            game_idx,
+            game: Game::default(),
+        }
     }
 
     fn current_mut(&mut self) -> Option<&mut PgnViewer> {
         self.games.get_mut(self.game_idx)
     }
 
-    fn mirror(&self, app: &mut App) {
-        app.pgn_mirror(&self.games, self.game_idx);
+    fn sync_board(&mut self) {
+        let Some(viewer) = self.games.get(self.game_idx) else {
+            return;
+        };
+        let (positions, moves) = viewer.current_snapshot();
+        let current_ply = viewer.current_ply();
+        let taken_pieces = self.game.runtime.taken_pieces().to_vec();
+        let halfmove_clock = self.game.runtime.halfmove_clock();
+        if let Err(e) = self.game.runtime.load_history(
+            positions.to_vec(),
+            moves.to_vec(),
+            taken_pieces,
+            halfmove_clock,
+        ) {
+            log::error!("Failed to sync PGN viewer to board: {e}");
+            return;
+        }
+        self.game.ui.selected_square = None;
+        self.game.runtime.start_playing();
+        self.game.ui.hide_cursor = true;
+        self.game
+            .runtime
+            .set_turn(if current_ply % 2 == 0 {
+                shakmaty::Color::White
+            } else {
+                shakmaty::Color::Black
+            });
+    }
+}
+
+impl PgnViewerAccess for PgnViewerPage {
+    fn pgn_games(&self) -> &[PgnViewer] {
+        &self.games
+    }
+
+    fn pgn_game_idx(&self) -> usize {
+        self.game_idx
     }
 }
 
 impl Page for PgnViewerPage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
         let game_count = self.games.len();
 
         match key.code {
@@ -43,8 +84,7 @@ impl Page for PgnViewerPage {
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.games.clear();
                 self.game_idx = 0;
-                app.pgn_exit();
-                return Nav::None;
+                return PageAction::Pgn(PgnAction::Exit);
             }
 
             // Next move
@@ -67,7 +107,7 @@ impl Page for PgnViewerPage {
             }
 
             // Help popup
-            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('?') => return PageAction::OpenHelp,
 
             // Go to start
             KeyCode::Char('g') => {
@@ -121,27 +161,29 @@ impl Page for PgnViewerPage {
             _ => {}
         }
 
-        self.mirror(app);
-        Nav::None
+        PageAction::None
     }
 
-    fn tick(&mut self, app: &mut App) -> Nav {
-        let Some(viewer) = self.current_mut() else {
-            return Nav::None;
-        };
-        let before = viewer.current_ply();
-        viewer.tick();
-        if viewer.current_ply() != before {
-            self.mirror(app);
+    fn tick(&mut self, _ctx: &PageContext<'_>) -> PageAction {
+        if let Some(viewer) = self.current_mut() {
+            viewer.tick();
         }
-        Nav::None
+        PageAction::None
+    }
+
+    fn pgn_viewer(&self) -> Option<&dyn PgnViewerAccess> {
+        Some(self)
+    }
+
+    fn sync_pgn(&mut self) {
+        self.sync_board();
     }
 
     fn is_pgn_viewer(&self) -> bool {
         true
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -150,13 +192,13 @@ impl Page for PgnViewerPage {
             ])
             .split(area);
 
-        app.pgn_sync_board(&self.games, self.game_idx);
+        self.sync_board();
         super::game_page::render_game_ui(
             frame,
             layout[0],
-            &mut app.game,
-            &mut app.kitty_pieces,
-            app.kitty_graphics_enabled,
+            &mut self.game,
+            ctx.kitty.as_deref_mut(),
+            ctx.kitty_enabled,
             false,
             false,
         );

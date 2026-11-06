@@ -21,7 +21,7 @@ impl App {
             Err(_) => Config::default(),
         };
 
-        config.display_mode = Some(self.game.ui.display_mode.to_string());
+        config.display_mode = Some(self.game_mut().ui.display_mode.to_string());
         config.log_level = Some(self.log_level.to_string());
         config.bot_depth = Some(self.bot_state.bot_depth);
         config.bot_difficulty = self.bot_state.bot_difficulty;

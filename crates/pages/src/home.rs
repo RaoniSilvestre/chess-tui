@@ -1,6 +1,6 @@
 //! Home page: title banner, main menu, and navigation.
 
-use app::{App, Nav, Page};
+use page::{Page, PageAction, PageContext};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -36,7 +36,7 @@ impl Default for HomePage {
 }
 
 impl Page for HomePage {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -45,21 +45,21 @@ impl Page for HomePage {
                 self.cursor = (self.cursor + 1) % 5;
             }
             KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
-                0 => app.open_game_mode_menu(),
-                1 => app.open_lichess_menu(),
-                2 => app.open_settings(),
-                3 => app.open_help(),
-                4 => app.open_credits(),
+                0 => return PageAction::OpenGameModeMenu,
+                1 => return PageAction::OpenLichessMenu,
+                2 => return PageAction::OpenSettings,
+                3 => return PageAction::OpenHelp,
+                4 => return PageAction::OpenCredits,
                 _ => {}
             },
-            KeyCode::Char('?') => app.open_help(),
-            KeyCode::Char('q') => app.quit(),
+            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
-        Nav::None
+        PageAction::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _app: &mut App) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut PageContext<'_>) {
         render_home(frame, area, self.cursor);
     }
 

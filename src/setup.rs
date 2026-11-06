@@ -92,7 +92,7 @@ fn setup_sound(app: &mut App, config: &Config, args: &Args) {
 
 fn setup_display_mode(app: &mut App, config: &Config) {
     if let Some(ref display_mode) = config.display_mode {
-        app.game.ui.display_mode = match display_mode.as_str() {
+        app.game_mut().ui.display_mode = match display_mode.as_str() {
             "ASCII" => DisplayMode::ASCII,
             "CUSTOM" => DisplayMode::CUSTOM,
             _ => DisplayMode::DEFAULT,
@@ -270,7 +270,7 @@ fn setup_skin_and_piece_styles(app: &mut App, config_dir: &Path) {
     }
 
     // Sync loaded piece styles to the game UI so rendering can use them
-    app.game.ui.available_piece_styles = app.theme_state.available_piece_styles.clone();
+    app.game_mut().ui.available_piece_styles = app.theme_state.available_piece_styles.clone();
 }
 
 fn apply_skin(app: &mut App, config: &Config, args: &Args) {
@@ -284,15 +284,15 @@ fn apply_skin(app: &mut App, config: &Config, args: &Args) {
         &app.theme_state.selected_skin_name,
     ) {
         app.theme_state.loaded_skin = Some(skin.clone());
-        app.game.ui.skin = skin.clone();
+        app.game_mut().ui.skin = skin.clone();
         // Set display mode based on skin name
         match app.theme_state.selected_skin_name.as_str() {
-            SKIN_NAME_DEFAULT => app.game.ui.display_mode = DisplayMode::DEFAULT,
-            SKIN_NAME_ASCII => app.game.ui.display_mode = DisplayMode::ASCII,
+            SKIN_NAME_DEFAULT => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+            SKIN_NAME_ASCII => app.game_mut().ui.display_mode = DisplayMode::ASCII,
             _ => {
                 // For custom skins, set to CUSTOM if not already set
-                if app.game.ui.display_mode == DisplayMode::DEFAULT {
-                    app.game.ui.display_mode = DisplayMode::CUSTOM;
+                if app.game_mut().ui.display_mode == DisplayMode::DEFAULT {
+                    app.game_mut().ui.display_mode = DisplayMode::CUSTOM;
                 }
             }
         }
@@ -301,12 +301,12 @@ fn apply_skin(app: &mut App, config: &Config, args: &Args) {
         if let Some(first_skin) = app.theme_state.available_skins.first() {
             app.theme_state.selected_skin_name = first_skin.name.clone();
             app.theme_state.loaded_skin = Some(first_skin.clone());
-            app.game.ui.skin = first_skin.clone();
+            app.game_mut().ui.skin = first_skin.clone();
             // Set display mode based on skin name
             match app.theme_state.selected_skin_name.as_str() {
-                "Default" => app.game.ui.display_mode = DisplayMode::DEFAULT,
-                "ASCII" => app.game.ui.display_mode = DisplayMode::ASCII,
-                _ => app.game.ui.display_mode = DisplayMode::CUSTOM,
+                "Default" => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+                "ASCII" => app.game_mut().ui.display_mode = DisplayMode::ASCII,
+                _ => app.game_mut().ui.display_mode = DisplayMode::CUSTOM,
             }
         }
     }
@@ -316,11 +316,11 @@ fn apply_skin(app: &mut App, config: &Config, args: &Args) {
         app.theme_state.selected_skin_name = skin_name.clone();
         if let Some(skin) = Skin::get_skin_by_name(&app.theme_state.available_skins, skin_name) {
             app.theme_state.loaded_skin = Some(skin.clone());
-            app.game.ui.skin = skin.clone();
+            app.game_mut().ui.skin = skin.clone();
             match skin_name.as_str() {
-                "Default" => app.game.ui.display_mode = DisplayMode::DEFAULT,
-                "ASCII" => app.game.ui.display_mode = DisplayMode::ASCII,
-                _ => app.game.ui.display_mode = DisplayMode::CUSTOM,
+                "Default" => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+                "ASCII" => app.game_mut().ui.display_mode = DisplayMode::ASCII,
+                _ => app.game_mut().ui.display_mode = DisplayMode::CUSTOM,
             }
         }
     }

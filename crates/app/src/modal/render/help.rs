@@ -27,7 +27,7 @@ pub fn render_help_popup(frame: &mut Frame, app: &crate::App) {
     let area = centered_rect(40, 65, frame.area());
 
     // Check if we're playing against a bot (history navigation only in solo mode)
-    let is_solo_mode = app.game.runtime.history_is_solo();
+    let is_solo_mode = app.game_mut().runtime.history_is_solo();
     let is_puzzle_mode = app.lichess_state.puzzle_game.is_some();
 
     let mut text = vec![
