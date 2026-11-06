@@ -1,6 +1,6 @@
 //! Holds the loaded [`Skin`] list, the active skin index, and the current display mode.
 
-use crate::skin::{PieceStyle, Skin};
+use chess_tui_theme::{PieceStyle, Skin};
 
 /// Skin and piece-style state held by [`crate::app::App`].
 ///

@@ -5,15 +5,15 @@ use std::{
 
 use chess_tui_core::PgnViewer;
 use chess_tui_lichess::LichessClient;
+use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
 use dirs::config_dir;
 use log::LevelFilter;
 
 use crate::{
     app::{App, AppResult},
     config::{Args, Config},
-    constants::{DisplayMode, Pages, SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
+    constants::{Pages, SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
     graphics, logging,
-    skin::{PieceStyle, Skin},
     sound,
     state::{bot_state::BotState, lichess_state::LichessState},
 };

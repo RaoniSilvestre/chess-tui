@@ -1,7 +1,6 @@
 //! Board skin and piece style types.
 
-use crate::app::AppResult;
-use crate::constants::{DisplayMode, config_dir};
+use crate::DisplayMode;
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -101,7 +100,7 @@ impl Skin {
     }
 
     /// Writes the built-in `default_skins.json` to `skins_path`, creating parent dirs as needed.
-    pub fn create_default_skins_file(skins_path: &Path) -> AppResult<()> {
+    pub fn create_default_skins_file(skins_path: &Path) -> std::io::Result<()> {
         // Ensure the directory exists
         if let Some(parent) = skins_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -131,10 +130,10 @@ impl Skin {
     }
 
     /// Runs the --update-skins command: prompt for confirmation, archive current skins.json, write default.
-    pub fn run_update_skins() -> AppResult<()> {
+    pub fn run_update_skins() -> Result<(), Box<dyn std::error::Error>> {
         const DEFAULT_SKINS: &str = include_str!("default_skins.json");
 
-        let config_dir = config_dir()?;
+        let config_dir = dirs::config_dir().ok_or("Could not get config directory")?;
         let skins_dir = config_dir.join("chess-tui");
         let skins_path = skins_dir.join("skins.json");
 

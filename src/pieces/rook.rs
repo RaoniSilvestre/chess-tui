@@ -1,7 +1,7 @@
 //! Rook ASCII art.
 
 use crate::pieces::PieceSize;
-use crate::skin::PieceStyle;
+use chess_tui_theme::PieceStyle;
 use shakmaty::Color;
 
 pub struct Rook;

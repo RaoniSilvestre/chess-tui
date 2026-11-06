@@ -7,7 +7,7 @@ pub mod pawn;
 pub mod queen;
 pub mod rook;
 
-use crate::constants::DisplayMode;
+use chess_tui_theme::DisplayMode;
 use shakmaty::{Color, Role};
 
 /// Represents the available space for rendering a piece

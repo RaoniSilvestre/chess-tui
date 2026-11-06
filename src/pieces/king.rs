@@ -1,6 +1,7 @@
 //! King ASCII art.
 
-use crate::{pieces::PieceSize, skin::PieceStyle};
+use crate::pieces::PieceSize;
+use chess_tui_theme::PieceStyle;
 use shakmaty::Color;
 
 pub struct King;

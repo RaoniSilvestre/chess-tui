@@ -1,6 +1,6 @@
 use chess_tui::app::AppResult;
 use chess_tui::config::Args;
-use chess_tui::skin::Skin;
+use chess_tui_theme::Skin;
 use clap::Parser;
 
 fn main() -> AppResult<()> {
@@ -9,7 +9,7 @@ fn main() -> AppResult<()> {
 
     // Handle --update-skins: update config from default, then exit (no TUI)
     if args.update_skins {
-        return Skin::run_update_skins();
+        return Skin::run_update_skins().map_err(Into::into);
     }
 
     let mut app = chess_tui::setup::setup_app(&args)?;

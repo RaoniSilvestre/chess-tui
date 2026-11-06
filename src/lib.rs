@@ -13,7 +13,6 @@ pub mod handlers;
 pub mod logging;
 pub mod pieces;
 pub mod setup;
-pub mod skin;
 pub mod sound;
 pub mod state;
 pub mod ui;

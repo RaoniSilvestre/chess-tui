@@ -1,6 +1,7 @@
 //! Renders settings menu.
 
-use crate::{app::App, constants::DisplayMode};
+use crate::app::App;
+use chess_tui_theme::DisplayMode;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},

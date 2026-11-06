@@ -1,4 +1,4 @@
-use chess_tui::skin::Skin;
+use chess_tui_theme::Skin;
 use ratatui::style::Color;
 use std::io::Write;
 use tempfile::NamedTempFile;

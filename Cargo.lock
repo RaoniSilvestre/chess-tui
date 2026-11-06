@@ -385,6 +385,7 @@ dependencies = [
  "chess-tui-game",
  "chess-tui-lichess",
  "chess-tui-net",
+ "chess-tui-theme",
  "chrono",
  "clap",
  "dirs",
@@ -451,6 +452,17 @@ version = "2.8.0"
 dependencies = [
  "log",
  "shakmaty",
+]
+
+[[package]]
+name = "chess-tui-theme"
+version = "2.8.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "ratatui",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
