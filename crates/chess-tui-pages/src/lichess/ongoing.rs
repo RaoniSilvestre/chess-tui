@@ -1,18 +1,22 @@
 //! Ongoing Lichess games list.
 
-use crate::app::App;
+use chess_tui_app::{Nav, OngoingGamesContext, Page};
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
 
 /// Renders the ongoing Lichess games list with navigation hints.
-pub fn render_ongoing_games(frame: &mut Frame, app: &App) {
-    let area = frame.area();
-
+fn render_ongoing_games<C: OngoingGamesContext>(
+    frame: &mut Frame,
+    area: Rect,
+    ctx: &C,
+    cursor: u8,
+) {
     // Create layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -39,7 +43,7 @@ pub fn render_ongoing_games(frame: &mut Frame, app: &App) {
     frame.render_widget(title, chunks[0]);
 
     // Games list
-    let games = &app.lichess_state.ongoing_games;
+    let games = ctx.ongoing_games();
     let mut game_lines = vec![Line::from("")];
 
     if games.is_empty() {
@@ -49,7 +53,7 @@ pub fn render_ongoing_games(frame: &mut Frame, app: &App) {
         game_lines.push(Line::from("Use 'Seek Game' to start a new game."));
     } else {
         for (idx, game) in games.iter().enumerate() {
-            let is_selected = app.ui_state.menu_cursor == idx as u8;
+            let is_selected = cursor == idx as u8;
 
             let style = if is_selected {
                 Style::default()
@@ -122,4 +126,51 @@ pub fn render_ongoing_games(frame: &mut Frame, app: &App) {
             .border_type(BorderType::Rounded),
     );
     frame.render_widget(footer, chunks[2]);
+}
+
+/// Ongoing Lichess games list page.
+pub struct OngoingGamesPage {
+    cursor: u8,
+}
+
+impl OngoingGamesPage {
+    pub fn new() -> Self {
+        Self { cursor: 0 }
+    }
+}
+
+impl Default for OngoingGamesPage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<C: OngoingGamesContext> Page<C> for OngoingGamesPage {
+    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.cursor = self.cursor.saturating_sub(1);
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if (self.cursor as usize) < ctx.ongoing_games().len().saturating_sub(1) {
+                    self.cursor += 1;
+                }
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                ctx.ongoing_game_open(self.cursor as usize);
+            }
+            KeyCode::Char('r' | 'R') => {
+                ctx.ongoing_game_request_resign(self.cursor as usize);
+            }
+            KeyCode::Esc | KeyCode::Char('b') => ctx.ongoing_games_back(),
+            KeyCode::Char('?') => ctx.open_help(),
+            KeyCode::Char('q') => ctx.quit(),
+            _ => {}
+        }
+        Nav::None
+    }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
+        render_ongoing_games(frame, area, ctx, self.cursor);
+    }
 }

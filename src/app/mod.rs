@@ -11,11 +11,16 @@ use crate::state::resume::ResumeMode;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_app::GameModeState;
-use chess_tui_app::{AppContext, GameModeContext, Page, Router, SettingsContext};
+use chess_tui_app::{
+    AppContext, GameModeContext, LichessMenuContext, OngoingGamesContext, Page, Router,
+    SettingsContext,
+};
 use chess_tui_core::GameOutcome;
 use chess_tui_core::{Clock, ClockState};
 use chess_tui_game::GameKind;
-use chess_tui_pages::{CreditsPage, GameModeMenuPage, HomePage, SettingsPage};
+use chess_tui_pages::{
+    CreditsPage, GameModeMenuPage, HomePage, LichessMenuPage, OngoingGamesPage, SettingsPage,
+};
 use chess_tui_theme::DisplayMode;
 use chess_tui_ui::graphics::KittyPieces;
 use log::LevelFilter;
@@ -198,6 +203,8 @@ impl AppContext for App {
             Pages::Credit => Box::new(CreditsPage::new()),
             Pages::SettingsMenu => Box::new(SettingsPage::new()),
             Pages::GameModeMenu => Box::new(GameModeMenuPage::new()),
+            Pages::LichessMenu => Box::new(LichessMenuPage::new(self.game_mode_state.clock_cursor)),
+            Pages::OngoingGames => Box::new(OngoingGamesPage::new()),
             _ => Box::new(LegacyPage),
         })
     }
@@ -395,6 +402,91 @@ impl GameModeContext for App {
     fn game_mode_open_pgn_loader(&mut self) {
         self.ui_state.current_popup = Some(Popups::LoadPgnPath);
         self.game.ui.prompt.reset();
+    }
+}
+
+impl LichessMenuContext for App {
+    fn lichess_has_token(&self) -> bool {
+        self.lichess_state
+            .token
+            .as_ref()
+            .map(|token| !token.is_empty())
+            .unwrap_or(false)
+    }
+
+    fn lichess_open_token_prompt(&mut self) {
+        self.ui_state.current_popup = Some(Popups::EnterLichessToken);
+        self.game.ui.prompt.reset();
+        self.game.ui.prompt.message = "Enter your Lichess API token:".to_string();
+    }
+
+    fn lichess_profile(&self) -> Option<&chess_tui_lichess::UserProfile> {
+        self.lichess_state.user_profile.as_ref()
+    }
+
+    fn lichess_rating_history(&self) -> Option<&[chess_tui_lichess::RatingHistoryEntry]> {
+        self.lichess_state.rating_history.as_deref()
+    }
+
+    fn lichess_time_control(&self) -> u8 {
+        self.game_mode_state.clock_cursor
+    }
+
+    fn lichess_set_time_control(&mut self, cursor: u8) {
+        self.game_mode_state.clock_cursor = cursor;
+    }
+
+    fn lichess_seek(&mut self, cursor: u8) {
+        self.ui_state.menu_cursor = 0;
+        self.ui_state.current_page = Pages::Lichess;
+        self.create_lichess_opponent(cursor.clamp(3, 4));
+    }
+
+    fn lichess_start_puzzle(&mut self) {
+        self.start_puzzle_mode();
+    }
+
+    fn lichess_open_ongoing_games(&mut self) {
+        if self.lichess_state.ongoing_games.is_empty() {
+            self.ui_state.show_message_popup(
+                "Loading your ongoing games ...".to_string(),
+                Popups::Loading,
+            );
+        }
+
+        self.fetch_ongoing_games();
+        self.ui_state.current_page = Pages::OngoingGames;
+        self.ui_state.menu_cursor = 0;
+    }
+
+    fn lichess_open_join_code(&mut self) {
+        self.ui_state.current_popup = Some(Popups::EnterGameCode);
+        self.game.ui.prompt.reset();
+    }
+
+    fn lichess_disconnect(&mut self) {
+        self.disconnect_lichess();
+    }
+}
+
+impl OngoingGamesContext for App {
+    fn ongoing_games(&self) -> &[chess_tui_lichess::OngoingGame] {
+        &self.lichess_state.ongoing_games
+    }
+
+    fn ongoing_game_open(&mut self, index: usize) {
+        self.ui_state.menu_cursor = index as u8;
+        self.select_ongoing_game();
+    }
+
+    fn ongoing_game_request_resign(&mut self, index: usize) {
+        self.ui_state.menu_cursor = index as u8;
+        self.show_resign_confirmation();
+    }
+
+    fn ongoing_games_back(&mut self) {
+        self.ui_state.menu_cursor = 0;
+        self.ui_state.current_page = Pages::LichessMenu;
     }
 }
 

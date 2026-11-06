@@ -36,41 +36,7 @@ pub const SKIN_NAME_DEFAULT: &str = "Default";
 /// Name of the built-in ASCII skin entry.
 pub const SKIN_NAME_ASCII: &str = "ASCII";
 
-/// A Lichess seek preset: its speed category name, base minutes, and increment
-/// in seconds.
-#[derive(Clone, Copy, Debug)]
-pub struct LichessTimeControl {
-    pub name: &'static str,
-    pub minutes: u32,
-    pub increment: u32,
-}
-
-impl LichessTimeControl {
-    /// Standard chess notation for the time control, e.g. `10+0`.
-    pub fn notation(&self) -> String {
-        format!("{}+{}", self.minutes, self.increment)
-    }
-
-    /// Label used in the time-control selector, e.g. `10+0 Rapid`.
-    pub fn label(&self) -> String {
-        format!("{} {}", self.notation(), self.name)
-    }
-}
-
-/// Time control presets offered when seeking a Lichess game. The board seek
-/// API only allows Rapid and Classical for public real-time seeks.
-pub const LICHESS_TIME_CONTROLS: [LichessTimeControl; 2] = [
-    LichessTimeControl {
-        name: "Rapid",
-        minutes: 10,
-        increment: 0,
-    },
-    LichessTimeControl {
-        name: "Classical",
-        minutes: 30,
-        increment: 0,
-    },
-];
+pub use chess_tui_lichess::{LICHESS_TIME_CONTROLS, LichessTimeControl};
 
 /// Default selected time control index (Rapid).
 pub const DEFAULT_TIME_CONTROL_SELECTED: u8 = 3;

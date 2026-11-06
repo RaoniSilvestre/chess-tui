@@ -144,3 +144,28 @@ pub trait GameModeContext: AppContext {
     fn game_mode_submit(&mut self, kind: AvailableGameMode);
     fn game_mode_open_pgn_loader(&mut self);
 }
+
+/// Lichess landing menu context.
+pub trait LichessMenuContext: AppContext {
+    fn lichess_has_token(&self) -> bool;
+    fn lichess_open_token_prompt(&mut self);
+
+    fn lichess_profile(&self) -> Option<&chess_tui_lichess::UserProfile>;
+    fn lichess_rating_history(&self) -> Option<&[chess_tui_lichess::RatingHistoryEntry]>;
+
+    fn lichess_time_control(&self) -> u8;
+    fn lichess_set_time_control(&mut self, cursor: u8);
+    fn lichess_seek(&mut self, cursor: u8);
+    fn lichess_start_puzzle(&mut self);
+    fn lichess_open_ongoing_games(&mut self);
+    fn lichess_open_join_code(&mut self);
+    fn lichess_disconnect(&mut self);
+}
+
+/// Ongoing Lichess games list context.
+pub trait OngoingGamesContext: AppContext {
+    fn ongoing_games(&self) -> &[chess_tui_lichess::OngoingGame];
+    fn ongoing_game_open(&mut self, index: usize);
+    fn ongoing_game_request_resign(&mut self, index: usize);
+    fn ongoing_games_back(&mut self);
+}

@@ -1,7 +1,9 @@
 //! Renders the user profile, rating sparkline, and menu options for the Lichess landing page.
 
 use super::rating_chart::render_rating_history_chart;
-use crate::{app::App, constants::LICHESS_TIME_CONTROLS};
+use chess_tui_app::{LichessMenuContext, Nav, Page};
+use chess_tui_lichess::LICHESS_TIME_CONTROLS;
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -66,9 +68,14 @@ impl LichessLayout {
     }
 }
 
-pub fn render_lichess_menu(frame: &mut Frame, app: &App) {
-    let area = frame.area();
-
+fn render_lichess_menu<C: LichessMenuContext>(
+    frame: &mut Frame,
+    area: Rect,
+    ctx: &C,
+    cursor: u8,
+    stats_scroll: u16,
+    time_control: u8,
+) {
     let layout = LichessLayout::new(area);
 
     // Title
@@ -86,10 +93,10 @@ pub fn render_lichess_menu(frame: &mut Frame, app: &App) {
         );
     frame.render_widget(title, layout.title);
 
-    render_menu_panel(frame, app, layout.menu);
-    render_time_control(frame, app, layout.time_control);
-    render_user_stats_panel(frame, app, layout.profile);
-    render_chart_panel(frame, app, layout.chart);
+    render_menu_panel(frame, layout.menu, cursor);
+    render_time_control(frame, layout.time_control, time_control);
+    render_user_stats_panel(frame, ctx, layout.profile, stats_scroll);
+    render_chart_panel(frame, ctx, layout.chart);
 
     // Footer with controls
     let footer = Paragraph::new(vec![Line::from(vec![
@@ -114,7 +121,7 @@ pub fn render_lichess_menu(frame: &mut Frame, app: &App) {
 /// Renders the time control selector (Rapid/Classical) using standard chess
 /// notation, e.g. `10+0 Rapid`. Only the selected text gets a highlighted
 /// background, sized to the text itself.
-fn render_time_control(frame: &mut Frame, app: &App, area: Rect) {
+fn render_time_control(frame: &mut Frame, area: Rect, time_control: u8) {
     let menu = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -123,7 +130,7 @@ fn render_time_control(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(menu, area);
 
     // Lichess only allows the Rapid (3) and Classical (4) presets.
-    let selected = usize::from(app.game_mode_state.clock_cursor >= 4);
+    let selected = usize::from(time_control >= 4);
 
     let labels: Vec<String> = LICHESS_TIME_CONTROLS.iter().map(|tc| tc.label()).collect();
 
@@ -158,7 +165,7 @@ fn render_time_control(frame: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-fn render_menu_panel(frame: &mut Frame, app: &App, area: Rect) {
+fn render_menu_panel(frame: &mut Frame, area: Rect, cursor: u8) {
     let menu_items = [
         ("Seek Game", "Find a random opponent"),
         ("Puzzle", "Play a puzzle"),
@@ -170,7 +177,7 @@ fn render_menu_panel(frame: &mut Frame, app: &App, area: Rect) {
     let mut menu_lines = vec![Line::from("")];
 
     for (idx, (option, description)) in menu_items.iter().enumerate() {
-        let is_selected = app.ui_state.menu_cursor == idx as u8;
+        let is_selected = cursor == idx as u8;
         let is_disconnect = idx == 4;
 
         let style = if is_selected {
@@ -252,7 +259,12 @@ fn rating_line(label: &str, rating: u16, prog: Option<i16>) -> Line<'static> {
     ])
 }
 
-fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect) {
+fn render_user_stats_panel<C: LichessMenuContext>(
+    frame: &mut Frame,
+    ctx: &C,
+    area: Rect,
+    stats_scroll: u16,
+) {
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -269,10 +281,10 @@ fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect) {
         ])
         .split(inner_area);
 
-    let scroll_offset = app.lichess_state.lichess_stats_scroll as usize;
+    let scroll_offset = stats_scroll as usize;
     let max_visible = inner_area.height as usize;
 
-    if let Some(profile) = &app.lichess_state.user_profile {
+    if let Some(profile) = ctx.lichess_profile() {
         // --- LEFT: username, online, bio, location, country, created at ---
         let mut left: Vec<Line> = vec![Line::from("")];
 
@@ -510,11 +522,11 @@ fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-fn render_chart_panel(frame: &mut Frame, app: &App, area: Rect) {
-    if let Some(history) = &app.lichess_state.rating_history {
+fn render_chart_panel<C: LichessMenuContext>(frame: &mut Frame, ctx: &C, area: Rect) {
+    if let Some(history) = ctx.lichess_rating_history() {
         render_rating_history_chart(frame, history, area);
     } else {
-        let msg = if app.lichess_state.user_profile.is_some() {
+        let msg = if ctx.lichess_profile().is_some() {
             "Loading rating history..."
         } else {
             "Loading..."
@@ -529,5 +541,104 @@ fn render_chart_panel(frame: &mut Frame, app: &App, area: Rect) {
             )
             .alignment(Alignment::Center);
         frame.render_widget(loading_graph, area);
+    }
+}
+
+/// Lichess landing menu page.
+pub struct LichessMenuPage {
+    cursor: u8,
+    stats_scroll: u16,
+    time_control: u8,
+}
+
+impl LichessMenuPage {
+    pub fn new(time_control: u8) -> Self {
+        Self {
+            cursor: 0,
+            stats_scroll: 0,
+            time_control: time_control.clamp(3, 4),
+        }
+    }
+
+    fn require_token<C: LichessMenuContext>(&self, ctx: &mut C) -> bool {
+        if ctx.lichess_has_token() {
+            true
+        } else {
+            ctx.lichess_open_token_prompt();
+            false
+        }
+    }
+}
+
+impl Default for LichessMenuPage {
+    fn default() -> Self {
+        Self::new(3)
+    }
+}
+
+impl<C: LichessMenuContext> Page<C> for LichessMenuPage {
+    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.cursor = (self.cursor + 1) % 5;
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.time_control = if self.time_control >= 4 { 3 } else { 4 };
+                ctx.lichess_set_time_control(self.time_control);
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.time_control = if self.time_control <= 3 { 4 } else { 3 };
+                ctx.lichess_set_time_control(self.time_control);
+            }
+            KeyCode::PageUp => {
+                self.stats_scroll = self.stats_scroll.saturating_sub(3);
+            }
+            KeyCode::PageDown => {
+                self.stats_scroll = self.stats_scroll.saturating_add(3);
+            }
+            KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
+                0 => {
+                    if self.require_token(ctx) {
+                        ctx.lichess_seek(self.time_control);
+                    }
+                }
+                1 => {
+                    if self.require_token(ctx) {
+                        ctx.lichess_start_puzzle();
+                    }
+                }
+                2 => {
+                    if self.require_token(ctx) {
+                        ctx.lichess_open_ongoing_games();
+                    }
+                }
+                3 => {
+                    if self.require_token(ctx) {
+                        ctx.lichess_open_join_code();
+                    }
+                }
+                4 => ctx.lichess_disconnect(),
+                _ => {}
+            },
+            KeyCode::Esc | KeyCode::Char('b') => ctx.go_home(),
+            KeyCode::Char('?') => ctx.open_help(),
+            KeyCode::Char('q') => ctx.quit(),
+            _ => {}
+        }
+        Nav::None
+    }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
+        render_lichess_menu(
+            frame,
+            area,
+            ctx,
+            self.cursor,
+            self.stats_scroll,
+            self.time_control,
+        );
     }
 }

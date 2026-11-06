@@ -415,6 +415,7 @@ name = "chess-tui-app"
 version = "2.8.0"
 dependencies = [
  "chess-tui-core",
+ "chess-tui-lichess",
  "rand 0.10.3",
  "ratatui",
  "shakmaty",
@@ -472,7 +473,9 @@ name = "chess-tui-pages"
 version = "2.8.0"
 dependencies = [
  "chess-tui-app",
+ "chess-tui-lichess",
  "chess-tui-ui",
+ "chrono",
  "ratatui",
  "shakmaty",
 ]
