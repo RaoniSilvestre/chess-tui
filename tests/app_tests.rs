@@ -2,10 +2,8 @@ mod common;
 
 #[cfg(test)]
 mod local_game_tests {
-    use chess_tui::{
-        handlers::handler::handle_key_events,
-        runtime::{App, AppResult},
-    };
+    use app::{App, AppResult};
+    use chess_tui::handlers::handler::handle_key_events;
     use model::Coord;
     use ratatui::{
         Terminal,
@@ -32,7 +30,7 @@ mod local_game_tests {
 
     fn setup_local_game_start() -> AppResult<App> {
         crate::common::isolate_resume_saves();
-        let mut app = chess_tui::runtime::test_app();
+        let mut app = chess_tui::runtime::new_app();
 
         send_keys(
             &mut app,

@@ -1,5 +1,5 @@
-use chess_tui::config::Args;
-use chess_tui::runtime::AppResult;
+use app::AppResult;
+use app::config::Args;
 use clap::Parser;
 use theme::Skin;
 
@@ -29,7 +29,7 @@ fn main() -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use chess_tui::{config::Config, constants::config_dir};
+    use app::{config::Config, constants::config_dir};
 
     use super::*;
     use std::fs;

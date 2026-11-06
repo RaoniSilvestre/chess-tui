@@ -1,10 +1,8 @@
 //! Regression tests for the Game Mode menu (issue #349):
 //! closing the "Load PGN" popup with a single Esc must return control to the menu.
 
-use chess_tui::{
-    handlers::handler::handle_key_events,
-    runtime::{App, AppResult},
-};
+use app::{App, AppResult};
+use chess_tui::handlers::handler::handle_key_events;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 fn key(code: KeyCode) -> KeyEvent {
@@ -26,7 +24,7 @@ fn send(app: &mut App, keys: &[KeyCode]) -> AppResult<()> {
 /// Navigates Home -> GameModeMenu and selects the PGN loader, which opens the
 /// `LoadPgnPath` popup. `PGNLoader` is the 4th entry (index 3, COUNT = 4).
 fn open_pgn_loader_popup() -> AppResult<App> {
-    let mut app = chess_tui::runtime::test_app();
+    let mut app = chess_tui::runtime::new_app();
     send(&mut app, &[KeyCode::Enter])?; // Home "Play Game" -> GameModeMenu
     send(&mut app, &[KeyCode::Down, KeyCode::Down, KeyCode::Down])?; // -> PGNLoader
     send(&mut app, &[KeyCode::Enter])?; // open LoadPgnPath popup

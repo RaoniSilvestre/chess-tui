@@ -3,7 +3,7 @@
 //! The viewer page itself lives in `pages`; this module keeps the
 //! bridge that loads a viewer snapshot into the shared game board.
 
-use crate::runtime::App;
+use app::App;
 use model::PgnViewer;
 
 /// Sync the viewer's current ply into `app.game.runtime` so that the existing

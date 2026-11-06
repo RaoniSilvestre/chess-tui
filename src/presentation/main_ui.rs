@@ -1,6 +1,6 @@
 //! Global overlays and page-transition animations.
 
-use crate::runtime::App;
+use app::App;
 use ratatui::Frame;
 use tachyonfx::{EffectRenderer, Interpolation, Motion, fx};
 

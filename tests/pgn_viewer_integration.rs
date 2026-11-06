@@ -5,10 +5,8 @@
 
 mod common;
 
-use chess_tui::{
-    handlers::handler::handle_key_events,
-    runtime::{App, AppResult},
-};
+use app::{App, AppResult};
+use chess_tui::handlers::handler::handle_key_events;
 use model::PgnViewer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -32,7 +30,7 @@ fn load_sample_viewer() -> App {
     let games =
         PgnViewer::from_file("examples/sample.pgn").expect("examples/sample.pgn should parse");
     common::isolate_resume_saves();
-    let mut app = chess_tui::runtime::test_app();
+    let mut app = chess_tui::runtime::new_app();
     app.show_pgn_viewer(games, 0);
     app
 }

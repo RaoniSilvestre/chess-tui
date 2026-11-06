@@ -1,11 +1,7 @@
-use crate::{
-    event::Event,
-    handlers::handler::handle_key_events,
-    presentation::tui::Tui,
-    runtime::{App, AppResult},
-    sound::play_move_sound,
-};
+use crate::{event::Event, handlers::handler::handle_key_events, presentation::tui::Tui};
+use app::{App, AppResult};
 use game::GameEvent;
+use ui::sound::play_move_sound;
 
 pub fn run(app: &mut App) -> AppResult<()> {
     let mut tui = Tui::new()?;

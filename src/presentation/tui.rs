@@ -2,7 +2,7 @@
 
 use crate::event::EventHandler;
 use crate::presentation::main_ui;
-use crate::runtime::{App, AppResult};
+use app::{App, AppResult};
 use ratatui::DefaultTerminal;
 
 /// Representation of a terminal user interface.

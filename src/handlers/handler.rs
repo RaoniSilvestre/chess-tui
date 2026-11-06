@@ -1,6 +1,6 @@
 //! Routes raw crossterm events to the active page handler and shared chess input bindings.
 
-use crate::runtime::{App, AppResult};
+use app::{App, AppResult};
 use model::Coord;
 use model::square_utils::get_coord_from_square;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
