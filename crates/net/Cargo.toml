@@ -8,5 +8,5 @@ repository = "https://github.com/thomas-mauran/chess-tui"
 publish = false
 
 [dependencies]
-log = "0.4.32"
-shakmaty = "0.27.3"
+log.workspace = true
+shakmaty.workspace = true

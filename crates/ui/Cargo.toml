@@ -11,11 +11,11 @@ publish = false
 model = { path = "../model" }
 game = { path = "../game" }
 theme = { path = "../theme" }
-image = { version = "0.25", default-features = false, features = ["png"] }
-ratatui = { version = "0.30.0", features = ["serde"] }
-ratatui-image = { version = "11.0.6", default-features = false, features = ["crossterm"] }
-rodio = { version = "0.23", optional = true }
-shakmaty = "0.27.3"
+image.workspace = true
+ratatui.workspace = true
+ratatui-image.workspace = true
+rodio = { workspace = true, optional = true }
+shakmaty.workspace = true
 
 [features]
 sound = ["rodio"]

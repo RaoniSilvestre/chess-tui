@@ -12,5 +12,5 @@ model = { path = "../model" }
 engine = { path = "../engine" }
 lichess = { path = "../lichess" }
 net = { path = "../net" }
-log = "0.4.32"
-shakmaty = "0.27.3"
+log.workspace = true
+shakmaty.workspace = true

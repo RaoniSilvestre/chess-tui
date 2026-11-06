@@ -27,6 +27,27 @@ members = ["crates/*"]
 default-members = [".", "crates/*"]
 resolver = "2"
 
+[workspace.dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+dirs = "7.0.0"
+ratatui = { version = "0.30.0", features = ["serde"] }
+ruci = { version = "2.1.0", features = ["engine-sync"] }
+toml = "1.1.2"
+log = "0.4.32"
+simplelog = "0.12.2"
+chrono = "0.4"
+shakmaty = "0.27.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.13", features = ["blocking", "json", "form"] }
+rodio = "0.23"
+rand = "0.10.1"
+throbber-widgets-tui = "0.11.0"
+tachyonfx = "0.25.0"
+ratatui-image = { version = "11.0.6", default-features = false, features = ["crossterm"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+tempfile = "3.8"
+
 [dependencies]
 model = { path = "crates/model" }
 engine = { path = "crates/engine" }
@@ -37,27 +58,27 @@ theme = { path = "crates/theme" }
 ui = { path = "crates/ui" }
 app = { path = "crates/app" }
 pages = { path = "crates/pages" }
-clap = { version = "4.6.1", features = ["derive"] }
-dirs = "7.0.0"
-ratatui = { version = "0.30.0", features = ["serde"] }
-ruci = { version = "2.1.0", features = ["engine-sync"] }
-toml = "1.1.2"
-log = "0.4.32"
-simplelog = "0.12.2"
-chrono = "0.4.39"
-shakmaty = "0.27.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-reqwest = { version = "0.13", features = ["blocking", "json", "form"] }
-rodio = { version = "0.23", optional = true }
-rand = "0.10.1"
-throbber-widgets-tui = "0.11.0"
-tachyonfx = "0.25.0"
-ratatui-image = { version = "11.0.6", default-features = false, features = ["crossterm"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
+clap.workspace = true
+dirs.workspace = true
+ratatui.workspace = true
+ruci.workspace = true
+toml.workspace = true
+log.workspace = true
+simplelog.workspace = true
+chrono.workspace = true
+shakmaty.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+rodio = { workspace = true, optional = true }
+rand.workspace = true
+throbber-widgets-tui.workspace = true
+tachyonfx.workspace = true
+ratatui-image.workspace = true
+image.workspace = true
 
 [dev-dependencies]
-tempfile = "3.8"
+tempfile.workspace = true
 
 [features]
 sound = ["rodio", "ui/sound", "app/sound"]
