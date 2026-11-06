@@ -259,12 +259,7 @@ fn rating_line(label: &str, rating: u16, prog: Option<i16>) -> Line<'static> {
     ])
 }
 
-fn render_user_stats_panel(
-    frame: &mut Frame,
-    app: &App,
-    area: Rect,
-    stats_scroll: u16,
-) {
+fn render_user_stats_panel(frame: &mut Frame, app: &App, area: Rect, stats_scroll: u16) {
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)

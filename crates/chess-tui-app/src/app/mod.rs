@@ -1,7 +1,8 @@
 //! Top-level application state and services.
 
 use crate::animations::AnimationState;
-use crate::constants::Popups;
+use crate::game::Game;
+use crate::game_mode::{AvailableGameMode, GameModeState};
 use crate::game_mode_menu::finish_form;
 use crate::state::bot_state::BotState;
 use crate::state::lichess_state::LichessState;
@@ -9,9 +10,7 @@ use crate::state::multiplayer_state::MultiplayerState;
 use crate::state::resume::ResumeMode;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
-use crate::{GamePageKind, NoopPageFactory, Page, PageFactory, Router};
-use crate::game::Game;
-use crate::game_mode::{AvailableGameMode, GameModeState};
+use crate::{GamePageKind, Modal, ModalResult, NoopPageFactory, Page, PageFactory, Router};
 use chess_tui_core::GameOutcome;
 use chess_tui_core::{Clock, ClockState};
 use chess_tui_game::GameKind;
@@ -57,6 +56,7 @@ pub struct App {
     pub pages: Box<dyn PageFactory>,
     pending_page: Option<Box<dyn Page>>,
     active_game_kind: Option<GamePageKind>,
+    modal: Option<Box<dyn Modal>>,
 }
 
 impl Default for App {
@@ -91,9 +91,9 @@ impl App {
             pages,
             pending_page: None,
             active_game_kind: None,
+            modal: None,
         }
     }
-
 
     pub fn show_solo(&mut self) {
         let page = self.pages.solo();
@@ -120,6 +120,155 @@ impl App {
     pub fn show_lichess(&mut self) {
         let page = self.pages.lichess();
         self.set_page(page);
+    }
+
+    pub fn open_modal(&mut self, modal: Box<dyn Modal>) {
+        self.modal = Some(modal);
+    }
+
+    pub fn close_modal(&mut self) {
+        self.modal = None;
+        self.ui_state.end_screen_visible = false;
+    }
+
+    pub fn has_any_modal(&self) -> bool {
+        self.modal.is_some() || self.ui_state.end_screen_visible
+    }
+
+    pub fn has_modal<T: Modal + 'static>(&self) -> bool {
+        self.modal
+            .as_ref()
+            .is_some_and(|modal| modal.as_any().type_id() == std::any::TypeId::of::<T>())
+    }
+
+    pub fn show_help(&mut self) {
+        self.open_modal(Box::new(crate::modal::HelpModal));
+    }
+
+    pub fn toggle_help(&mut self) {
+        if self.has_modal::<crate::modal::HelpModal>() {
+            self.close_modal();
+        } else {
+            self.show_help();
+        }
+    }
+
+    pub fn show_error(&mut self, message: String) {
+        self.open_modal(Box::new(crate::modal::MessageModal::error(message)));
+    }
+
+    pub fn show_success(&mut self, message: String) {
+        self.open_modal(Box::new(crate::modal::MessageModal::success(message)));
+    }
+
+    pub fn show_loading(&mut self, message: String) {
+        self.open_modal(Box::new(crate::modal::MessageModal::loading(message)));
+    }
+
+    pub fn show_enter_host_ip(&mut self) {
+        self.game.ui.prompt.reset();
+        self.open_modal(Box::new(crate::modal::PromptModal::enter_host_ip()));
+    }
+
+    pub fn show_enter_game_code(&mut self) {
+        self.game.ui.prompt.reset();
+        self.open_modal(Box::new(crate::modal::PromptModal::enter_game_code()));
+    }
+
+    pub fn show_enter_lichess_token(&mut self) {
+        self.game.ui.prompt.reset();
+        self.game.ui.prompt.message = "Enter your Lichess API token:".to_string();
+        self.open_modal(Box::new(crate::modal::PromptModal::enter_lichess_token()));
+    }
+
+    pub fn show_load_pgn_path(&mut self) {
+        self.game.ui.prompt.reset();
+        self.open_modal(Box::new(crate::modal::PromptModal::load_pgn_path()));
+    }
+
+    pub fn show_enter_engine_path(&mut self) {
+        self.game.ui.prompt.input = self.bot_state.chess_engine_path.clone().unwrap_or_default();
+        self.game.ui.prompt.character_index = self.game.ui.prompt.input.chars().count();
+        self.open_modal(Box::new(crate::modal::PromptModal::enter_engine_path()));
+    }
+
+    pub fn show_move_input(&mut self) {
+        self.game.ui.prompt.reset();
+        self.open_modal(Box::new(crate::modal::PromptModal::move_input()));
+    }
+
+    pub fn show_seeking_lichess_game(&mut self) {
+        self.open_modal(Box::new(crate::modal::SeekingLichessModal));
+    }
+
+    pub fn show_waiting_for_opponent(&mut self) {
+        self.open_modal(Box::new(crate::modal::WaitingForOpponentModal));
+    }
+
+    pub fn show_resign_confirmation(&mut self) {
+        self.open_modal(Box::new(crate::modal::ResignConfirmationModal));
+    }
+
+    pub fn show_new_game_confirmation(&mut self) {
+        self.open_modal(Box::new(crate::modal::NewGameConfirmationModal));
+    }
+
+    pub fn show_puzzle_end(&mut self, message: String) {
+        self.open_modal(Box::new(crate::modal::PuzzleEndModal::new(message)));
+    }
+
+    pub fn after_error_popup(&mut self) {
+        if self.current_game_kind() == Some(GamePageKind::Lichess)
+            || self
+                .router
+                .as_ref()
+                .is_some_and(|router| router.page().is_ongoing_games())
+        {
+            self.show_lichess_menu();
+        } else if matches!(
+            self.current_game_kind(),
+            Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+        ) {
+            self.show_home();
+        }
+    }
+
+    pub fn after_success_popup(&mut self) {
+        if self.current_game_kind() == Some(GamePageKind::Lichess) {
+            self.show_lichess_menu();
+        } else if self
+            .router
+            .as_ref()
+            .is_some_and(|router| router.page().is_ongoing_games())
+        {
+            self.fetch_ongoing_games();
+            self.show_ongoing_games();
+        } else if matches!(
+            self.current_game_kind(),
+            Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+        ) {
+            self.show_home();
+        }
+    }
+
+    pub fn render_modal(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
+        if let Some(mut modal) = self.modal.take() {
+            modal.render(frame, area, self);
+            self.modal = Some(modal);
+        }
+    }
+
+    pub fn handle_modal_key(&mut self, key: ratatui::crossterm::event::KeyEvent) -> bool {
+        let Some(mut modal) = self.modal.take() else {
+            return false;
+        };
+        let result = modal.handle_key(key, self);
+        match result {
+            ModalResult::None => self.modal = Some(modal),
+            ModalResult::Close => {}
+            ModalResult::Replace(next) => self.modal = Some(next),
+        }
+        true
     }
 
     pub fn set_page(&mut self, page: Box<dyn Page>) {
@@ -173,6 +322,9 @@ impl App {
     }
 
     pub fn dispatch_key(&mut self, key: ratatui::crossterm::event::KeyEvent) {
+        if self.handle_modal_key(key) {
+            return;
+        }
         self.sync_page();
         if let Some(mut router) = self.router.take() {
             router.handle_key(key, self);
@@ -181,7 +333,7 @@ impl App {
     }
 
     pub fn dispatch_mouse(&mut self, mouse: ratatui::crossterm::event::MouseEvent) {
-        if self.ui_state.current_popup.is_some() {
+        if self.modal.is_some() || self.ui_state.end_screen_visible {
             return;
         }
         self.sync_page();
@@ -233,8 +385,7 @@ impl App {
         }
         self.show_lichess_menu();
         if self.lichess_state.user_profile.is_none() {
-            self.ui_state.popup_message = Some("Loading your lichess account ...".to_string());
-            self.ui_state.show_popup(Popups::Loading);
+            self.show_loading("Loading your lichess account ...".to_string());
         }
         self.fetch_lichess_user_profile();
     }
@@ -246,7 +397,7 @@ impl App {
     }
 
     pub fn open_help(&mut self) {
-        self.ui_state.toggle_help_popup();
+        self.toggle_help();
     }
 
     pub fn open_credits(&mut self) {
@@ -276,7 +427,11 @@ impl App {
     }
 
     pub fn settings_sound_label(&self) -> String {
-        let status = if self.sound_enabled { "On 🔊" } else { "Off 🔇" };
+        let status = if self.sound_enabled {
+            "On 🔊"
+        } else {
+            "Off 🔇"
+        };
         format!("Sound: {status}")
     }
 
@@ -301,7 +456,11 @@ impl App {
     }
 
     pub fn settings_kitty_label(&self) -> String {
-        let status = if self.kitty_graphics_enabled { "On" } else { "Off" };
+        let status = if self.kitty_graphics_enabled {
+            "On"
+        } else {
+            "Off"
+        };
         format!("Kitty Graphics: {status}")
     }
 
@@ -325,7 +484,7 @@ impl App {
     }
 
     pub fn settings_open_engine_path(&mut self) {
-        self.ui_state.current_popup = Some(Popups::EnterEnginePath);
+        self.show_enter_engine_path();
         self.game.ui.prompt.input = self.bot_state.chess_engine_path.clone().unwrap_or_default();
         self.game.ui.prompt.character_index = self.game.ui.prompt.input.chars().count();
     }
@@ -433,7 +592,7 @@ impl App {
     }
 
     pub fn game_mode_open_pgn_loader(&mut self) {
-        self.ui_state.current_popup = Some(Popups::LoadPgnPath);
+        self.show_load_pgn_path();
         self.game.ui.prompt.reset();
     }
 
@@ -446,7 +605,7 @@ impl App {
     }
 
     pub fn lichess_open_token_prompt(&mut self) {
-        self.ui_state.current_popup = Some(Popups::EnterLichessToken);
+        self.show_enter_lichess_token();
         self.game.ui.prompt.reset();
         self.game.ui.prompt.message = "Enter your Lichess API token:".to_string();
     }
@@ -480,10 +639,7 @@ impl App {
 
     pub fn lichess_open_ongoing_games(&mut self) {
         if self.lichess_state.ongoing_games.is_empty() {
-            self.ui_state.show_message_popup(
-                "Loading your ongoing games ...".to_string(),
-                Popups::Loading,
-            );
+            self.show_loading("Loading your ongoing games ...".to_string());
         }
         self.fetch_ongoing_games();
         self.ui_state.menu_cursor = 0;
@@ -492,7 +648,7 @@ impl App {
     }
 
     pub fn lichess_open_join_code(&mut self) {
-        self.ui_state.current_popup = Some(Popups::EnterGameCode);
+        self.show_enter_game_code();
         self.game.ui.prompt.reset();
     }
 
@@ -564,7 +720,12 @@ impl App {
         result
     }
 
-    pub fn game_validate_move(&mut self, game: &mut Game, from: shakmaty::Square, to: shakmaty::Square) {
+    pub fn game_validate_move(
+        &mut self,
+        game: &mut Game,
+        from: shakmaty::Square,
+        to: shakmaty::Square,
+    ) {
         let placeholder = std::mem::take(&mut self.game);
         self.game = std::mem::take(game);
         self.validate_puzzle_move_after_execution(from, to);
@@ -591,8 +752,8 @@ impl App {
     }
 
     pub fn game_toggle_end_screen(&mut self) {
-        if self.ui_state.current_popup == Some(Popups::EndScreen) {
-            self.ui_state.close_popup();
+        if self.ui_state.end_screen_visible {
+            self.close_modal();
             self.ui_state.end_screen_dismissed = true;
         } else if self.ui_state.end_screen_dismissed {
             self.ui_state.end_screen_dismissed = false;
@@ -612,7 +773,7 @@ impl App {
 
     pub fn game_open_move_input(&mut self) {
         self.game.ui.prompt.reset();
-        self.ui_state.current_popup = Some(Popups::MoveInputSelection);
+        self.show_move_input();
     }
 
     pub fn game_cycle_skin(&mut self, next: bool) {
@@ -645,8 +806,7 @@ impl App {
             if let Some(success_message) =
                 puzzle_game.check_pending_move(&mut self.game, self.lichess_state.token.clone())
             {
-                self.ui_state
-                    .show_message_popup(success_message, Popups::PuzzleEndScreen);
+                self.show_puzzle_end(success_message);
             }
             self.lichess_state.puzzle_game = Some(puzzle_game);
         }

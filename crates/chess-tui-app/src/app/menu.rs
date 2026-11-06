@@ -2,10 +2,10 @@
 
 use crate::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
-use crate::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
-use chess_tui_ui::sound::play_menu_nav_sound;
 use crate::game::Game;
+use crate::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
 use chess_tui_theme::DisplayMode;
+use chess_tui_ui::sound::play_menu_nav_sound;
 impl App {
     /// Cycles to the next or previous skin and updates the display mode to match.
     /// Pass `true` to advance forward, `false` to go back.
@@ -87,13 +87,13 @@ impl App {
         self.ui_state.navigate_to_homepage();
         let page = self.pages.home();
         self.set_page(page);
-        self.ui_state.close_popup();
+        self.close_modal();
     }
 
     /// Closes popup and navigates to home page.
     /// Used by popups that should return to home when closed.
     pub fn close_popup_and_go_home(&mut self) {
-        self.ui_state.close_popup();
+        self.close_modal();
         self.game_mode_state.clock_cursor = DEFAULT_TIME_CONTROL_SELECTED; // Reset to default (Rapid)
         self.game_mode_state.custom_time_minutes = DEFAULT_CUSTOM_TIME_VALUE; // Reset custom time
         self.ui_state.navigate_to_homepage();

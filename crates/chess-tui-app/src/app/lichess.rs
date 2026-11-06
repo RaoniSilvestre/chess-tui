@@ -1,7 +1,7 @@
 //! Lichess authentication, game streaming, and puzzle management.
 
 use crate::App;
-use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Popups, SLEEP_DURATION_RESIGN_MS};
+use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, SLEEP_DURATION_RESIGN_MS};
 use crate::puzzle::PuzzleGame;
 use crate::state::lichess_state::LichessUpdate;
 use chess_tui_core::Clock;
@@ -36,12 +36,12 @@ impl App {
                 }
 
                 // Close the popup and show success message
-                self.ui_state.close_popup();
+                self.close_modal();
                 let msg = format!(
                     "Lichess token saved successfully!\n\n Logged in as: {}\n\n You can now use all Lichess features.",
                     username
                 );
-                self.ui_state.show_message_popup(msg, Popups::Success);
+                self.show_success(msg);
             }
             Err(e) => {
                 // Token is invalid, show error
@@ -49,8 +49,8 @@ impl App {
                     "Invalid Lichess token.\n\nError: {}\n\n Please check your token and try again.\n\n Follow the documentation: {}/Lichess/setup",
                     DOCS_URL, e
                 );
-                self.ui_state.current_popup = Some(Popups::Error);
-                self.ui_state.show_message_popup(msg, Popups::Error);
+                self.show_error(String::new());
+                self.show_error(msg);
             }
         }
     }
@@ -74,17 +74,14 @@ impl App {
 
         // Show success message
         let msg = "Disconnected from Lichess successfully!\n\n Your token has been removed.\n\n You can reconnect anytime from the Lichess menu.".to_string();
-        self.ui_state.show_message_popup(msg, Popups::Success);
+        self.show_success(msg);
     }
 
     /// Starts a background thread to seek a Lichess correspondence game and opens the seeking popup.
     /// The result is polled each tick via `check_lichess_seek`.
     pub fn create_lichess_opponent(&mut self, cursor: u8) {
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
         let client = client.clone();
@@ -102,7 +99,7 @@ impl App {
         let time_control = LICHESS_TIME_CONTROLS[idx];
         let (time, increment) = (time_control.minutes, time_control.increment);
 
-        self.ui_state.current_popup = Some(Popups::SeekingLichessGame);
+        self.show_seeking_lichess_game();
 
         std::thread::spawn(
             move || match client.seek_game(time, increment, cancellation_token) {
@@ -120,10 +117,7 @@ impl App {
     /// and sends the result through the seek channel so `check_lichess_seek` can finalize setup.
     pub fn join_lichess_game_by_code(&mut self, game_code: String) {
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
@@ -132,7 +126,7 @@ impl App {
         let (tx, rx) = channel();
         self.lichess_state.receiver = Some(rx);
 
-        self.ui_state.current_popup = Some(Popups::SeekingLichessGame);
+        self.show_seeking_lichess_game();
 
         std::thread::spawn(move || {
             // Extract game ID from URL if a full URL was provided
@@ -176,7 +170,7 @@ impl App {
             && let Ok(update) = rx.try_recv()
         {
             self.lichess_state.receiver = None;
-            self.ui_state.close_popup();
+            self.close_modal();
 
             match update {
                 // We received an seek fetch
@@ -193,10 +187,7 @@ impl App {
                         }
                         Err(e) => {
                             log::error!("Failed to seek Lichess game: {}", e);
-                            self.ui_state.show_message_popup(
-                                format!("Failed to seek game: {}", e),
-                                Popups::Error,
-                            );
+                            self.show_error(format!("Failed to seek game: {}", e));
                         }
                     }
                 }
@@ -209,24 +200,20 @@ impl App {
                     }
                     Err(e) => {
                         log::error!("Failed to fetch user profile: {}", e);
-                        self.ui_state.show_message_popup(
+                        self.show_error(
                             "An error occured when trying to fetch your lichess profile"
                                 .to_string(),
-                            Popups::Error,
                         );
                     }
                 },
                 LichessUpdate::OngoingGamesResult(result) => match result {
                     Ok(games) => {
                         self.lichess_state.ongoing_games = games;
-                        self.ui_state.close_popup();
+                        self.close_modal();
                     }
                     Err(e) => {
                         log::error!("Failed to fetch ongoing games: {}", e);
-                        self.ui_state.show_message_popup(
-                            format!("Failed to fetch ongoing games: {}", e),
-                            Popups::Error,
-                        );
+                        self.show_error(format!("Failed to fetch ongoing games: {}", e));
                     }
                 },
             }
@@ -258,10 +245,7 @@ impl App {
         // If still not found, try fetching ongoing games to get FEN
         if fen.is_none() {
             let Ok(client) = self.lichess_state.require_client() else {
-                self.ui_state.show_message_popup(
-                    Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                    Popups::Error,
-                );
+                self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return false;
             };
             if let Ok(ongoing_games) = client.get_ongoing_games() {
@@ -283,10 +267,7 @@ impl App {
             let mut last_move_to_add: Option<String> = None;
 
             let Ok(client) = self.lichess_state.require_client() else {
-                self.ui_state.show_message_popup(
-                    Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                    Popups::Error,
-                );
+                self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return false;
             };
 
@@ -322,10 +303,7 @@ impl App {
                                 halfmove_clock,
                             ) {
                                 log::error!("Failed to load Lichess position: {e}");
-                                self.ui_state.show_message_popup(
-                                    format!("Failed to load position: {e}"),
-                                    Popups::Error,
-                                );
+                                self.show_error(format!("Failed to load position: {e}"));
                                 return false;
                             }
                             self.game.runtime.sync_turn_with_position();
@@ -340,18 +318,14 @@ impl App {
                         }
                         Err(e) => {
                             log::error!("Failed to parse FEN position: {}", e);
-                            self.ui_state.show_message_popup(
-                                format!("Failed to parse FEN: {}", e),
-                                Popups::Error,
-                            );
+                            self.show_error(format!("Failed to parse FEN: {}", e));
                             return false;
                         }
                     }
                 }
                 Err(e) => {
                     log::error!("Failed to parse FEN string: {}", e);
-                    self.ui_state
-                        .show_message_popup(format!("Failed to parse FEN: {}", e), Popups::Error);
+                    self.show_error(format!("Failed to parse FEN: {}", e));
                     return false;
                 }
             }
@@ -375,7 +349,7 @@ impl App {
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
         self.game.runtime.start_playing();
-        self.ui_state.close_popup();
+        self.close_modal();
         self.ui_state.end_screen_dismissed = false;
 
         // Best-effort initial clock; the first game event resyncs with the server.
@@ -384,10 +358,7 @@ impl App {
             .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
         let mode = match LichessMode::new(
@@ -400,8 +371,7 @@ impl App {
             Ok(mode) => mode,
             Err(e) => {
                 log::error!("Failed to stream Lichess game: {}", e);
-                self.ui_state
-                    .show_message_popup(format!("Failed to stream game: {}", e), Popups::Error);
+                self.show_error(format!("Failed to stream game: {}", e));
                 return;
             }
         };
@@ -425,10 +395,7 @@ impl App {
     /// Fetches the list of ongoing Lichess games and stores them in `lichess_state`.
     pub fn fetch_ongoing_games(&mut self) {
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
@@ -446,18 +413,6 @@ impl App {
         });
     }
 
-    /// Opens the resign confirmation popup if a game is selected in the ongoing games list.
-    pub fn show_resign_confirmation(&mut self) {
-        if self
-            .lichess_state
-            .ongoing_games
-            .get(self.ui_state.menu_cursor as usize)
-            .is_some()
-        {
-            self.ui_state.current_popup = Some(Popups::ResignConfirmation);
-        }
-    }
-
     /// Resigns the currently selected game in a background thread and shows a success popup.
     pub fn confirm_resign_game(&mut self) {
         if let Some(game) = self
@@ -469,10 +424,7 @@ impl App {
             let opponent_name = game.opponent.username.clone();
 
             let Ok(client) = self.lichess_state.require_client() else {
-                self.ui_state.show_message_popup(
-                    Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                    Popups::Error,
-                );
+                self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return;
             };
             let client = client.clone();
@@ -508,14 +460,14 @@ impl App {
                 }
             });
 
-            self.ui_state.close_popup();
+            self.close_modal();
 
             // Show success message
             let msg = format!(
                 "Game resigned successfully!\n\nYou have resigned the game vs {}.\n\n The game list will be updated shortly.",
                 opponent_name
             );
-            self.ui_state.show_message_popup(msg, Popups::Success);
+            self.show_success(msg);
 
             log::info!(
                 "Resignation request sent for game {} vs {}",
@@ -529,10 +481,7 @@ impl App {
     /// The result is polled each tick via `check_lichess_profile_loaded`.
     pub fn fetch_lichess_user_profile(&mut self) {
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
@@ -611,8 +560,7 @@ impl App {
     /// Fetches a daily Lichess puzzle, resets game state, and switches to the Solo page in puzzle mode.
     pub fn start_puzzle_mode(&mut self) {
         // Clear any existing popups and error messages when starting a new puzzle
-        self.ui_state.close_popup();
-        self.ui_state.popup_message = None;
+        self.close_modal();
         self.lichess_state.puzzle_game = None;
 
         // Puzzles use a local board with Lichess-provided moves.
@@ -631,10 +579,7 @@ impl App {
         self.fetch_lichess_user_profile();
 
         let Ok(client) = self.lichess_state.require_client() else {
-            self.ui_state.show_message_popup(
-                Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string(),
-                Popups::Error,
-            );
+            self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
@@ -651,7 +596,7 @@ impl App {
         let puzzle = match PuzzleGame::load(client, self.game.runtime.session_mut().board_mut()) {
             Ok(p) => p,
             Err(e) => {
-                self.ui_state.show_message_popup(e, Popups::Error);
+                self.show_error(e);
                 return;
             }
         };
@@ -702,10 +647,9 @@ impl App {
             if let Some(msg) = message {
                 if is_correct {
                     // Success message (puzzle solved)
-                    self.ui_state
-                        .show_message_popup(msg, Popups::PuzzleEndScreen);
+                    self.show_puzzle_end(msg);
                 } else {
-                    self.ui_state.show_message_popup(msg, Popups::Error);
+                    self.show_error(msg);
                 }
             }
 

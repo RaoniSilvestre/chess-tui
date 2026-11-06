@@ -6,11 +6,10 @@
 
 use crate::App;
 use crate::GamePageKind;
-use crate::constants::Popups;
+use crate::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
-use crate::game::Game;
 use chess_tui_core::{Clock, TimeControl};
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};
@@ -169,8 +168,7 @@ impl App {
     /// so the user can try again or start a new game.
     pub fn resume_from_saved(&mut self, mode: ResumeMode) -> bool {
         let Some(saved) = load(mode) else {
-            self.ui_state
-                .show_message_popup("No saved game to resume.".to_string(), Popups::Error);
+            self.show_error("No saved game to resume.".to_string());
             return false;
         };
 
@@ -182,10 +180,7 @@ impl App {
             .is_none()
         {
             log::warn!("Resume failed: could not parse saved FEN '{}'", saved.fen);
-            self.ui_state.show_message_popup(
-                "Saved game is corrupted and cannot be resumed.".to_string(),
-                Popups::Error,
-            );
+            self.show_error("Saved game is corrupted and cannot be resumed.".to_string());
             delete(mode);
             return false;
         }
@@ -218,10 +213,7 @@ impl App {
                         .load_history(vec![position], vec![], taken_pieces, 0)
                 {
                     log::error!("Failed to load saved position: {e}");
-                    self.ui_state.show_message_popup(
-                        format!("Saved game could not be loaded: {e}"),
-                        Popups::Error,
-                    );
+                    self.show_error(format!("Saved game could not be loaded: {e}"));
                     return false;
                 }
             }
@@ -266,10 +258,7 @@ impl App {
             }
             ResumeMode::Bot => {
                 let Some(bot_cfg) = saved.bot.as_ref() else {
-                    self.ui_state.show_message_popup(
-                        "Saved bot game is missing its engine config.".to_string(),
-                        Popups::Error,
-                    );
+                    self.show_error("Saved bot game is missing its engine config.".to_string());
                     return false;
                 };
                 let player_color = match bot_cfg.player_color.as_str() {
@@ -305,7 +294,7 @@ impl App {
             }
         }
 
-        self.ui_state.close_popup();
+        self.close_modal();
         true
     }
 }

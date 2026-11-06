@@ -2,7 +2,7 @@
 
 use crate::{
     App, GamePageKind,
-    constants::{BOT_DIFFICULTY_COUNT, Popups},
+    constants::BOT_DIFFICULTY_COUNT,
     state::{resume::ResumeMode, ui_state::NewGame},
 };
 
@@ -37,7 +37,7 @@ pub(crate) fn finish_form(app: &mut App, page: GamePageKind) {
         && app.has_resume_save(mode)
     {
         app.ui_state.pending_new_game = Some(NewGame::Start(page));
-        app.ui_state.current_popup = Some(Popups::NewGameConfirmation);
+        app.show_new_game_confirmation();
         return;
     }
     start_game(app, page);

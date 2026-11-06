@@ -49,13 +49,10 @@ fn handle_game_events(app: &mut App) {
             GameEvent::MovePlayed => play_move_sound(),
             GameEvent::Error(message) => {
                 log::error!("Game mode error: {message}");
-                app.ui_state.show_message_popup(
-                    format!("Game error:\n{message}"),
-                    chess_tui_app::constants::Popups::Error,
-                );
+                app.show_error(format!("Game error:\n{message}"));
             }
             GameEvent::OpponentJoined => {
-                app.ui_state.close_popup();
+                app.close_modal();
             }
         }
     }

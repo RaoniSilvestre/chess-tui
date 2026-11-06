@@ -2,7 +2,6 @@
 
 use crate::App;
 use crate::GamePageKind;
-use crate::constants::Popups;
 use crate::game::Game;
 use chess_tui_core::Clock;
 use chess_tui_game::{Bot, BotMode, GameKind};
@@ -11,11 +10,11 @@ use shakmaty::Color;
 impl App {
     /// Shows the end screen popup. Uses the puzzle variant if a puzzle is active.
     pub fn show_end_screen(&mut self) {
-        self.ui_state.current_popup = Some(if self.lichess_state.puzzle_game.is_some() {
-            Popups::PuzzleEndScreen
+        if self.lichess_state.puzzle_game.is_some() {
+            self.show_puzzle_end(String::new());
         } else {
-            Popups::EndScreen
-        })
+            self.ui_state.end_screen_visible = true;
+        }
     }
 
     /// Updates game state and shows the end screen if the state just transitioned to checkmate or draw.
@@ -49,7 +48,7 @@ impl App {
             .is_some_and(|mode| self.has_resume_save(mode))
         {
             self.ui_state.pending_new_game = Some(crate::state::ui_state::NewGame::Restart);
-            self.ui_state.current_popup = Some(Popups::NewGameConfirmation);
+            self.show_new_game_confirmation();
         } else {
             self.restart();
         }
@@ -107,7 +106,7 @@ impl App {
         self.game.ui.skin = current_skin;
         self.game.ui.display_mode = display_mode;
         self.game.ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
-        self.ui_state.close_popup();
+        self.close_modal();
 
         // Re-initialize clock for local games and bot games
         if is_local_game || is_bot_game {
@@ -125,8 +124,8 @@ impl App {
 
         if self.game.runtime.state().is_finished() {
             // Game ended - only show end screen if it's not already shown and not dismissed
-            if self.ui_state.current_popup != Some(Popups::EndScreen)
-                && self.ui_state.current_popup != Some(Popups::PuzzleEndScreen)
+            if !self.ui_state.end_screen_visible
+                && !self.has_modal::<crate::modal::PuzzleEndModal>()
                 && !self.ui_state.end_screen_dismissed
             {
                 self.show_end_screen();
@@ -149,7 +148,7 @@ impl App {
             .as_ref()
             .is_none_or(|p| p.is_empty())
         {
-            self.ui_state.popup_message = Some(
+            self.show_error(
                 "Chess engine path not configured.\n\n".to_string()
                     + &format!(
                         "To configure the chess engine follow the documentation: {}/Bot/bot-engines\n\n",
@@ -160,7 +159,6 @@ impl App {
                     + " or execute the script: ./scripts/install-stockfish.sh\n"
                     + "to install stockfish automatically and set it as the chess engine path \n",
             );
-            self.ui_state.current_popup = Some(crate::constants::Popups::Error);
             return false;
         }
 
@@ -169,7 +167,7 @@ impl App {
             if !std::path::Path::new(command_path).exists()
                 || !std::path::Path::new(command_path).is_file()
             {
-                self.ui_state.popup_message = Some(format!(
+                self.show_error(format!(
                     "Chess engine path is invalid.\n\n\
                     The configured path does not exist or is not a file:\n\
                     {}\n\n\
@@ -182,7 +180,6 @@ impl App {
                     command_path,
                     crate::constants::DOCS_URL
                 ));
-                self.ui_state.current_popup = Some(crate::constants::Popups::Error);
                 return false;
             }
         }
@@ -199,7 +196,7 @@ impl App {
     /// Prepare the multiplayer page and report whether the board should be rendered.
     pub fn prepare_multiplayer_page(&mut self) -> bool {
         self.game_mode_state.resolve_selected_color();
-        if self.ui_state.current_popup == Some(crate::constants::Popups::Error) {
+        if self.has_modal::<crate::modal::MessageModal>() {
             return false;
         }
         if self.game.runtime.kind() != chess_tui_game::GameKind::Tcp {
@@ -210,7 +207,7 @@ impl App {
                         self.multiplayer_state.host_ip = Some("127.0.0.1".to_string());
                     }
                 } else {
-                    self.ui_state.current_popup = Some(crate::constants::Popups::EnterHostIP);
+                    self.show_enter_host_ip();
                 }
             } else {
                 self.create_opponent();

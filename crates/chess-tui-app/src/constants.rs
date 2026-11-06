@@ -65,45 +65,6 @@ pub fn config_dir() -> Result<PathBuf, &'static str> {
     }
 }
 
-/// Overlay popup kinds rendered on top of the active page.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Popups {
-    /// Text input for the remote peer's IP address.
-    EnterHostIP,
-    /// Shown while the host waits for a peer to connect.
-    WaitingForOpponentToJoin,
-    /// Engine binary could not be found or launched.
-    EnginePathError,
-    /// Key-bindings help overlay.
-    Help,
-    /// Game-over result screen.
-    EndScreen,
-    /// Puzzle-completion result screen.
-    PuzzleEndScreen,
-    /// Generic error message.
-    Error,
-    /// Generic success message.
-    Success,
-    /// Waiting for a Lichess game pairing.
-    SeekingLichessGame,
-    /// Text input for a Lichess game ID or URL.
-    EnterGameCode,
-    /// Masked text input for the Lichess API token.
-    EnterLichessToken,
-    /// Y/N confirmation before resigning.
-    ResignConfirmation,
-    /// Y/N confirmation before a new game replaces a saved one.
-    NewGameConfirmation,
-    /// SAN move text entry.
-    MoveInputSelection,
-    /// File path entry for loading a PGN file.
-    LoadPgnPath,
-    /// Spinner to make user wait
-    Loading,
-    /// Text input for chess engine path.
-    EnterEnginePath,
-}
-
 /// Base URL for all Lichess REST API requests.
 pub const LICHESS_API_URL: &str = "https://lichess.org/api";
 /// Base URL for the chess-tui documentation.

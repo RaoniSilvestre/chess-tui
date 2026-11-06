@@ -61,13 +61,10 @@ impl App {
                 GameEvent::MovePlayed => play_move_sound(),
                 GameEvent::Error(message) => {
                     log::error!("Game mode error: {message}");
-                    self.ui_state.show_message_popup(
-                        format!("Game error:\n{message}"),
-                        crate::constants::Popups::Error,
-                    );
+                    self.show_error(format!("Game error:\n{message}"));
                 }
                 GameEvent::OpponentJoined => {
-                    self.ui_state.close_popup();
+                    self.close_modal();
                 }
             }
         }

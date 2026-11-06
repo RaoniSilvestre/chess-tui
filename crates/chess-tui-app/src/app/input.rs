@@ -1,7 +1,6 @@
 //! Board cursor movement and move submission.
 
 use crate::App;
-use crate::constants::Popups;
 use chess_tui_core::Coord;
 use chess_tui_core::square_utils::flip_square_if_needed;
 use shakmaty::CastlingMode;
@@ -68,10 +67,9 @@ impl App {
 
                     if let Some(msg) = message {
                         if is_correct {
-                            self.ui_state
-                                .show_message_popup(msg, Popups::PuzzleEndScreen);
+                            self.show_puzzle_end(msg);
                         } else {
-                            self.ui_state.show_message_popup(msg, Popups::Error);
+                            self.show_error(msg);
                         }
                     }
                 }

@@ -271,12 +271,7 @@ fn render_color_selection_ui(
     frame.render_widget(random_text, color_button_area[4]);
 }
 
-pub fn render_game_mode_menu(
-    frame: &mut Frame,
-    area: Rect,
-    app: &App,
-    cursor: u8,
-) {
+pub fn render_game_mode_menu(frame: &mut Frame, area: Rect, app: &App, cursor: u8) {
     let game_mode = match cursor {
         0 => AvailableGameMode::Local,
         1 => AvailableGameMode::Multiplayer,
@@ -666,12 +661,7 @@ fn build_pgn_detail_lines() -> Vec<Line<'static>> {
     ]
 }
 
-fn render_details_panel(
-    frame: &mut Frame,
-    app: &App,
-    area: Rect,
-    game_mode: AvailableGameMode,
-) {
+fn render_details_panel(frame: &mut Frame, app: &App, area: Rect, game_mode: AvailableGameMode) {
     let panel_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -921,12 +911,7 @@ fn render_bot_form(
     );
 }
 
-fn render_game_mode_form(
-    frame: &mut Frame,
-    app: &App,
-    area: Rect,
-    game_mode: AvailableGameMode,
-) {
+fn render_game_mode_form(frame: &mut Frame, app: &App, area: Rect, game_mode: AvailableGameMode) {
     let is_active = app.game_mode_state().form_active;
     let grey_color = if is_active {
         Color::White

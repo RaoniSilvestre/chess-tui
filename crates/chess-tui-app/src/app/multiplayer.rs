@@ -1,7 +1,6 @@
 //! TCP multiplayer session setup and teardown.
 
 use crate::App;
-use crate::constants::Popups;
 use chess_tui_game::TcpMode;
 use chess_tui_net::{NETWORK_PORT, get_host_ip};
 use shakmaty::Color;
@@ -19,7 +18,7 @@ impl App {
         };
 
         if hosting {
-            self.ui_state.current_popup = Some(Popups::WaitingForOpponentToJoin);
+            self.show_waiting_for_opponent();
             if let Some(ip) = get_host_ip() {
                 self.multiplayer_state.host_ip = Some(format!("{}:{}", ip, NETWORK_PORT));
             } else {
@@ -46,8 +45,7 @@ impl App {
             Err(e) => {
                 log::error!("Failed to create TCP peer: {}", e);
                 self.multiplayer_state.host_ip = None;
-                self.ui_state
-                    .show_message_popup(format!("Connection failed: {}", e), Popups::Error);
+                self.show_error(format!("Connection failed: {}", e));
                 return;
             }
         }

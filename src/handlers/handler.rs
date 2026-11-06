@@ -1,7 +1,6 @@
 //! Routes raw crossterm events to the active page handler and shared chess input bindings.
 
 use crate::app::{App, AppResult};
-use crate::handlers::popup::handle_popup_input;
 use chess_tui_core::Coord;
 use chess_tui_core::square_utils::get_coord_from_square;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -34,12 +33,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
     }
 
-    // If a popup is active, the key should affect the popup and not the page,
-    // therefore, if there is some popup active, handle it, if not, handle the page event
-    match app.ui_state.current_popup {
-        Some(popup) => handle_popup_input(app, key_event, popup),
-        None => app.dispatch_key(key_event),
-    }
+    app.dispatch_key(key_event);
 
     Ok(())
 }

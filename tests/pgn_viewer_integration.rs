@@ -7,7 +7,6 @@ mod common;
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use chess_tui_core::PgnViewer;
@@ -42,9 +41,9 @@ fn load_sample_viewer() -> App {
 fn help_popup_opens_in_pgn_mode() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('?')])?;
-    assert_eq!(app.ui_state.current_popup, Some(Popups::Help));
+    assert!(app.has_modal::<chess_tui_app::modal::HelpModal>());
     send(&mut app, &[KeyCode::Char('?')])?;
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(!app.has_any_modal());
     Ok(())
 }
 
@@ -194,7 +193,10 @@ fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
 
     // Home → Play Game → Local → start game
     send(&mut app, &[KeyCode::Enter, KeyCode::Enter, KeyCode::Enter])?;
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
     assert!(!app.game.ui.hide_cursor);
     Ok(())
 }

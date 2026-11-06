@@ -7,6 +7,7 @@ pub mod constants;
 pub mod game;
 pub mod game_mode;
 pub mod game_mode_menu;
+pub mod modal;
 pub mod puzzle;
 pub mod state;
 
@@ -64,6 +65,23 @@ pub trait Page: AsAny {
     fn is_home(&self) -> bool {
         false
     }
+
+    fn is_ongoing_games(&self) -> bool {
+        false
+    }
+}
+
+/// Result of a modal key event.
+pub enum ModalResult {
+    None,
+    Close,
+    Replace(Box<dyn Modal>),
+}
+
+/// A modal overlay. Modals own their local state and receive the application.
+pub trait Modal: AsAny {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> ModalResult;
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &App);
 }
 
 /// Owns the active page and applies navigation results.
@@ -129,11 +147,7 @@ pub trait PageFactory {
     fn game_mode_menu(&self) -> Box<dyn Page>;
     fn settings(&self) -> Box<dyn Page>;
     fn credits(&self) -> Box<dyn Page>;
-    fn pgn_viewer(
-        &self,
-        games: Vec<chess_tui_core::PgnViewer>,
-        game_idx: usize,
-    ) -> Box<dyn Page>;
+    fn pgn_viewer(&self, games: Vec<chess_tui_core::PgnViewer>, game_idx: usize) -> Box<dyn Page>;
 }
 
 /// Placeholder used by `App::default()` before the real factory is installed.

@@ -402,7 +402,7 @@ impl Page for GamePage {
                 &mut app.kitty_pieces,
                 app.kitty_graphics_enabled,
                 app.lichess_state.puzzle_game.is_some(),
-                app.ui_state.current_popup == Some(chess_tui_app::constants::Popups::EndScreen),
+                app.ui_state.end_screen_visible,
             );
         }
     }

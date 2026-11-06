@@ -272,12 +272,7 @@ impl GameModeMenuPage {
         }
     }
 
-    fn handle_form(
-        &mut self,
-        key: KeyEvent,
-        app: &mut App,
-        kind: AvailableGameMode,
-    ) {
+    fn handle_form(&mut self, key: KeyEvent, app: &mut App, kind: AvailableGameMode) {
         match key.code {
             KeyCode::Esc => {
                 let state = app.game_mode_state_mut();
@@ -302,12 +297,7 @@ impl GameModeMenuPage {
         }
     }
 
-    fn handle_menu(
-        &mut self,
-        key: KeyEvent,
-        app: &mut App,
-        kind: AvailableGameMode,
-    ) {
+    fn handle_menu(&mut self, key: KeyEvent, app: &mut App, kind: AvailableGameMode) {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 {

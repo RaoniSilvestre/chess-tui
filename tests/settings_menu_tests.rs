@@ -1,6 +1,5 @@
 use chess_tui::{
     app::{App, AppResult},
-    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -93,10 +92,10 @@ fn open_close_chess_engine_path_popup() -> AppResult<()> {
             KeyCode::Enter,
         ],
     )?;
-    assert_eq!(app.ui_state.current_popup, Some(Popups::EnterEnginePath));
+    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
 
     send(&mut app, &[KeyCode::Esc])?;
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(!app.has_any_modal());
     assert!(app.is_page::<chess_tui_pages::SettingsPage>());
 
     Ok(())

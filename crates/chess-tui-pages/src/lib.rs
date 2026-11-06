@@ -11,10 +11,10 @@ pub mod popups;
 pub mod settings;
 
 pub use credits::CreditsPage;
+pub use factory::DefaultPageFactory;
 pub use game::GamePage;
 pub use game_mode::GameModeMenuPage;
 pub use home::HomePage;
 pub use lichess::{LichessMenuPage, OngoingGamesPage};
 pub use pgn::PgnViewerPage;
 pub use settings::SettingsPage;
-pub use factory::DefaultPageFactory;

@@ -3,7 +3,6 @@
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::Popups,
     handlers::handler::handle_key_events,
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -38,12 +37,12 @@ fn open_pgn_loader_popup() -> AppResult<App> {
 fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
     assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>());
-    assert_eq!(app.ui_state.current_popup, Some(Popups::LoadPgnPath));
+    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
     assert_eq!(app.ui_state.menu_cursor, 3);
 
     // A single Esc must close the popup *and* hand control back to the menu.
     send(&mut app, &[KeyCode::Esc])?;
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(!app.has_any_modal());
 
     // Before the fix `form_active` stayed true, so the page handler treated the
     // menu as a form and ignored vertical navigation. A single Down must now move
@@ -60,11 +59,11 @@ fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
 #[test]
 fn esc_with_empty_path_closes_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
-    assert_eq!(app.ui_state.current_popup, Some(Popups::LoadPgnPath));
+    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
 
     // Submitting an empty path also closes the popup; the menu must stay usable.
     send(&mut app, &[KeyCode::Enter])?;
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(!app.has_any_modal());
 
     send(&mut app, &[KeyCode::Down])?;
     assert_eq!(

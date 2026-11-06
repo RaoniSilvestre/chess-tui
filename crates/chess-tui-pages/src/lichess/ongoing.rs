@@ -11,12 +11,7 @@ use ratatui::{
 };
 
 /// Renders the ongoing Lichess games list with navigation hints.
-fn render_ongoing_games(
-    frame: &mut Frame,
-    area: Rect,
-    app: &App,
-    cursor: u8,
-) {
+fn render_ongoing_games(frame: &mut Frame, area: Rect, app: &App, cursor: u8) {
     // Create layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -172,5 +167,9 @@ impl Page for OngoingGamesPage {
 
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
         render_ongoing_games(frame, area, app, self.cursor);
+    }
+
+    fn is_ongoing_games(&self) -> bool {
+        true
     }
 }

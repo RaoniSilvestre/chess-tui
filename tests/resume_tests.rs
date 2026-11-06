@@ -9,7 +9,6 @@ use std::{path::PathBuf, time::Instant};
 
 use chess_tui::{
     app::{App, AppResult},
-    constants::Popups,
     handlers::handler::handle_key_events,
     state::resume::{ClockState, ResumeMode, SavedGame, has_save, save, save_path},
 };
@@ -88,12 +87,12 @@ fn start_local_game(app: &mut App) -> AppResult<()> {
         &[
             KeyCode::Enter, // Play Game -> GameModeMenu
             KeyCode::Enter, // Select 'Local' -> form
-            KeyCode::Enter, // Submit form -> Pages::Solo
+            KeyCode::Enter, // Submit form -> Solo game page
         ],
     )
 }
 
-/// Plays e2-e4 via the cursor. Leaves the app on Pages::Solo with one move
+/// Plays e2-e4 via the cursor. Leaves the app on the Solo game page with one move
 /// in history.
 fn play_e2e4(app: &mut App) -> AppResult<()> {
     send(app, &[KeyCode::Down, KeyCode::Down])?; // cursor -> e2
@@ -170,7 +169,10 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
 
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
     assert_eq!(app.game.runtime.state(), GameState::Playing);
     assert_eq!(
         app.game.runtime.turn(),
@@ -192,10 +194,9 @@ fn resume_from_missing_save_shows_error() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
 
     assert!(!app.resume_from_saved(ResumeMode::Local));
-    assert_eq!(
-        app.ui_state.current_popup,
-        Some(chess_tui::constants::Popups::Error),
-        "An error popup should explain the missing save",
+    assert!(
+        app.has_modal::<chess_tui_app::modal::MessageModal>(),
+        "An error popup should explain the missing save"
     );
     Ok(())
 }
@@ -247,10 +248,7 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
 
     let mut app = chess_tui::app::test_app();
     start_local_game(&mut app)?;
-    assert_eq!(
-        app.ui_state.current_popup,
-        Some(Popups::NewGameConfirmation)
-    );
+    assert!(app.has_modal::<chess_tui_app::modal::NewGameConfirmationModal>());
     assert!(
         has_save(ResumeMode::Local),
         "Nothing is wiped before the user confirms"
@@ -261,8 +259,11 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
         !has_save(ResumeMode::Local),
         "Confirming a new game from the Local form should wipe the old save",
     );
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
+    assert!(!app.has_any_modal());
     Ok(())
 }
 
@@ -305,8 +306,11 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
+    assert!(!app.has_any_modal());
     assert_eq!(app.game.runtime.moves().len(), 2);
     assert!(has_save(ResumeMode::Local));
     Ok(())
@@ -323,10 +327,7 @@ fn restart_mid_game_asks_first() -> AppResult<()> {
     assert!(has_save(ResumeMode::Local));
 
     send(&mut app, &[KeyCode::Char('r')])?;
-    assert_eq!(
-        app.ui_state.current_popup,
-        Some(Popups::NewGameConfirmation)
-    );
+    assert!(app.has_modal::<chess_tui_app::modal::NewGameConfirmationModal>());
     send(&mut app, &[KeyCode::Char('n')])?;
     assert_eq!(app.game.runtime.moves().len(), 1, "n keeps the game");
     assert!(has_save(ResumeMode::Local));
@@ -344,7 +345,7 @@ fn restart_before_any_move_does_not_ask() -> AppResult<()> {
     let mut app = chess_tui::app::test_app();
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
-    assert_eq!(app.ui_state.current_popup, None);
+    assert!(!app.has_any_modal());
     Ok(())
 }
 
@@ -376,7 +377,10 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
     assert!(
         !app.game_mode_state.form_active,
         "Form should close on resume"
@@ -521,7 +525,10 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert!(matches!(app.current_game_kind(), Some(chess_tui_app::GamePageKind::Solo)));
+    assert!(matches!(
+        app.current_game_kind(),
+        Some(chess_tui_app::GamePageKind::Solo)
+    ));
     let fen_now = app.game.runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
@@ -638,10 +645,9 @@ fn corrupt_fen_in_save_deletes_file_and_errors() -> AppResult<()> {
 
     let mut app = chess_tui::app::test_app();
     assert!(!app.resume_from_saved(ResumeMode::Local));
-    assert_eq!(
-        app.ui_state.current_popup,
-        Some(chess_tui::constants::Popups::Error),
-        "User should be told the save is corrupt",
+    assert!(
+        app.has_modal::<chess_tui_app::modal::MessageModal>(),
+        "User should be told the save is corrupt"
     );
     assert!(
         !has_save(ResumeMode::Local),
@@ -674,8 +680,10 @@ fn r_with_no_save_is_inert() -> AppResult<()> {
     send(&mut app, &[KeyCode::Enter])?; // Home -> GameModeMenu, Local highlighted
     send(&mut app, &[KeyCode::Char('r')])?;
 
-    assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>(),
-        "R without a save must stay on the menu");
+    assert!(
+        app.is_page::<chess_tui_pages::GameModeMenuPage>(),
+        "R without a save must stay on the menu"
+    );
     Ok(())
 }
 
