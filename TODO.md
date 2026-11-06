@@ -30,10 +30,10 @@
 
 - [x] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
 - [x] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages`.
-- [x] Move page-local state (home/settings/game-mode/Lichess/PGN cursors and game view state) into page structs.
-- [x] Remove `LegacyPage` and the central legacy page dispatch.
-- [ ] Replace the remaining `Pages`/`Popups` state enums with page-owned navigation results.
-- [ ] Remove the temporary per-page context traits once the concrete `App` moves into `chess-tui-app`; they are scaffolding, not the target API.
+- [x] Move page-local state into page structs and the concrete `App` into `chess-tui-app`.
+- [x] Remove `LegacyPage`, the `Pages` routing enum, and the central page dispatch.
+- [x] Replace the `Popups` enum with modal objects owned by the application.
+- [x] Remove the temporary per-page context traits; pages receive `&mut App` directly.
 
 ## Validation
 
