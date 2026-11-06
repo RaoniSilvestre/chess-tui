@@ -6,7 +6,6 @@
 
 use crate::app::App;
 use crate::constants::{Pages, Popups};
-use crate::game_logic::bot::Bot;
 use crate::game_logic::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
@@ -23,9 +22,9 @@ impl App {
         if self.game.logic.opponent.is_some() {
             return None;
         }
-        match self.ui_state.current_page {
-            Pages::Solo if self.game.logic.bot.is_none() => Some(ResumeMode::Local),
-            Pages::Bot if self.game.logic.bot.is_some() => Some(ResumeMode::Bot),
+        match (self.ui_state.current_page, self.game.logic.kind()) {
+            (Pages::Solo, chess_tui_game::GameKind::Local) => Some(ResumeMode::Local),
+            (Pages::Bot, chess_tui_game::GameKind::Bot) => Some(ResumeMode::Bot),
             _ => None,
         }
     }
@@ -129,7 +128,6 @@ impl App {
     }
 
     fn bot_config_for_save(&self) -> Option<BotConfig> {
-        let bot = self.game.logic.bot.as_ref()?;
         let path = self.bot_state.chess_engine_path.clone()?;
         let player_color = match self.game_mode_state.selected_color {
             Some(Color::White) => "white",
@@ -138,8 +136,8 @@ impl App {
         };
         Some(BotConfig {
             path,
-            depth: bot.depth(),
-            difficulty: bot.difficulty(),
+            depth: self.bot_state.bot_depth,
+            difficulty: self.bot_state.bot_difficulty,
             player_color: player_color.to_string(),
             is_random_color: self.game_mode_state.is_random_color,
         })
@@ -289,26 +287,21 @@ impl App {
                 let is_bot_starting = self.game.logic.turn() != player_color
                     && player_color == Color::White
                     || (player_color == Color::Black && self.game.logic.turn() == Color::White);
-                self.game.logic.bot = Some(Bot::new(
-                    &bot_cfg.path,
-                    is_bot_starting,
-                    bot_cfg.depth,
-                    bot_cfg.difficulty,
-                ));
+                self.game
+                    .logic
+                    .set_mode(Box::new(chess_tui_game::BotMode::new(
+                        chess_tui_game::Bot::new(
+                            &bot_cfg.path,
+                            is_bot_starting,
+                            bot_cfg.depth,
+                            bot_cfg.difficulty,
+                        ),
+                    )));
 
                 self.ui_state.current_page = Pages::Bot;
                 self.last_saved_move_count = Some(0);
 
-                // If it's the bot's turn in the saved position, kick it off.
-                if self.game.logic.turn() != player_color
-                    && let Some(bot) = &self.game.logic.bot
-                {
-                    self.bot_state.start_bot_thinking(
-                        self.game.logic.fen(),
-                        bot.depth(),
-                        bot.difficulty(),
-                    );
-                }
+                // BotMode::tick starts the engine if it is the bot's turn.
             }
         }
 

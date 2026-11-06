@@ -4,6 +4,7 @@ use crate::app::App;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
 use chess_tui_core::Clock;
+use chess_tui_game::{Bot, BotMode, GameKind};
 use shakmaty::Color;
 
 impl App {
@@ -65,15 +66,16 @@ impl App {
         // Clear puzzle state when restarting (for normal games)
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
-        let bot = self.game.logic.bot.clone();
+        let mode_kind = self.game.logic.kind();
         let opponent = self.game.logic.opponent.clone();
         // Preserve skin and display mode
         let current_skin = self.game.ui.skin.clone();
         let display_mode = self.game.ui.display_mode;
-        // Check if we're in a local game (Solo page with no bot/opponent) or bot game to preserve clock
-        let is_local_game =
-            self.ui_state.current_page == Pages::Solo && bot.is_none() && opponent.is_none();
-        let is_bot_game = bot.is_some() && opponent.is_none();
+        // Check if we're in a local game or bot game to preserve clock
+        let is_local_game = self.ui_state.current_page == Pages::Solo
+            && mode_kind == GameKind::Local
+            && opponent.is_none();
+        let is_bot_game = mode_kind == GameKind::Bot && opponent.is_none();
 
         if is_bot_game && self.game_mode_state.is_random_color {
             self.game_mode_state.selected_color = Some(if rand::random::<bool>() {
@@ -84,14 +86,25 @@ impl App {
         }
 
         self.game = Game::default();
-
-        self.game.logic.bot = bot;
         self.game.logic.opponent = opponent;
-        if let Some(bot) = self.game.logic.bot.as_mut() {
-            bot.set_starting(
-                self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black,
+
+        if is_bot_game {
+            let bot_starting =
+                self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
+            let path = self.bot_state.chess_engine_path.as_deref().unwrap_or("");
+            let bot = Bot::new(
+                path,
+                bot_starting,
+                self.bot_state.bot_depth,
+                self.bot_state.bot_difficulty,
             );
+            self.game.logic.set_mode(Box::new(BotMode::new(bot)));
+            if bot_starting {
+                // Flip the board once so Black player sees from their perspective.
+                self.game.logic.flip();
+            }
         }
+
         // Restore skin, display mode and piece styles
         self.game.ui.skin = current_skin;
         self.game.ui.display_mode = display_mode;
@@ -103,26 +116,6 @@ impl App {
             self.game
                 .logic
                 .set_clock(Clock::new(self.game_mode_state.get_time_control()));
-        }
-
-        if self
-            .game
-            .logic
-            .bot
-            .as_ref()
-            .is_some_and(|bot| bot.is_starting())
-        {
-            // Flip the board once so Black player sees from their perspective
-            self.game.logic.flip();
-            if let Some(bot) = &self.game.logic.bot {
-                self.bot_state.start_bot_thinking(
-                    self.game.logic.fen(),
-                    bot.depth(),
-                    bot.difficulty(),
-                );
-            }
-            // Don't set player_turn to Black here - the bot (White) moves first,
-            // so player_turn should remain White until after the bot's first move
         }
     }
 

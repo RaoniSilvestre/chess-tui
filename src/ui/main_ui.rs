@@ -253,7 +253,7 @@ fn render_bot_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::lay
 
     if app.ui_state.current_popup != Some(Popups::Error) {
         app.game_mode_state.resolve_selected_color();
-        if app.game.logic.bot.is_none() {
+        if app.game.logic.kind() != chess_tui_game::GameKind::Bot {
             app.bot_setup();
         } else {
             render_game_ui(frame, app, main_area);

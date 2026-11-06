@@ -1,63 +1,103 @@
 //! Game state and move execution.
 
-use super::{bot::Bot, opponent::Opponent, ui::UI};
+use super::{opponent::Opponent, ui::UI};
 use chess_tui_core::{
     ClockState, Coord, GameBoard, GameOutcome, GameState, square_utils::flip_square_if_needed,
 };
-use chess_tui_game::GameSession;
+use chess_tui_game::{GameEvent, GameKind, GameMode, GameRuntime, GameSession, LocalMode};
 use shakmaty::{Color, Move, Position, Role, Square};
 use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
-impl Clone for GameLogic {
-    fn clone(&self) -> Self {
-        Self {
-            session: self.session.clone(),
-            bot: self.bot.clone(),
-            opponent: self.opponent.clone(),
-        }
-    }
-}
-
-/// Application-level game logic: a pure [`GameSession`] plus bot/opponent
-/// orchestration that will move into game modes in a later step.
-#[derive(Default)]
+/// Application-level game logic: a [`GameRuntime`] plus temporary opponent
+/// orchestration that will move into a remote game mode.
 pub struct GameLogic {
-    session: GameSession,
-    /// The struct to handle Bot related stuff
-    pub bot: Option<Bot>,
+    runtime: GameRuntime,
     /// The other player when playing in multiplayer
     pub opponent: Option<Opponent>,
 }
 
+impl Default for GameLogic {
+    fn default() -> Self {
+        Self {
+            runtime: GameRuntime::new(GameSession::default(), Box::new(LocalMode)),
+            opponent: None,
+        }
+    }
+}
+
 impl Deref for GameLogic {
-    type Target = GameSession;
+    type Target = GameRuntime;
 
     fn deref(&self) -> &Self::Target {
-        &self.session
+        &self.runtime
     }
 }
 
 impl DerefMut for GameLogic {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.session
+        &mut self.runtime
     }
 }
 
 impl GameLogic {
     pub fn new(board: GameBoard, turn: Color) -> Self {
         Self {
-            session: GameSession::new(board, turn),
-            ..Self::default()
+            runtime: GameRuntime::new(GameSession::new(board, turn), Box::new(LocalMode)),
+            opponent: None,
         }
     }
 
+    pub fn runtime(&self) -> &GameRuntime {
+        &self.runtime
+    }
+
+    pub fn runtime_mut(&mut self) -> &mut GameRuntime {
+        &mut self.runtime
+    }
+
+    pub fn set_mode(&mut self, mode: Box<dyn GameMode>) {
+        self.runtime.set_mode(mode);
+    }
+
+    pub fn kind(&self) -> GameKind {
+        self.runtime.kind()
+    }
+
+    pub fn tick(&mut self) {
+        self.runtime.tick();
+    }
+
+    pub fn take_events(&mut self) -> Vec<GameEvent> {
+        self.runtime.take_events()
+    }
+
+    pub fn on_player_move(&mut self) {
+        self.runtime.on_player_move();
+    }
+
+    pub fn on_promotion(&mut self) {
+        self.runtime.on_promotion();
+    }
+
+    pub fn is_player_move_allowed(&self) -> bool {
+        self.runtime.can_player_move()
+    }
+
+    pub fn flip_after_move(&self) -> bool {
+        self.runtime.flip_after_move()
+    }
+
+    pub fn history_is_solo(&self) -> bool {
+        self.runtime.history_is_solo()
+    }
+
     pub fn session(&self) -> &GameSession {
-        &self.session
+        self.runtime.session()
     }
 
     pub fn session_mut(&mut self) -> &mut GameSession {
-        &mut self.session
+        self.runtime.session_mut()
     }
 }
 
@@ -66,15 +106,6 @@ pub struct Game {
     pub logic: GameLogic,
     /// The struct to handle UI related stuff
     pub ui: UI,
-}
-
-impl Clone for Game {
-    fn clone(&self) -> Self {
-        Game {
-            logic: self.logic.clone(),
-            ui: self.ui.clone(),
-        }
-    }
 }
 
 impl Game {
@@ -109,11 +140,13 @@ impl Game {
 
         match self.logic.state() {
             GameState::Promotion(_) => {
-                // Default to flipping in solo mode (no bot, no opponent)
-                let should_flip = self.logic.opponent.is_none() && self.logic.bot.is_none();
+                let should_flip = self.logic.flip_after_move();
                 self.handle_promotion(should_flip);
             }
             GameState::Playing => {
+                if !self.logic.is_player_move_allowed() {
+                    return;
+                }
                 if self.ui.is_cell_selected() {
                     // Try to execute the move
                     self.already_selected_cell_action();
@@ -175,24 +208,7 @@ impl Game {
             self.logic.handle_multiplayer_promotion();
         }
 
-        if self.logic.bot.is_some() {
-            self.logic.execute_bot_move();
-        }
-    }
-
-    /// Handle bot-specific logic after a move
-    fn handle_after_move_bot_logic(&mut self) {
-        if self.logic.bot.is_some() {
-            self.logic.update_game_state();
-
-            // Trigger bot move if game is still in progress
-            if !self.logic.state().is_promotion()
-                && !self.logic.state().is_finished()
-                && let Some(bot) = self.logic.bot.as_mut()
-            {
-                bot.request_move();
-            }
-        }
+        self.logic.on_promotion();
     }
 
     /// Handle opponent-specific logic after a move
@@ -241,9 +257,7 @@ impl Game {
 
     /// Handle board flipping logic after a move (only in single-player mode)
     fn handle_after_move_board_flip(&mut self) {
-        // Only flip the board in single-player mode (no bot, no opponent)
-        if self.logic.bot.is_none()
-            && self.logic.opponent.is_none()
+        if self.logic.flip_after_move()
             && (!self.logic.is_latest_move_promotion()
                 || self.logic.is_draw()
                 || self.logic.is_checkmate())
@@ -299,7 +313,7 @@ impl Game {
         }
 
         self.handle_after_move_board_flip();
-        self.handle_after_move_bot_logic();
+        self.logic.on_player_move();
         self.handle_after_move_opponent_logic();
     }
 
@@ -360,7 +374,7 @@ impl Game {
         }
 
         self.handle_after_move_board_flip();
-        self.handle_after_move_bot_logic();
+        self.logic.on_player_move();
         self.handle_after_move_opponent_logic();
 
         true
@@ -373,90 +387,28 @@ impl Game {
 
 impl GameLogic {
     pub fn update_game_state(&mut self) {
-        self.session.update_game_state();
+        self.session_mut().update_game_state();
     }
 
     /// Switch the player turn
     pub fn switch_player_turn(&mut self) {
-        self.session.switch_turn();
+        self.switch_turn();
     }
 
     /// Start the clock for the current player (used on first move)
     pub fn start_clock_if_needed(&mut self) {
-        self.session.start_clock_if_needed();
+        self.session_mut().start_clock_if_needed();
     }
 
     /// Sync player_turn with the current position's turn
     /// This is needed when navigating history to ensure moves are allowed for the correct player
     pub fn sync_player_turn_with_position(&mut self) {
-        self.session.sync_turn_with_position();
-    }
-
-    /// Method to make a move for the bot
-    /// We use the UCI protocol to communicate with the chess engine
-    pub fn execute_bot_move(&mut self) {
-        // Check if bot exists
-        let bot = match self.bot.as_mut() {
-            Some(b) => b,
-            None => return,
-        };
-
-        let fen_position = self.session.fen();
-
-        // Retrieve the bot move from the bot
-        let uci_move = match bot.find_move(&fen_position) {
-            Ok(m) => m,
-            Err(e) => {
-                log::error!("Engine error: {e}");
-                return;
-            }
-        };
-
-        // Convert UCI move to a shakmaty Move using the current position
-        let current_position = self.session.current_position().clone();
-        let bot_actual_move = match uci_move.to_move(&current_position) {
-            Ok(m) => m,
-            Err(e) => {
-                log::error!("Engine returned illegal UCI move: {}", e);
-                return;
-            }
-        };
-
-        let Some(from_square) = bot_actual_move.from() else {
-            log::error!("Bot move has no from square");
-            return;
-        };
-        let to_square = bot_actual_move.to();
-        let role = bot_actual_move.role();
-        let capture = bot_actual_move.capture();
-        let promotion = bot_actual_move.promotion();
-
-        let played = self
-            .session
-            .play_and_record(from_square, to_square, promotion, |_| Move::Normal {
-                role,
-                from: from_square,
-                capture,
-                to: to_square,
-                promotion,
-            });
-
-        if played.is_none() {
-            log::error!("Failed to execute bot move");
-            return;
-        }
-
-        // Switch turn back to the human player (bot just moved)
-        self.switch_player_turn();
-        self.update_game_state();
-
-        // Play move sound
-        crate::sound::play_move_sound();
+        self.sync_turn_with_position();
     }
 
     /// Method to promote a pawn
     pub fn promote_piece(&mut self, role: Role, should_flip: bool) {
-        if let Some(last_move) = self.session.moves().last().cloned() {
+        if let Some(last_move) = self.moves().last().cloned() {
             let new_piece = role;
 
             // Promotion moves are always pawn moves, so they should have a from square
@@ -470,69 +422,61 @@ impl GameLogic {
 
             let to_square = last_move.to();
             let capture = last_move.capture();
-            self.session.undo_last_move();
+            self.undo_last_move();
 
             // Re-execute the move with the correct promotion
-            self.session
-                .play_and_record(from_square, to_square, Some(new_piece), |_| Move::Normal {
-                    role: Role::Pawn,
-                    from: from_square,
-                    capture,
-                    to: to_square,
-                    promotion: Some(new_piece),
-                });
+            self.play_and_record(from_square, to_square, Some(new_piece), |_| Move::Normal {
+                role: Role::Pawn,
+                from: from_square,
+                capture,
+                to: to_square,
+                promotion: Some(new_piece),
+            });
         }
 
-        self.session.start_playing();
-        if should_flip
-            && !self.session.is_draw()
-            && !self.session.is_checkmate()
-            && self.opponent.is_none()
-            && self.bot.is_none()
-        {
-            self.session.flip();
+        self.start_playing();
+        if should_flip && !self.is_draw() && !self.is_checkmate() {
+            self.flip();
         }
     }
 
     /// Move a piece from a cell to another
     pub fn execute_move(&mut self, from: Square, to: Square) {
         // Check if moving a piece and get the piece type
-        let Some(role_from) = self.session.get_role_at_square(&from) else {
+        let Some(role_from) = self.get_role_at_square(&from) else {
             return;
         };
 
-        let role_to = self.session.get_role_at_square(&to);
+        let role_to = self.get_role_at_square(&to);
 
-        let executed_move = self
-            .session
-            .play_and_record(from, to, None, |executed_move| {
-                // If this is a pawn reaching the last row, store it without promotion piece
-                // so that is_latest_move_promotion() returns true and the popup appears.
-                if role_from == Role::Pawn
-                    && (executed_move.to().rank() == shakmaty::Rank::First
-                        || executed_move.to().rank() == shakmaty::Rank::Eighth)
-                    && executed_move.promotion().is_some()
-                {
-                    // from() returns None only for drops (non-Normal moves), but we know this is Normal
-                    let from_square = executed_move.from().unwrap_or_else(|| executed_move.to());
-                    shakmaty::Move::Normal {
-                        role: Role::Pawn,
-                        from: from_square,
-                        capture: executed_move.capture(),
-                        to: executed_move.to(),
-                        promotion: None,
-                    }
-                } else {
-                    executed_move.clone()
+        let executed_move = self.play_and_record(from, to, None, |executed_move| {
+            // If this is a pawn reaching the last row, store it without promotion piece
+            // so that is_latest_move_promotion() returns true and the popup appears.
+            if role_from == Role::Pawn
+                && (executed_move.to().rank() == shakmaty::Rank::First
+                    || executed_move.to().rank() == shakmaty::Rank::Eighth)
+                && executed_move.promotion().is_some()
+            {
+                // from() returns None only for drops (non-Normal moves), but we know this is Normal
+                let from_square = executed_move.from().unwrap_or_else(|| executed_move.to());
+                shakmaty::Move::Normal {
+                    role: Role::Pawn,
+                    from: from_square,
+                    capture: executed_move.capture(),
+                    to: executed_move.to(),
+                    promotion: None,
                 }
-            });
+            } else {
+                executed_move.clone()
+            }
+        });
 
         if executed_move.is_some() {
             // Play move sound
             crate::sound::play_move_sound();
 
             // We increment the consecutive_non_pawn_or_capture if the piece type is a pawn or if there is no capture
-            self.session.record_move_for_draw_rule(role_from, role_to);
+            self.record_move_for_draw_rule(role_from, role_to);
         }
     }
 
@@ -603,6 +547,7 @@ impl GameLogic {
         } else {
             return false;
         };
+        let session = self.runtime.session_mut();
 
         // Read move from stream
         let opponent_move = match opponent.read_stream() {
@@ -618,7 +563,7 @@ impl GameLogic {
         }
 
         // Handle control messages (INIT_MOVES, GAME_STATUS, CLOCK_SYNC)
-        if Self::handle_opponent_control_message(opponent, &mut self.session, &opponent_move) {
+        if Self::handle_opponent_control_message(opponent, session, &opponent_move) {
             return false;
         }
 
@@ -626,12 +571,12 @@ impl GameLogic {
         opponent.moves_received += 1;
 
         // Handle historical moves
-        if Self::handle_historical_move(opponent, &mut self.session, &opponent_move) {
+        if Self::handle_historical_move(opponent, session, &opponent_move) {
             return false;
         }
 
         // Process live move
-        Self::process_live_move(opponent, &mut self.session, &opponent_move)
+        Self::process_live_move(opponent, session, &opponent_move)
     }
 
     fn process_live_move(
@@ -1133,6 +1078,14 @@ impl GameLogic {
     }
 
     pub fn handle_multiplayer_promotion(&mut self) {
+        let last_move = match self.runtime.session().moves().last().cloned() {
+            Some(m) => m,
+            None => {
+                log::error!("handle_multiplayer_promotion called but move history is empty");
+                return;
+            }
+        };
+
         let opponent = match self.opponent.as_mut() {
             Some(opp) => opp,
             None => {
@@ -1141,15 +1094,7 @@ impl GameLogic {
             }
         };
 
-        let last_move = match self.session.moves().last() {
-            Some(m) => m,
-            None => {
-                log::error!("handle_multiplayer_promotion called but move history is empty");
-                return;
-            }
-        };
-
-        opponent.send_move_to_server(last_move, last_move.promotion());
+        opponent.send_move_to_server(&last_move, last_move.promotion());
         opponent.opponent_will_move = true;
 
         // For Lichess games, signal the polling thread that player made a move
@@ -1169,9 +1114,8 @@ impl GameLogic {
 
     /// Navigate to the next position in history (forward in time)
     pub fn navigate_history_next(&mut self) {
-        // Check if we're in solo mode (no bot, no opponent)
-        let is_solo_mode = self.bot.is_none() && self.opponent.is_none();
-        if self.session.navigate_history_next(is_solo_mode) {
+        let is_solo_mode = self.history_is_solo();
+        if self.session_mut().navigate_history_next(is_solo_mode) {
             // Update player_turn to match the position's turn
             self.sync_player_turn_with_position();
         }
@@ -1179,9 +1123,8 @@ impl GameLogic {
 
     /// Navigate to the previous position in history (backward in time)
     pub fn navigate_history_previous(&mut self) {
-        // Check if we're in solo mode (no bot, no opponent)
-        let is_solo_mode = self.bot.is_none() && self.opponent.is_none();
-        if self.session.navigate_history_previous(is_solo_mode) {
+        let is_solo_mode = self.history_is_solo();
+        if self.session_mut().navigate_history_previous(is_solo_mode) {
             // Update player_turn to match the position's turn
             self.sync_player_turn_with_position();
         }

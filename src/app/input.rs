@@ -83,9 +83,8 @@ impl App {
             // If incorrect, reset_last_move already removed the move and reset the state
             if move_was_correct || self.lichess_state.puzzle_game.is_none() {
                 // Don't flip board in puzzle mode or in multiplayer/Lichess mode
-                let should_flip = self.lichess_state.puzzle_game.is_none()
-                    && self.game.logic.opponent.is_none()
-                    && self.game.logic.bot.is_none();
+                let should_flip =
+                    self.lichess_state.puzzle_game.is_none() && self.game.logic.flip_after_move();
                 self.game.handle_promotion(should_flip);
             } else {
                 // Move was incorrect in puzzle mode - ensure game state is reset

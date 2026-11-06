@@ -3,8 +3,10 @@ use crate::{
     event::Event,
     game_logic::opponent::wait_for_game_start,
     handlers::handler::{handle_key_events, handle_mouse_events},
+    sound::play_move_sound,
     ui::tui::Tui,
 };
+use chess_tui_game::GameEvent;
 
 impl App {
     pub fn run(&mut self) -> AppResult<()> {
@@ -18,17 +20,11 @@ impl App {
 
             self.handle_events(&mut tui)?;
 
-            self.check_bot_thinking();
-
-            // Check if bot move is ready
-            if self.check_and_apply_bot_move() {
-                self.check_and_show_game_end();
-            }
+            self.game.logic.tick();
+            self.handle_game_events();
+            self.check_game_end_status();
 
             self.check_lichess_updates();
-
-            // Check if game ended
-            self.check_game_end_status();
 
             // Persist local/bot games each loop iteration. A move always
             // triggers a write; clock-only changes are throttled to ~1 Hz inside
@@ -65,27 +61,21 @@ impl App {
         Ok(())
     }
 
-    /// Check if bot should start thinking
-    fn check_bot_thinking(&mut self) {
-        let bot_thinking = self.bot_state.is_bot_thinking();
-        let bot_will_move = self
-            .game
-            .logic
-            .bot
-            .as_ref()
-            .is_some_and(|bot| bot.move_requested());
-
-        if bot_thinking || !bot_will_move {
-            return;
-        }
-
-        if let Some(bot) = &self.game.logic.bot {
-            self.bot_state
-                .start_bot_thinking(self.game.logic.fen(), bot.depth(), bot.difficulty());
-        }
-
-        if let Some(bot) = self.game.logic.bot.as_mut() {
-            bot.clear_move_request();
+    fn handle_game_events(&mut self) {
+        for event in self.game.logic.take_events() {
+            match event {
+                GameEvent::MovePlayed => play_move_sound(),
+                GameEvent::Error(message) => {
+                    log::error!("Game mode error: {message}");
+                    self.ui_state.show_message_popup(
+                        format!("Game error:\n{message}"),
+                        crate::constants::Popups::Error,
+                    );
+                }
+                GameEvent::OpponentJoined => {
+                    self.ui_state.close_popup();
+                }
+            }
         }
     }
 

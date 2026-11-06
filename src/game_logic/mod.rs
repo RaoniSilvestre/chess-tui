@@ -1,6 +1,5 @@
 //! Chess game logic.
 
-pub mod bot;
 pub mod game;
 pub mod opponent;
 pub mod puzzle;

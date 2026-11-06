@@ -10,7 +10,7 @@ mod tests {
         let game = Game::default();
         assert_eq!(game.logic.turn(), Color::White);
         assert_eq!(game.logic.state(), GameState::Playing);
-        assert!(game.logic.bot.is_none());
+        assert_eq!(game.logic.kind(), chess_tui_game::GameKind::Local);
         assert!(game.logic.opponent.is_none());
     }
 
