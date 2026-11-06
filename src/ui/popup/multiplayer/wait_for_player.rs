@@ -1,10 +1,8 @@
 //! Waiting-for-opponent popup shown while the host listens for a connection.
 
-use crate::{
-    constants::{CHESS_SET, WHITE},
-    ui::components::centered_rect::centered_rect,
-};
+use crate::constants::{CHESS_SET, WHITE};
 use chess_tui_net::NETWORK_PORT;
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},

@@ -1,7 +1,5 @@
 //! UI rendering layer.
 
-pub use chess_tui_ui::{components, prompt};
-
 pub mod game_ui;
 pub mod main_ui;
 pub mod menu;

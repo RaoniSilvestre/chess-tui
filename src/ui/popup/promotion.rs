@@ -1,6 +1,7 @@
 //! Pawn promotion piece-selection popup.
 
-use crate::{app::App, constants::WHITE, ui::components::centered_rect::centered_rect};
+use crate::{app::App, constants::WHITE};
+use chess_tui_ui::components::centered_rect::centered_rect;
 use chess_tui_ui::pieces::{PieceSize, bishop::Bishop, knight::Knight, queen::Queen, rook::Rook};
 use ratatui::{
     Frame,

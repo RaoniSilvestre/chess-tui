@@ -1,7 +1,8 @@
 //! Key-bindings help overlay, context-sensitive per active page.
 
+use crate::constants::WHITE;
 use crate::ui::popup::pgn::help::render_pgn_help_popup;
-use crate::{constants::WHITE, ui::components::centered_rect::centered_rect};
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::Alignment,

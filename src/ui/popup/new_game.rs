@@ -1,9 +1,7 @@
 //! Confirmation before a new game replaces a saved one.
 
-use crate::{
-    app::App, constants::WHITE, state::ui_state::NewGame,
-    ui::components::centered_rect::centered_rect,
-};
+use crate::{app::App, constants::WHITE, state::ui_state::NewGame};
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::Alignment,

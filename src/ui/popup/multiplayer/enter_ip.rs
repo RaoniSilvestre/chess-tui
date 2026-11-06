@@ -1,10 +1,8 @@
 //! IP address entry popup for joining a hosted multiplayer game.
 
-use crate::{
-    constants::{DOCS_URL, WHITE},
-    ui::components::centered_rect::centered_rect,
-};
+use crate::constants::{DOCS_URL, WHITE};
 use chess_tui_net::NETWORK_PORT;
+use chess_tui_ui::components::centered_rect::centered_rect;
 use chess_tui_ui::prompt::Prompt;
 use ratatui::{
     Frame,

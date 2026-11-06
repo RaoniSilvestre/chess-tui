@@ -1,6 +1,7 @@
 //! Project credits overlay.
 
-use crate::{constants::WHITE, ui::components::centered_rect::centered_rect};
+use crate::constants::WHITE;
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::Alignment,

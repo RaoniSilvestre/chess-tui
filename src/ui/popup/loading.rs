@@ -1,9 +1,7 @@
 //! Loading popup
 
-use crate::{
-    constants::{CHESS_SET, WHITE},
-    ui::components::centered_rect::centered_rect,
-};
+use crate::constants::{CHESS_SET, WHITE};
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},

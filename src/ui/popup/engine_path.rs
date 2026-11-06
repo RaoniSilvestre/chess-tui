@@ -1,6 +1,7 @@
 //! Chess engine path entry popup.
 
-use crate::{constants::WHITE, ui::components::centered_rect::centered_rect};
+use crate::constants::WHITE;
+use chess_tui_ui::components::centered_rect::centered_rect;
 use chess_tui_ui::prompt::Prompt;
 use ratatui::{
     Frame,

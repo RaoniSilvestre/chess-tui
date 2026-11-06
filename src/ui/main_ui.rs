@@ -9,29 +9,26 @@ use ratatui::{
 
 use crate::{
     constants::Popups,
-    ui::{
-        components::centered_rect::centered_rect,
-        popup::{
-            engine_path::render_enter_engine_path_popup,
-            error::render_error_popup,
-            help::render_help_popup,
-            lichess::{
-                game_code::render_enter_game_code_popup, puzzle_end::render_puzzle_end_popup,
-                token::render_enter_lichess_token_popup,
-            },
-            loading::render_loading_popup,
-            move_input::render_move_input_popup,
-            multiplayer::{
-                enter_ip::render_enter_multiplayer_ip,
-                wait_for_player::render_wait_for_other_player,
-            },
-            new_game::render_new_game_confirmation_popup,
-            pgn::path::render_load_pgn_popup,
-            resignation::render_resign_confirmation_popup,
-            success::render_success_popup,
+    ui::popup::{
+        engine_path::render_enter_engine_path_popup,
+        error::render_error_popup,
+        help::render_help_popup,
+        lichess::{
+            game_code::render_enter_game_code_popup, puzzle_end::render_puzzle_end_popup,
+            token::render_enter_lichess_token_popup,
         },
+        loading::render_loading_popup,
+        move_input::render_move_input_popup,
+        multiplayer::{
+            enter_ip::render_enter_multiplayer_ip, wait_for_player::render_wait_for_other_player,
+        },
+        new_game::render_new_game_confirmation_popup,
+        pgn::path::render_load_pgn_popup,
+        resignation::render_resign_confirmation_popup,
+        success::render_success_popup,
     },
 };
+use chess_tui_ui::components::centered_rect::centered_rect;
 
 use crate::app::App;
 use chess_tui_net::get_host_ip;
