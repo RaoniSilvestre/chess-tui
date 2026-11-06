@@ -38,10 +38,12 @@
 - [x] Remove the `pages` crate's dependency on `app`; pages now return actions instead of mutating `App`.
 - [x] Move page-local state into pages (Home, Settings, GameModeMenu, LichessMenu, OngoingGames, PgnViewer, GamePage).
 - [x] Give `GamePage` ownership of the game handle and board view state.
+- [x] Split `App` into composition/dispatch, navigation, action reducer, and modal helper modules.
 
 ## App phase 2 follow-ups
 
 - [ ] Extract `LichessService`, `ResumeService`, and game setup from `App` into dedicated service structs.
+- [ ] Move `App` action reducer and modal helpers into service-owned modules once those services exist.
 - [ ] Remove the shared `GameHandle` once game services consume page-emitted events instead of borrowing the game.
 
 ## Validation

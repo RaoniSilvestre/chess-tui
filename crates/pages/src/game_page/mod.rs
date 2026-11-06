@@ -396,6 +396,27 @@ impl Page for GamePage {
         );
     }
 
+    fn submit_move(&mut self, chess_move: &shakmaty::Move, ctx: &PageContext<'_>) -> PageAction {
+        let Some(from) = chess_move.from() else {
+            return PageAction::None;
+        };
+        let mut game = self.game.borrow_mut();
+        if !game.apply_player_move(from, chess_move.to(), chess_move.promotion()) {
+            return PageAction::None;
+        }
+        if ctx.game.is_puzzle {
+            game.runtime.set_flipped(false);
+            let move_uci = chess_move
+                .to_uci(shakmaty::CastlingMode::Standard)
+                .to_string();
+            return PageAction::Game(GameAction::ValidateMoveUci { move_uci });
+        }
+        if game.runtime.state().is_finished() && !self.end_screen_dismissed {
+            self.end_screen_visible = true;
+        }
+        PageAction::Game(GameAction::CheckEnd)
+    }
+
     fn game_kind(&self) -> Option<GamePageKind> {
         Some(self.kind)
     }

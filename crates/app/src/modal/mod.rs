@@ -159,7 +159,7 @@ impl PromptModal {
                 app.game_mut().ui.prompt.error = Some("Illegal move".into());
                 return ModalResult::None;
             };
-            if app.submit_typed_move(&chess_move) {
+            if app.submit_move_to_page(&chess_move) {
                 app.game_mut().ui.prompt.reset();
                 return ModalResult::None;
             }

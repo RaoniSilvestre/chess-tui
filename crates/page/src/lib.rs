@@ -129,6 +129,7 @@ pub enum GameAction {
     Quit,
     PuzzleHint,
     ValidatePromotion { move_uci: String },
+    ValidateMoveUci { move_uci: String },
     ValidateMove { from: shakmaty::Square, to: shakmaty::Square },
     CheckEnd,
 }
@@ -226,6 +227,11 @@ pub trait Page: AsAny {
 
     /// Prepare page-owned board state for external rendering/tests.
     fn sync_pgn(&mut self) {}
+
+    /// Submit a typed move (used by the move-input modal).
+    fn submit_move(&mut self, _chess_move: &shakmaty::Move, _ctx: &PageContext<'_>) -> PageAction {
+        PageAction::None
+    }
 }
 
 /// Owns the active page and returns the action it produced.
