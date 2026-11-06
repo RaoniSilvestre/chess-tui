@@ -13,6 +13,7 @@ use chess_tui_core::{
     Coord, MoveDirection,
     square_utils::{flip_square_if_needed, get_coord_from_square, get_square_from_coord},
 };
+use chess_tui_game::BoardView;
 use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
 use ratatui::{
     Frame,
@@ -26,55 +27,6 @@ use shakmaty::{Position, Role, Square};
 
 const WHITE: Color = Color::Rgb(160, 160, 160);
 const BLACK: Color = Color::Rgb(128, 95, 69);
-
-/// Read-only view of the game data needed to render a board.
-pub trait BoardView {
-    fn board(&self) -> &chess_tui_core::Board;
-    fn turn(&self) -> shakmaty::Color;
-    fn flipped(&self) -> bool;
-    fn kind(&self) -> chess_tui_game::GameKind;
-    fn shows_last_move_from(&self, color: shakmaty::Color) -> bool;
-
-    fn moves(&self) -> &[shakmaty::Move] {
-        self.board().moves()
-    }
-
-    fn positions(&self) -> &[shakmaty::Chess] {
-        self.board().positions()
-    }
-
-    fn current_position(&self) -> &shakmaty::Chess {
-        self.board().current_position()
-    }
-
-    fn move_to_san(&self, index: usize) -> String {
-        self.board().move_to_san(index)
-    }
-
-    fn get_piece_color_at_square(&self, square: &shakmaty::Square) -> Option<shakmaty::Color> {
-        self.board().get_piece_color_at_square(square)
-    }
-
-    fn get_authorized_positions(
-        &self,
-        color: shakmaty::Color,
-        square: &shakmaty::Square,
-    ) -> Vec<shakmaty::Square> {
-        self.board().get_authorized_positions(color, square)
-    }
-
-    fn get_role_at_square(&self, square: &shakmaty::Square) -> Option<shakmaty::Role> {
-        self.board().get_role_at_square(square)
-    }
-
-    fn is_getting_checked(&self, color: shakmaty::Color) -> bool {
-        self.board().is_getting_checked(color)
-    }
-
-    fn get_king_coordinates(&self, color: shakmaty::Color) -> Option<chess_tui_core::Coord> {
-        self.board().get_king_coordinates(color)
-    }
-}
 
 /// Context for rendering a single cell of the board
 struct CellRenderContext<'a> {

@@ -142,7 +142,7 @@ impl App {
         self.game_mode_state.is_random_color = false;
 
         // Clean up any active network mode.
-        self.game.logic.disconnect();
+        self.game.runtime.disconnect();
         self.multiplayer_state.hosting = None;
         self.multiplayer_state.host_ip = None;
 

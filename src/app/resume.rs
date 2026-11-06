@@ -19,7 +19,7 @@ impl App {
     /// Multiplayer and Lichess games are not eligible — their state lives on
     /// the wire / on lichess.org.
     pub fn current_resume_mode(&self) -> Option<ResumeMode> {
-        match (self.ui_state.current_page, self.game.logic.kind()) {
+        match (self.ui_state.current_page, self.game.runtime.kind()) {
             (Pages::Solo, chess_tui_game::GameKind::Local) => Some(ResumeMode::Local),
             (Pages::Bot, chess_tui_game::GameKind::Bot) => Some(ResumeMode::Bot),
             _ => None,
@@ -70,11 +70,11 @@ impl App {
         // Mid-promotion is a half-move — wait for the user to pick a piece.
         // Terminal states get cleared by `clear_resume_state_on_end`, so we
         // intentionally skip writing them here too.
-        if !self.game.logic.state().is_playing() {
+        if !self.game.runtime.state().is_playing() {
             return;
         }
 
-        let count = self.game.logic.moves().len();
+        let count = self.game.runtime.moves().len();
         if count == 0 {
             return;
         }
@@ -84,11 +84,11 @@ impl App {
 
         let saved = SavedGame {
             mode,
-            fen: self.game.logic.fen(),
-            is_flipped: self.game.logic.is_flipped(),
+            fen: self.game.runtime.fen(),
+            is_flipped: self.game.runtime.is_flipped(),
             taken_pieces: self
                 .game
-                .logic
+                .runtime
                 .taken_pieces()
                 .iter()
                 .map(|p| TakenPieceRecord::from_piece(*p))
@@ -100,7 +100,7 @@ impl App {
             clock: self.clock_state_for_save(),
             moves_uci: self
                 .game
-                .logic
+                .runtime
                 .moves()
                 .iter()
                 .map(|m| UciMove::from_standard(m).to_string())
@@ -112,7 +112,7 @@ impl App {
     }
 
     fn clock_state_for_save(&self) -> Option<ClockState> {
-        let clock = &self.game.logic.clock();
+        let clock = &self.game.runtime.clock();
         let now = Instant::now();
         let white = clock.get_time(Color::White, now);
         let black = clock.get_time(Color::Black, now);
@@ -213,7 +213,7 @@ impl App {
                     .collect();
                 if let Err(e) =
                     self.game
-                        .logic
+                        .runtime
                         .load_history(vec![position], vec![], taken_pieces, 0)
                 {
                     log::error!("Failed to load saved position: {e}");
@@ -231,13 +231,13 @@ impl App {
             // sanity-checks the final position against `expected_fen`.
             let moves_joined = saved.moves_uci.join(" ");
             self.game
-                .logic
+                .runtime
                 .reconstruct_history(&moves_joined, Some(&saved.fen));
         }
 
-        self.game.logic.set_flipped(saved.is_flipped);
-        self.game.logic.sync_player_turn_with_position();
-        self.game.logic.start_playing();
+        self.game.runtime.set_flipped(saved.is_flipped);
+        self.game.runtime.sync_turn_with_position();
+        self.game.runtime.start_playing();
 
         // Restore any saved clock + the form selection used to create it so a
         // follow-up "new game" presents the same time control by default.
@@ -249,11 +249,13 @@ impl App {
             // Game was mid-flight before the quit; start the side-to-move
             // clock immediately so resume feels continuous instead of frozen.
             clock.start(Instant::now());
-            self.game.logic.set_clock(clock);
+            self.game.runtime.set_clock(clock);
             self.game_mode_state.clock_cursor = cs.clock_cursor;
             self.game_mode_state.custom_time_minutes = cs.custom_minutes;
         } else {
-            self.game.logic.set_clock(Clock::new(TimeControl::NoClock));
+            self.game
+                .runtime
+                .set_clock(Clock::new(TimeControl::NoClock));
         }
 
         match mode {
@@ -281,11 +283,11 @@ impl App {
 
                 // Re-launch the engine. `Bot::new` matches the `bot_setup`
                 // call path so the resumed game behaves like a fresh one.
-                let is_bot_starting = self.game.logic.turn() != player_color
+                let is_bot_starting = self.game.runtime.turn() != player_color
                     && player_color == Color::White
-                    || (player_color == Color::Black && self.game.logic.turn() == Color::White);
+                    || (player_color == Color::Black && self.game.runtime.turn() == Color::White);
                 self.game
-                    .logic
+                    .runtime
                     .set_mode(Box::new(chess_tui_game::BotMode::new(
                         chess_tui_game::Bot::new(
                             &bot_cfg.path,

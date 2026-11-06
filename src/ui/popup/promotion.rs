@@ -64,7 +64,7 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
 
     let piece_style = &app.game.ui.skin.piece_style;
     let piece_size = PieceSize::from_dimensions(inner_popup_layout_horizontal[0].height);
-    let piece_color = Some(app.game.logic.turn());
+    let piece_color = Some(app.game.runtime.turn());
 
     let piece_styles = &app.game.ui.available_piece_styles;
     let queen_p = Paragraph::new(Queen::to_string(

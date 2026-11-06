@@ -27,9 +27,9 @@ impl App {
             return;
         }
 
-        let previous_state = self.game.logic.state();
-        self.game.logic.update_game_state();
-        let new_state = self.game.logic.state();
+        let previous_state = self.game.runtime.state();
+        self.game.runtime.update_game_state();
+        let new_state = self.game.runtime.state();
 
         if previous_state != new_state && new_state.is_finished() {
             self.show_end_screen();
@@ -66,7 +66,7 @@ impl App {
         // Clear puzzle state when restarting (for normal games)
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
-        let mode_kind = self.game.logic.kind();
+        let mode_kind = self.game.runtime.kind();
         // Preserve skin and display mode
         let current_skin = self.game.ui.skin.clone();
         let display_mode = self.game.ui.display_mode;
@@ -95,10 +95,10 @@ impl App {
                 self.bot_state.bot_depth,
                 self.bot_state.bot_difficulty,
             );
-            self.game.logic.set_mode(Box::new(BotMode::new(bot)));
+            self.game.runtime.set_mode(Box::new(BotMode::new(bot)));
             if bot_starting {
                 // Flip the board once so Black player sees from their perspective.
-                self.game.logic.flip();
+                self.game.runtime.flip();
             }
         }
 
@@ -111,7 +111,7 @@ impl App {
         // Re-initialize clock for local games and bot games
         if is_local_game || is_bot_game {
             self.game
-                .logic
+                .runtime
                 .set_clock(Clock::new(self.game_mode_state.get_time_control()));
         }
     }
@@ -120,9 +120,9 @@ impl App {
     /// This consolidates the repeated game end checking logic.
     pub fn check_and_show_game_end(&mut self) {
         // Update game state first (this will stop the clock if game ended)
-        self.game.logic.update_game_state();
+        self.game.runtime.update_game_state();
 
-        if self.game.logic.state().is_finished() {
+        if self.game.runtime.state().is_finished() {
             // Game ended - only show end screen if it's not already shown and not dismissed
             if self.ui_state.current_popup != Some(Popups::EndScreen)
                 && self.ui_state.current_popup != Some(Popups::PuzzleEndScreen)

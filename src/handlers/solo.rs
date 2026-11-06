@@ -14,14 +14,14 @@ pub fn handle_solo_page_events(app: &mut App, key_event: KeyEvent) {
         KeyCode::Char('n' | 'N') => {
             // In puzzle mode, 'n' is used for new puzzle (handled in popup)
             // Otherwise, navigate to next position in history
-            if app.lichess_state.puzzle_game.is_none() && !app.game.logic.state().is_finished() {
-                app.game.logic.navigate_history_next();
+            if app.lichess_state.puzzle_game.is_none() && !app.game.runtime.state().is_finished() {
+                app.game.navigate_history_next();
             }
         }
         KeyCode::Char('p' | 'P') => {
             // Navigate to previous position in history (only if game hasn't ended and not in puzzle mode)
-            if app.lichess_state.puzzle_game.is_none() && !app.game.logic.state().is_finished() {
-                app.game.logic.navigate_history_previous();
+            if app.lichess_state.puzzle_game.is_none() && !app.game.runtime.state().is_finished() {
+                app.game.navigate_history_previous();
             }
         }
         KeyCode::Char('t' | 'T')

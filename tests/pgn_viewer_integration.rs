@@ -163,7 +163,7 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     use chess_tui::ui::pgn_viewer_ui::sync_pgn_to_board;
     sync_pgn_to_board(&mut app);
     assert!(app.game.ui.hide_cursor, "precondition: viewer hides cursor");
-    assert!(!app.game.logic.positions().is_empty());
+    assert!(!app.game.runtime.positions().is_empty());
 
     // Exit viewer with Esc.
     send(&mut app, &[KeyCode::Esc])?;
@@ -176,11 +176,11 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
         "cursor must be visible after exit"
     );
     assert_eq!(
-        app.game.logic.positions().len(),
+        app.game.runtime.positions().len(),
         1,
         "new game must start with just the initial position"
     );
-    assert!(app.game.logic.moves().is_empty());
+    assert!(app.game.runtime.moves().is_empty());
     Ok(())
 }
 

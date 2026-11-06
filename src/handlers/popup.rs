@@ -94,7 +94,7 @@ fn handle_end_screen(app: &mut App, key_event: KeyEvent) {
         }
         KeyCode::Char('r' | 'R') => {
             if matches!(
-                app.game.logic.kind(),
+                app.game.runtime.kind(),
                 chess_tui_game::GameKind::Local | chess_tui_game::GameKind::Bot
             ) {
                 app.restart();
@@ -317,7 +317,7 @@ fn handle_move_input_selection(app: &mut App, key_event: KeyEvent) {
                 }
             };
 
-            let position = app.game.logic.current_position().clone();
+            let position = app.game.runtime.current_position().clone();
 
             let chess_move = match san.to_move(&position) {
                 Ok(chess_move) => chess_move,

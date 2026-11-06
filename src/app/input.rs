@@ -33,12 +33,12 @@ impl App {
         // Handle promotion directly (like mouse handler does)
         // Note: Promotion state should always allow input, even if turn has switched
         // because the player needs to select the promotion piece after making the move
-        if self.game.logic.state().is_promotion() {
+        if self.game.runtime.state().is_promotion() {
             // Track if the move was correct (for puzzle mode)
             let mut move_was_correct = true;
 
             // If we have a pending promotion move, validate it now with the selected promotion piece
-            if let Some(pending) = self.game.logic.promotion() {
+            if let Some(pending) = self.game.runtime.promotion() {
                 let from = pending.from();
                 let to = pending.to();
                 // Get the promotion piece from the cursor
@@ -84,13 +84,13 @@ impl App {
             if move_was_correct || self.lichess_state.puzzle_game.is_none() {
                 // Don't flip board in puzzle mode or in multiplayer/Lichess mode
                 let should_flip =
-                    self.lichess_state.puzzle_game.is_none() && self.game.logic.flip_after_move();
+                    self.lichess_state.puzzle_game.is_none() && self.game.runtime.flip_after_move();
                 self.game.handle_promotion(should_flip);
             } else {
                 // Move was incorrect in puzzle mode - ensure game state is reset
                 // reset_last_move should have already handled this, but make sure
-                if self.game.logic.state().is_promotion() {
-                    self.game.logic.start_playing();
+                if self.game.runtime.state().is_promotion() {
+                    self.game.runtime.start_playing();
                 }
             }
 
@@ -106,16 +106,17 @@ impl App {
                 if let Some(selected_square) = self.game.ui.selected_square {
                     let cursor_square = self.game.ui.cursor_coordinates.into();
 
-                    let from = flip_square_if_needed(selected_square, self.game.logic.is_flipped());
-                    let to = flip_square_if_needed(cursor_square, self.game.logic.is_flipped());
+                    let from =
+                        flip_square_if_needed(selected_square, self.game.runtime.is_flipped());
+                    let to = flip_square_if_needed(cursor_square, self.game.runtime.is_flipped());
 
                     // Check if it is a valid move. This could be improved by having a single source
                     // of truth. Maybe the game return an Option<(Square, Square)> so anyone can see
                     // if a move was actually made by a movement.
                     let authorized_positions = self
                         .game
-                        .logic
-                        .get_authorized_positions(self.game.logic.turn(), &from);
+                        .runtime
+                        .get_authorized_positions(self.game.runtime.turn(), &from);
 
                     if authorized_positions.contains(&to) {
                         Some((from, to))
@@ -133,7 +134,7 @@ impl App {
 
             // Validate puzzle moves after execution. Promotion validation happens
             // when the player chooses the piece.
-            if !self.game.logic.state().is_promotion()
+            if !self.game.runtime.state().is_promotion()
                 && let Some((from, to)) = puzzle_move_info
             {
                 self.validate_puzzle_move_after_execution(from, to);
@@ -141,7 +142,7 @@ impl App {
 
             // Ensure board stays unflipped in puzzle mode
             if self.lichess_state.puzzle_game.is_some() {
-                self.game.logic.set_flipped(false);
+                self.game.runtime.set_flipped(false);
             }
 
             self.check_and_show_game_end();
@@ -166,7 +167,7 @@ impl App {
             // Standard UCI so castling is "e1g1" (not king to rook) and promotions keep their piece
             let move_uci = chess_move.to_uci(CastlingMode::Standard).to_string();
             self.validate_puzzle_move_uci(move_uci);
-            self.game.logic.set_flipped(false);
+            self.game.runtime.set_flipped(false);
         }
 
         self.check_and_show_game_end();
@@ -183,15 +184,15 @@ impl App {
         let Some(selected_square) = self.game.ui.selected_square else {
             return false;
         };
-        let authorized_positions = self.game.logic.get_authorized_positions(
-            self.game.logic.turn(),
-            &flip_square_if_needed(selected_square, self.game.logic.is_flipped()),
+        let authorized_positions = self.game.runtime.get_authorized_positions(
+            self.game.runtime.turn(),
+            &flip_square_if_needed(selected_square, self.game.runtime.is_flipped()),
         );
 
         // Check if target square is a valid move destination
         if authorized_positions.contains(&flip_square_if_needed(
             target_square,
-            self.game.logic.is_flipped(),
+            self.game.runtime.is_flipped(),
         )) {
             self.game.ui.cursor_coordinates = coords;
             self.process_cell_click();

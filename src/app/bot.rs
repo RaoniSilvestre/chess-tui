@@ -19,16 +19,16 @@ impl App {
             self.bot_state.bot_depth,
             self.bot_state.bot_difficulty,
         );
-        self.game.logic.set_mode(Box::new(BotMode::new(bot)));
+        self.game.runtime.set_mode(Box::new(BotMode::new(bot)));
 
         // Initialize clock for bot games.
         self.game
-            .logic
+            .runtime
             .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
         if self.game_mode_state.selected_color == Some(Color::Black) {
             // Flip the board once so Black player sees from their perspective.
-            self.game.logic.flip();
+            self.game.runtime.flip();
         }
 
         // Ensure skin is preserved when setting up bot

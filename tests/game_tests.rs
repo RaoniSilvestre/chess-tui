@@ -8,21 +8,21 @@ mod tests {
     #[test]
     fn test_new_game() {
         let game = Game::default();
-        assert_eq!(game.logic.turn(), Color::White);
-        assert_eq!(game.logic.state(), GameState::Playing);
-        assert_eq!(game.logic.kind(), chess_tui_game::GameKind::Local);
+        assert_eq!(game.runtime.turn(), Color::White);
+        assert_eq!(game.runtime.state(), GameState::Playing);
+        assert_eq!(game.runtime.kind(), chess_tui_game::GameKind::Local);
     }
 
     #[test]
     fn test_switch_player_turn() {
         let mut game = Game::default();
-        assert_eq!(game.logic.turn(), Color::White);
+        assert_eq!(game.runtime.turn(), Color::White);
 
         game.switch_player_turn();
-        assert_eq!(game.logic.turn(), Color::Black);
+        assert_eq!(game.runtime.turn(), Color::Black);
 
         game.switch_player_turn();
-        assert_eq!(game.logic.turn(), Color::White);
+        assert_eq!(game.runtime.turn(), Color::White);
     }
 
     #[test]
@@ -30,11 +30,11 @@ mod tests {
         let mut game = Game::default();
 
         // Move pawn e2 -> e4
-        game.logic.execute_move(Square::E2, Square::E4);
+        game.execute_move(Square::E2, Square::E4);
 
         // Check history in game_board
-        assert_eq!(game.logic.moves().len(), 1);
-        assert_eq!(game.logic.positions().len(), 2);
+        assert_eq!(game.runtime.moves().len(), 1);
+        assert_eq!(game.runtime.positions().len(), 2);
     }
 
     #[test]
@@ -42,16 +42,16 @@ mod tests {
         let mut game = Game::default();
 
         // Fool's Mate sequence
-        game.logic.execute_move(Square::F2, Square::F3);
+        game.execute_move(Square::F2, Square::F3);
         game.switch_player_turn();
 
-        game.logic.execute_move(Square::E7, Square::E5);
+        game.execute_move(Square::E7, Square::E5);
         game.switch_player_turn();
 
-        game.logic.execute_move(Square::G2, Square::G4);
+        game.execute_move(Square::G2, Square::G4);
         game.switch_player_turn();
 
-        game.logic.execute_move(Square::D8, Square::H4);
+        game.execute_move(Square::D8, Square::H4);
 
         // Update game state
         game.handle_cell_click(); // This triggers update_game_state internally if we were clicking, but we can call it directly or simulate the flow
@@ -61,7 +61,7 @@ mod tests {
         // Looking at Game impl, update_game_state is private.
         // But we can check the board state directly.
 
-        assert!(game.logic.is_checkmate());
+        assert!(game.runtime.is_checkmate());
     }
 
     #[test]
@@ -69,41 +69,41 @@ mod tests {
         let mut game = Game::default();
 
         // Initial position: white's turn
-        assert_eq!(game.logic.turn(), Color::White);
-        assert_eq!(game.logic.positions()[0].turn(), Color::White);
+        assert_eq!(game.runtime.turn(), Color::White);
+        assert_eq!(game.runtime.positions()[0].turn(), Color::White);
 
         // Make a move (white moves)
-        game.logic.execute_move(Square::E2, Square::E4);
-        game.logic.switch_player_turn();
+        game.execute_move(Square::E2, Square::E4);
+        game.switch_player_turn();
 
         // After white's move, it's black's turn
-        assert_eq!(game.logic.turn(), Color::Black);
+        assert_eq!(game.runtime.turn(), Color::Black);
         // position_history[1] is after white's move, so it should be black's turn
-        assert_eq!(game.logic.positions()[1].turn(), Color::Black);
+        assert_eq!(game.runtime.positions()[1].turn(), Color::Black);
 
         // Navigate to previous position (index 0, which is initial, so white's turn)
         // position_history[0] = initial (white to move)
         // position_history[1] = after move 0 (black to move)
         // When at latest (index 1), navigating previous goes to index 0
-        game.logic.session_mut().navigate_history_previous(true);
-        assert_eq!(game.logic.history_position(), Some(0));
-        game.logic.sync_player_turn_with_position();
+        game.runtime.session_mut().navigate_history_previous(true);
+        assert_eq!(game.runtime.history_position(), Some(0));
+        game.sync_player_turn_with_position();
 
         // position_history[0] is initial position, so it should be white's turn
-        assert_eq!(game.logic.turn(), Color::White);
+        assert_eq!(game.runtime.turn(), Color::White);
 
         // Can't go back further from initial position
-        let success = game.logic.session_mut().navigate_history_previous(true);
+        let success = game.runtime.session_mut().navigate_history_previous(true);
         assert!(!success);
-        assert_eq!(game.logic.history_position(), Some(0));
-        game.logic.sync_player_turn_with_position();
-        assert_eq!(game.logic.turn(), Color::White);
+        assert_eq!(game.runtime.history_position(), Some(0));
+        game.sync_player_turn_with_position();
+        assert_eq!(game.runtime.turn(), Color::White);
 
         // Now navigate forward to position 1 (after move 0, black's turn)
-        game.logic.session_mut().navigate_history_next(true);
-        assert_eq!(game.logic.history_position(), Some(1));
-        game.logic.sync_player_turn_with_position();
-        assert_eq!(game.logic.turn(), Color::Black);
+        game.runtime.session_mut().navigate_history_next(true);
+        assert_eq!(game.runtime.history_position(), Some(1));
+        game.sync_player_turn_with_position();
+        assert_eq!(game.runtime.turn(), Color::Black);
     }
 
     #[test]
@@ -111,27 +111,27 @@ mod tests {
         let mut game = Game::default();
 
         // Make several moves
-        game.logic.execute_move(Square::E2, Square::E4);
-        game.logic.switch_player_turn();
-        game.logic.execute_move(Square::E7, Square::E5);
-        game.logic.switch_player_turn();
-        game.logic.execute_move(Square::G1, Square::F3);
-        game.logic.switch_player_turn();
+        game.execute_move(Square::E2, Square::E4);
+        game.switch_player_turn();
+        game.execute_move(Square::E7, Square::E5);
+        game.switch_player_turn();
+        game.execute_move(Square::G1, Square::F3);
+        game.switch_player_turn();
 
         // Should have 3 moves
-        assert_eq!(game.logic.moves().len(), 3);
-        assert_eq!(game.logic.positions().len(), 4);
+        assert_eq!(game.runtime.moves().len(), 3);
+        assert_eq!(game.runtime.positions().len(), 4);
 
         // Navigate to position after first move
-        game.logic.session_mut().navigate_history_previous(true);
-        assert_eq!(game.logic.history_position(), Some(2));
+        game.runtime.session_mut().navigate_history_previous(true);
+        assert_eq!(game.runtime.history_position(), Some(2));
 
         // Simulate making a move from this position (truncate should happen in handle_cell_click)
-        game.logic.truncate_history_at(1);
+        game.runtime.truncate_history_at(1);
 
         // Should have 1 move and 2 positions
-        assert_eq!(game.logic.moves().len(), 1);
-        assert_eq!(game.logic.positions().len(), 2);
-        assert_eq!(game.logic.history_position(), None);
+        assert_eq!(game.runtime.moves().len(), 1);
+        assert_eq!(game.runtime.positions().len(), 2);
+        assert_eq!(game.runtime.history_position(), None);
     }
 }

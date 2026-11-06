@@ -9,6 +9,12 @@ pub struct GameRuntime {
     events: Vec<GameEvent>,
 }
 
+impl Default for GameRuntime {
+    fn default() -> Self {
+        Self::new(GameSession::default(), Box::new(crate::LocalMode))
+    }
+}
+
 impl GameRuntime {
     pub fn new(session: GameSession, mode: Box<dyn GameMode>) -> Self {
         Self {

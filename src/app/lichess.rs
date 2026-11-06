@@ -314,8 +314,8 @@ impl App {
                         .into_position::<shakmaty::Chess>(shakmaty::CastlingMode::Standard)
                     {
                         Ok(position) => {
-                            let halfmove_clock = self.game.logic.halfmove_clock();
-                            if let Err(e) = self.game.logic.load_history(
+                            let halfmove_clock = self.game.runtime.halfmove_clock();
+                            if let Err(e) = self.game.runtime.load_history(
                                 vec![position],
                                 vec![],
                                 vec![],
@@ -328,7 +328,7 @@ impl App {
                                 );
                                 return false;
                             }
-                            self.game.logic.sync_player_turn_with_position();
+                            self.game.runtime.sync_turn_with_position();
                             // Send last move immediately if we have it, so it shows in green right away
                             self.setup_lichess_game(
                                 game_id,
@@ -374,13 +374,13 @@ impl App {
         immediate_last_move: Option<String>,
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
-        self.game.logic.start_playing();
+        self.game.runtime.start_playing();
         self.ui_state.close_popup();
         self.ui_state.end_screen_dismissed = false;
 
         // Best-effort initial clock; the first game event resyncs with the server.
         self.game
-            .logic
+            .runtime
             .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
         let Ok(client) = self.lichess_state.require_client() else {
@@ -405,13 +405,13 @@ impl App {
                 return;
             }
         };
-        self.game.logic.set_mode(Box::new(mode));
+        self.game.runtime.set_mode(Box::new(mode));
 
         self.game_mode_state.selected_color = Some(color);
         self.game_mode_state.is_random_color = false;
 
         if color == Color::Black {
-            self.game.logic.flip();
+            self.game.runtime.flip();
         }
         // Ensure skin is preserved
         if let Some(skin) = &self.theme_state.loaded_skin {
@@ -617,14 +617,14 @@ impl App {
 
         // Puzzles use a local board with Lichess-provided moves.
         self.game
-            .logic
+            .runtime
             .set_mode(Box::new(chess_tui_game::LocalMode));
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;
 
         // Reset game state to Playing (in case it was Checkmate/Draw from previous puzzle)
         // This must be done early to prevent check_and_show_game_end from re-showing the popup
-        self.game.logic.start_playing();
+        self.game.runtime.start_playing();
 
         // Fetch fresh user profile to get the latest puzzle rating
         // This ensures we use the correct baseline rating after any previous puzzle's Elo change
@@ -648,7 +648,7 @@ impl App {
         }
 
         // Initialize PuzzleGame
-        let puzzle = match PuzzleGame::load(client, &mut self.game.logic) {
+        let puzzle = match PuzzleGame::load(client, &mut self.game.runtime) {
             Ok(p) => p,
             Err(e) => {
                 self.ui_state.show_message_popup(e, Popups::Error);
@@ -657,13 +657,13 @@ impl App {
         };
 
         // Sync the player turn with the position's turn
-        self.game.logic.sync_player_turn_with_position();
+        self.game.runtime.sync_turn_with_position();
 
         self.lichess_state.puzzle_game = Some(PuzzleGame::new(puzzle, rating_before));
 
         // Ensure board stays unflipped in puzzle mode
         if self.lichess_state.puzzle_game.is_some() {
-            self.game.logic.set_flipped(false);
+            self.game.runtime.set_flipped(false);
         }
         // Switch to Solo page to show the board
         self.ui_state.current_page = Pages::Solo;

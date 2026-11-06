@@ -171,13 +171,13 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
     assert!(app.resume_from_saved(ResumeMode::Local));
 
     assert_eq!(app.ui_state.current_page, Pages::Solo);
-    assert_eq!(app.game.logic.state(), GameState::Playing);
+    assert_eq!(app.game.runtime.state(), GameState::Playing);
     assert_eq!(
-        app.game.logic.turn(),
+        app.game.runtime.turn(),
         shakmaty::Color::White,
         "Saved FEN says it is White to move",
     );
-    let fen_now = app.game.logic.fen();
+    let fen_now = app.game.runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed FEN should match the save: {}",
@@ -216,7 +216,7 @@ fn reaching_game_end_clears_save() -> AppResult<()> {
     // by going through the path it shares with the main loop. To keep the
     // test simple, call the deletion helper directly: that is what the
     // end-of-game hook does.
-    app.game.logic.finish(GameOutcome::Checkmate {
+    app.game.runtime.finish(GameOutcome::Checkmate {
         winner: shakmaty::Color::White,
     });
     app.clear_resume_state_for_current_mode();
@@ -307,7 +307,7 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
     send(&mut app, &[KeyCode::Char('r')])?;
     assert_eq!(app.ui_state.current_page, Pages::Solo);
     assert_eq!(app.ui_state.current_popup, None);
-    assert_eq!(app.game.logic.moves().len(), 2);
+    assert_eq!(app.game.runtime.moves().len(), 2);
     assert!(has_save(ResumeMode::Local));
     Ok(())
 }
@@ -328,11 +328,11 @@ fn restart_mid_game_asks_first() -> AppResult<()> {
         Some(Popups::NewGameConfirmation)
     );
     send(&mut app, &[KeyCode::Char('n')])?;
-    assert_eq!(app.game.logic.moves().len(), 1, "n keeps the game");
+    assert_eq!(app.game.runtime.moves().len(), 1, "n keeps the game");
     assert!(has_save(ResumeMode::Local));
 
     send(&mut app, &[KeyCode::Char('r'), KeyCode::Char('y')])?;
-    assert_eq!(app.game.logic.moves().len(), 0);
+    assert_eq!(app.game.runtime.moves().len(), 0);
     assert!(!has_save(ResumeMode::Local));
     Ok(())
 }
@@ -381,7 +381,7 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
         !app.game_mode_state.form_active,
         "Form should close on resume"
     );
-    let fen_now = app.game.logic.fen();
+    let fen_now = app.game.runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed position should match save: {}",
@@ -415,7 +415,7 @@ fn resume_restores_saved_clock_state() -> AppResult<()> {
 
     let instant = Instant::now();
 
-    let clock = app.game.logic.clock();
+    let clock = app.game.runtime.clock();
     // White to move (FEN said so), so the white clock is now ticking down.
     // The black side is paused at the exact saved value.
     let white_remaining = clock.get_time(shakmaty::Color::White, instant).as_millis() as u64;
@@ -446,7 +446,7 @@ fn flush_captures_clock_between_moves() -> AppResult<()> {
     // Attach a clock that the game would normally get from the time-control
     // form. After the first move the clock starts for whoever is to move.
     app.game
-        .logic
+        .runtime
         .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -486,12 +486,12 @@ fn resume_rebuilds_full_move_history() -> AppResult<()> {
     assert!(fresh.resume_from_saved(ResumeMode::Local));
 
     assert_eq!(
-        fresh.game.logic.moves().len(),
+        fresh.game.runtime.moves().len(),
         1,
         "history must come back with the move we played"
     );
     assert_eq!(
-        fresh.game.logic.positions().len(),
+        fresh.game.runtime.positions().len(),
         2,
         "position_history must include the initial position plus one after e4",
     );
@@ -522,7 +522,7 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
     send(&mut app, &[KeyCode::Char('r')])?;
 
     assert_eq!(app.ui_state.current_page, Pages::Solo);
-    let fen_now = app.game.logic.fen();
+    let fen_now = app.game.runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed position should match save: {}",
@@ -583,11 +583,11 @@ fn resume_restores_flip_and_taken_pieces() -> AppResult<()> {
     let mut app = App::default();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.game.logic.is_flipped(),
+        app.game.runtime.is_flipped(),
         "Board orientation should be restored"
     );
     assert_eq!(
-        app.game.logic.taken_pieces().len(),
+        app.game.runtime.taken_pieces().len(),
         2,
         "Captured pieces should be restored when moves_uci is empty (legacy path)"
     );
@@ -613,10 +613,10 @@ fn legacy_save_without_moves_uses_fen_directly() -> AppResult<()> {
     let mut app = App::default();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.game.logic.moves().is_empty(),
+        app.game.runtime.moves().is_empty(),
         "Legacy saves can't rebuild history; that's the accepted trade-off",
     );
-    let fen_now = app.game.logic.fen();
+    let fen_now = app.game.runtime.fen();
     assert!(fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"));
     Ok(())
 }
@@ -688,7 +688,7 @@ fn quit_flushes_clock_state() -> AppResult<()> {
     let mut app = App::default();
     start_local_game(&mut app)?;
     app.game
-        .logic
+        .runtime
         .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -724,7 +724,7 @@ fn reset_home_flushes_then_preserves_save() -> AppResult<()> {
     let mut app = App::default();
     start_local_game(&mut app)?;
     app.game
-        .logic
+        .runtime
         .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -763,7 +763,7 @@ fn tick_throttles_clock_only_writes() -> AppResult<()> {
     let mut app = App::default();
     start_local_game(&mut app)?;
     app.game
-        .logic
+        .runtime
         .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
 
@@ -809,7 +809,7 @@ fn player_checkmate_via_check_game_end_status_clears_save() -> AppResult<()> {
     app.check_game_end_status();
 
     assert!(matches!(
-        app.game.logic.state(),
+        app.game.runtime.state(),
         GameState::Finished(GameOutcome::Checkmate { .. })
     ));
     assert!(
@@ -850,7 +850,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     // A 0-second clock reports time-up immediately, which the tick handler
     // uses to declare the other side the winner.
     app.game
-        .logic
+        .runtime
         .set_clock(chess_tui_core::Clock::new(TimeControl::Custom(0)));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -859,7 +859,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     app.tick();
 
     assert!(matches!(
-        app.game.logic.state(),
+        app.game.runtime.state(),
         GameState::Finished(GameOutcome::Timeout { .. })
     ));
     assert!(

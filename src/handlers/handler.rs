@@ -80,7 +80,7 @@ pub fn handle_page_input(app: &mut App, key_event: KeyEvent) {
 /// This function processes inputs that are common across all game modes (solo, bot, multiplayer).
 /// The behavior varies based on the current game state (Playing, Promotion, Checkmate, Draw).
 pub fn chess_inputs(app: &mut App, key_event: KeyEvent) {
-    let is_playing = app.game.logic.state().is_playing();
+    let is_playing = app.game.runtime.state().is_playing();
 
     match key_event.code {
         // Vertical cursor movement (only during active play)
@@ -88,7 +88,7 @@ pub fn chess_inputs(app: &mut App, key_event: KeyEvent) {
         KeyCode::Down | KeyCode::Char('j') if is_playing => app.go_down_in_game(),
 
         // Horizontal cursor movement - behavior depends on game state
-        KeyCode::Right | KeyCode::Char('l') => match app.game.logic.state() {
+        KeyCode::Right | KeyCode::Char('l') => match app.game.runtime.state() {
             GameState::Promotion(_) => {
                 // Always allow promotion cursor movement, regardless of turn or page
                 app.game.ui.cursor_right_promotion();
@@ -98,7 +98,7 @@ pub fn chess_inputs(app: &mut App, key_event: KeyEvent) {
             }
             _ => (),
         },
-        KeyCode::Left | KeyCode::Char('h') => match app.game.logic.state() {
+        KeyCode::Left | KeyCode::Char('h') => match app.game.runtime.state() {
             GameState::Promotion(_) => {
                 // Always allow promotion cursor movement, regardless of turn or page
                 app.game.ui.cursor_left_promotion();
@@ -172,7 +172,7 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
     // Only process left mouse button clicks
     if mouse_event.kind == MouseEventKind::Down(MouseButton::Left) {
         // Ignore clicks when game has ended
-        if app.game.logic.state().is_finished() {
+        if app.game.runtime.state().is_finished() {
             return Ok(());
         }
         // Ignore clicks when a popup is active
@@ -183,7 +183,7 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
         // Handle promotion piece selection via mouse
         // Note: Promotion state should always allow input, even if turn has switched
         // because the player needs to select the promotion piece after making the move
-        if app.game.logic.state().is_promotion() {
+        if app.game.runtime.state().is_promotion() {
             // Calculate which promotion option was clicked (0-3 for Queen, Rook, Bishop, Knight)
             let x = (mouse_event.column - app.game.ui.top_x) / app.game.ui.width;
             let y = (mouse_event.row - app.game.ui.top_y) / app.game.ui.height;
@@ -196,7 +196,7 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
             let mut move_was_correct = true;
 
             // If we have a pending promotion move, validate it now with the selected promotion piece
-            if let Some(pending) = app.game.logic.promotion() {
+            if let Some(pending) = app.game.runtime.promotion() {
                 let from = pending.from();
                 let to = pending.to();
                 // Get the promotion piece from the cursor
@@ -244,8 +244,8 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
             } else {
                 // Move was incorrect in puzzle mode - ensure game state is reset
                 // reset_last_move should have already handled this, but make sure
-                if app.game.logic.state().is_promotion() {
-                    app.game.logic.start_playing();
+                if app.game.runtime.state().is_promotion() {
+                    app.game.runtime.start_playing();
                 }
             }
             return Ok(());
@@ -254,7 +254,7 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
         // In Lichess mode, only allow input if it's our turn (but not for promotion, handled above)
         if app.ui_state.current_page == Pages::Lichess
             && let Some(my_color) = app.game_mode_state.selected_color
-            && app.game.logic.turn() != my_color
+            && app.game.runtime.turn() != my_color
         {
             return Ok(());
         }
@@ -284,8 +284,11 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
         // Get piece color at clicked square (accounting for board flip)
         let piece_color = app
             .game
-            .logic
-            .get_piece_color_at_square(&flip_square_if_needed(square, app.game.logic.is_flipped()));
+            .runtime
+            .get_piece_color_at_square(&flip_square_if_needed(
+                square,
+                app.game.runtime.is_flipped(),
+            ));
 
         // Handle click on empty square
         if piece_color.is_none() {
@@ -298,17 +301,17 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
             }
         }
         // Handle click on square with a piece
-        else if piece_color == Some(app.game.logic.turn()) {
+        else if piece_color == Some(app.game.runtime.turn()) {
             // Clicked on own piece
             // First check if we have a piece selected and this square is a valid move destination
             if let Some(selected_square) = app.game.ui.selected_square {
                 // Check if this is a castling attempt: king selected, rook clicked
                 let actual_selected =
-                    flip_square_if_needed(selected_square, app.game.logic.is_flipped());
-                let actual_clicked = flip_square_if_needed(square, app.game.logic.is_flipped());
+                    flip_square_if_needed(selected_square, app.game.runtime.is_flipped());
+                let actual_clicked = flip_square_if_needed(square, app.game.runtime.is_flipped());
 
-                let selected_role = app.game.logic.get_role_at_square(&actual_selected);
-                let clicked_role = app.game.logic.get_role_at_square(&actual_clicked);
+                let selected_role = app.game.runtime.get_role_at_square(&actual_selected);
+                let clicked_role = app.game.runtime.get_role_at_square(&actual_clicked);
 
                 // Check if king is selected and rook is clicked
                 if selected_role == Some(Role::King) && clicked_role == Some(Role::Rook) {
@@ -331,17 +334,17 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
                     // Check if castling is legal by checking if destination is in authorized positions
                     let authorized_positions = app
                         .game
-                        .logic
-                        .get_authorized_positions(app.game.logic.turn(), &actual_selected);
+                        .runtime
+                        .get_authorized_positions(app.game.runtime.turn(), &actual_selected);
 
                     if authorized_positions.contains(&castling_dest) {
                         // Castling is legal, execute it
                         let castling_coords = Coord::from(flip_square_if_needed(
                             castling_dest,
-                            app.game.logic.is_flipped(),
+                            app.game.runtime.is_flipped(),
                         ));
                         if app.try_mouse_move(
-                            flip_square_if_needed(castling_dest, app.game.logic.is_flipped()),
+                            flip_square_if_needed(castling_dest, app.game.runtime.is_flipped()),
                             castling_coords,
                         ) {
                             return Ok(());

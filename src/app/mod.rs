@@ -390,7 +390,7 @@ impl GameModeContext for App {
         match kind {
             chess_tui_app::AvailableGameMode::Local => {
                 self.game
-                    .logic
+                    .runtime
                     .set_clock(Clock::new(self.game_mode_state.get_time_control()));
                 crate::handlers::game_mode_menu::finish_form(self, Pages::Solo);
             }
@@ -560,24 +560,24 @@ impl App {
             self.lichess_state.puzzle_game = Some(puzzle_game);
         }
 
-        let is_lichess = self.game.logic.kind() == GameKind::Lichess;
+        let is_lichess = self.game.runtime.kind() == GameKind::Lichess;
 
-        let clock = &self.game.logic.clock();
+        let clock = &self.game.runtime.clock();
 
         // Detect time running out for Lichess games (the server stops sending
         // events once a player flags, so we finish the countdown locally).
         if is_lichess
-            && let ClockState::Running { active_color, .. } = self.game.logic.clock().state()
+            && let ClockState::Running { active_color, .. } = self.game.runtime.clock().state()
             && clock.get_time(active_color, Instant::now()).is_zero()
         {
-            self.game.logic.force_time_up(active_color);
+            self.game.runtime.force_time_up(active_color);
         }
 
         // Check clock for time up (for local games and bot games with clock)
-        if let ClockState::TimeUp { loser_color } = self.game.logic.clock().state() {
+        if let ClockState::TimeUp { loser_color } = self.game.runtime.clock().state() {
             let winner = loser_color.other();
-            if !self.game.logic.state().is_finished() {
-                self.game.logic.finish(GameOutcome::Timeout { winner });
+            if !self.game.runtime.state().is_finished() {
+                self.game.runtime.finish(GameOutcome::Timeout { winner });
             }
             self.check_and_show_game_end();
         }

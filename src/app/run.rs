@@ -19,7 +19,7 @@ impl App {
 
             self.handle_events(&mut tui)?;
 
-            self.game.logic.tick();
+            self.game.runtime.tick();
             self.handle_game_events();
             self.check_game_end_status();
 
@@ -57,7 +57,7 @@ impl App {
     }
 
     fn handle_game_events(&mut self) {
-        for event in self.game.logic.take_events() {
+        for event in self.game.runtime.take_events() {
             match event {
                 GameEvent::MovePlayed => play_move_sound(),
                 GameEvent::Error(message) => {

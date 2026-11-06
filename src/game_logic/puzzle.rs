@@ -79,14 +79,14 @@ impl PuzzleGame {
     }
 
     fn reset_last_move(&self, game: &mut Game) {
-        if !game.logic.moves().is_empty() {
-            game.logic.undo_last_move();
-            game.logic.sync_player_turn_with_position();
+        if !game.runtime.moves().is_empty() {
+            game.runtime.undo_last_move();
+            game.runtime.sync_turn_with_position();
             game.ui.unselect_cell();
 
             // Reset game state to Playing if it was Promotion
-            if game.logic.state().is_promotion() {
-                game.logic.start_playing();
+            if game.runtime.state().is_promotion() {
+                game.runtime.start_playing();
             }
         }
     }
@@ -149,25 +149,27 @@ impl PuzzleGame {
             None
         };
 
-        let piece_type_from = game.logic.get_role_at_square(&from);
+        let piece_type_from = game.runtime.get_role_at_square(&from);
 
-        let executed_move = game.logic.play_and_record(from, to, promotion, |executed| {
-            if let Some(piece_type) = piece_type_from {
-                shakmaty::Move::Normal {
-                    role: piece_type,
-                    from,
-                    capture: executed.capture(),
-                    to,
-                    promotion: executed.promotion(),
+        let executed_move = game
+            .runtime
+            .play_and_record(from, to, promotion, |executed| {
+                if let Some(piece_type) = piece_type_from {
+                    shakmaty::Move::Normal {
+                        role: piece_type,
+                        from,
+                        capture: executed.capture(),
+                        to,
+                        promotion: executed.promotion(),
+                    }
+                } else {
+                    executed.clone()
                 }
-            } else {
-                executed.clone()
-            }
-        });
+            });
 
         if executed_move.is_some() {
-            game.logic.switch_player_turn();
-            game.logic.set_flipped(false);
+            game.runtime.switch_turn();
+            game.runtime.set_flipped(false);
             true
         } else {
             false
@@ -212,11 +214,11 @@ impl PuzzleGame {
     }
 
     pub fn show_hint(&self, game: &mut Game) {
-        if !game.logic.state().is_playing() {
+        if !game.runtime.state().is_playing() {
             return;
         }
         if let Some(from_square) = self.get_next_move_from_square() {
-            let coord = get_coord_from_square(from_square, game.logic.is_flipped());
+            let coord = get_coord_from_square(from_square, game.runtime.is_flipped());
             game.ui.cursor_coordinates = coord;
             game.select_cell();
         }

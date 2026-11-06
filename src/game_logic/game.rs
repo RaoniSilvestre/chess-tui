@@ -2,122 +2,12 @@
 
 use super::ui::UI;
 use chess_tui_core::{Board, ClockState, Coord, GameState, square_utils::flip_square_if_needed};
-use chess_tui_game::{GameEvent, GameKind, GameMode, GameRuntime, GameSession, LocalMode};
+use chess_tui_game::{GameRuntime, GameSession, LocalMode};
 use shakmaty::{Color, Move, Role, Square};
-use std::ops::{Deref, DerefMut};
-
-/// Application-level game logic.
-pub struct GameLogic {
-    runtime: GameRuntime,
-}
-
-impl Default for GameLogic {
-    fn default() -> Self {
-        Self {
-            runtime: GameRuntime::new(GameSession::default(), Box::new(LocalMode)),
-        }
-    }
-}
-
-impl Deref for GameLogic {
-    type Target = GameRuntime;
-
-    fn deref(&self) -> &Self::Target {
-        &self.runtime
-    }
-}
-
-impl DerefMut for GameLogic {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.runtime
-    }
-}
-
-impl GameLogic {
-    pub fn new(board: Board, turn: Color) -> Self {
-        Self {
-            runtime: GameRuntime::new(GameSession::new(board, turn), Box::new(LocalMode)),
-        }
-    }
-
-    pub fn runtime(&self) -> &GameRuntime {
-        &self.runtime
-    }
-
-    pub fn runtime_mut(&mut self) -> &mut GameRuntime {
-        &mut self.runtime
-    }
-
-    pub fn set_mode(&mut self, mode: Box<dyn GameMode>) {
-        self.runtime.set_mode(mode);
-    }
-
-    pub fn kind(&self) -> GameKind {
-        self.runtime.kind()
-    }
-
-    pub fn tick(&mut self) {
-        self.runtime.tick();
-    }
-
-    pub fn take_events(&mut self) -> Vec<GameEvent> {
-        self.runtime.take_events()
-    }
-
-    pub fn on_player_move(&mut self) {
-        self.runtime.on_player_move();
-    }
-
-    pub fn on_promotion(&mut self) {
-        self.runtime.on_promotion();
-    }
-
-    pub fn is_player_move_allowed(&self) -> bool {
-        self.runtime.can_player_move()
-    }
-
-    pub fn flip_after_move(&self) -> bool {
-        self.runtime.flip_after_move()
-    }
-
-    pub fn history_is_solo(&self) -> bool {
-        self.runtime.history_is_solo()
-    }
-
-    pub fn session(&self) -> &GameSession {
-        self.runtime.session()
-    }
-
-    pub fn session_mut(&mut self) -> &mut GameSession {
-        self.runtime.session_mut()
-    }
-}
-
-impl chess_tui_ui::board::BoardView for GameLogic {
-    fn board(&self) -> &Board {
-        self.runtime.board()
-    }
-
-    fn turn(&self) -> Color {
-        self.runtime.turn()
-    }
-
-    fn flipped(&self) -> bool {
-        self.runtime.is_flipped()
-    }
-
-    fn kind(&self) -> GameKind {
-        self.runtime.kind()
-    }
-
-    fn shows_last_move_from(&self, color: Color) -> bool {
-        self.runtime.mode().shows_last_move_from(color)
-    }
-}
 
 #[derive(Default)]
 pub struct Game {
-    pub logic: GameLogic,
+    pub runtime: GameRuntime,
     /// The struct to handle UI related stuff
     pub ui: UI,
 }
@@ -125,30 +15,33 @@ pub struct Game {
 impl Game {
     pub fn new(game_board: Board, player_turn: Color) -> Self {
         Self {
-            logic: GameLogic::new(game_board, player_turn),
+            runtime: GameRuntime::new(
+                GameSession::new(game_board, player_turn),
+                Box::new(LocalMode),
+            ),
             ui: UI::default(),
         }
     }
 
     /// Switch the player turn
     pub fn switch_player_turn(&mut self) {
-        self.logic.switch_player_turn();
+        self.runtime.switch_turn();
     }
 
     /// Methods to select a cell on the board
     pub fn handle_cell_click(&mut self) {
         // If we are viewing history and making a move, truncate history at this point
-        if let Some(history_index) = self.logic.history_position() {
-            self.logic.truncate_history_at(history_index);
+        if let Some(history_index) = self.runtime.history_position() {
+            self.runtime.truncate_history_at(history_index);
         }
 
-        match self.logic.state() {
+        match self.runtime.state() {
             GameState::Promotion(_) => {
-                let should_flip = self.logic.flip_after_move();
+                let should_flip = self.runtime.flip_after_move();
                 self.handle_promotion(should_flip);
             }
             GameState::Playing => {
-                if !self.logic.is_player_move_allowed() {
+                if !self.runtime.can_player_move() {
                     return;
                 }
                 if self.ui.is_cell_selected() {
@@ -157,18 +50,18 @@ impl Game {
                 } else {
                     // Selection Guard: Check if we SHOULD even call select_cell()
                     let square: shakmaty::Square = self.ui.cursor_coordinates.into();
-                    let actual_square = flip_square_if_needed(square, self.logic.is_flipped());
+                    let actual_square = flip_square_if_needed(square, self.runtime.is_flipped());
 
-                    let piece_color = self.logic.get_piece_color_at_square(&actual_square);
+                    let piece_color = self.runtime.get_piece_color_at_square(&actual_square);
 
                     // Do nothing if clicking an empty square or the opponent's piece
-                    if piece_color != Some(self.logic.turn()) {
+                    if piece_color != Some(self.runtime.turn()) {
                         return;
                     }
 
                     let authorized_positions = self
-                        .logic
-                        .get_authorized_positions(self.logic.turn(), &actual_square);
+                        .runtime
+                        .get_authorized_positions(self.runtime.turn(), &actual_square);
 
                     if !authorized_positions.is_empty() {
                         self.select_cell();
@@ -178,7 +71,7 @@ impl Game {
             _ => {}
         };
 
-        self.logic.update_game_state();
+        self.runtime.update_game_state();
     }
 
     /// Method to take care of the promotion after the selection
@@ -197,28 +90,28 @@ impl Game {
                 return;
             }
         };
-        self.logic.promote_piece(role, should_flip);
+        self.promote_piece(role, should_flip);
         self.ui.promotion_cursor = 0;
 
         // Switch player turn (this will start the opponent's clock)
-        self.logic.switch_player_turn();
+        self.runtime.switch_turn();
         // Start clock on first move if needed (promotion can happen on first move)
-        self.logic.start_clock_if_needed();
+        self.runtime.start_clock_if_needed();
 
         // Update game state after promotion
-        self.logic.update_game_state();
+        self.runtime.update_game_state();
 
-        self.logic.on_promotion();
+        self.runtime.on_promotion();
     }
 
     /// Handle board flipping logic after a move (only in single-player mode)
     fn handle_after_move_board_flip(&mut self) {
-        if self.logic.flip_after_move()
-            && (!self.logic.is_latest_move_promotion()
-                || self.logic.is_draw()
-                || self.logic.is_checkmate())
+        if self.runtime.flip_after_move()
+            && (!self.runtime.is_latest_move_promotion()
+                || self.runtime.is_draw()
+                || self.runtime.is_checkmate())
         {
-            self.logic.flip();
+            self.runtime.flip();
         }
     }
 
@@ -231,8 +124,8 @@ impl Game {
         let cursor_square = self.ui.cursor_coordinates.into();
 
         let actual_selected_coords =
-            flip_square_if_needed(selected_square, self.logic.is_flipped());
-        let actual_cursor_coords = flip_square_if_needed(cursor_square, self.logic.is_flipped());
+            flip_square_if_needed(selected_square, self.runtime.is_flipped());
+        let actual_cursor_coords = flip_square_if_needed(cursor_square, self.runtime.is_flipped());
 
         if actual_cursor_coords == actual_selected_coords {
             self.ui.unselect_cell();
@@ -241,13 +134,15 @@ impl Game {
 
         // Check authorized positions before taking any action.
         let authorized_positions = self
-            .logic
-            .get_authorized_positions(self.logic.turn(), &actual_selected_coords);
+            .runtime
+            .get_authorized_positions(self.runtime.turn(), &actual_selected_coords);
 
         if !authorized_positions.contains(&actual_cursor_coords) {
-            let piece_at_destination = self.logic.get_piece_color_at_square(&actual_cursor_coords);
+            let piece_at_destination = self
+                .runtime
+                .get_piece_color_at_square(&actual_cursor_coords);
 
-            if piece_at_destination == Some(self.logic.turn()) {
+            if piece_at_destination == Some(self.runtime.turn()) {
                 self.select_cell();
             } else {
                 self.ui.unselect_cell();
@@ -255,21 +150,20 @@ impl Game {
             return;
         }
 
-        self.logic
-            .execute_move(actual_selected_coords, actual_cursor_coords);
+        self.execute_move(actual_selected_coords, actual_cursor_coords);
         self.ui.unselect_cell();
 
-        self.logic.update_game_state();
+        self.runtime.update_game_state();
 
-        if !self.logic.state().is_promotion() {
-            self.logic.start_clock_if_needed();
-            self.logic.switch_player_turn();
+        if !self.runtime.state().is_promotion() {
+            self.runtime.start_clock_if_needed();
+            self.runtime.switch_turn();
         } else {
-            self.logic.pause_clock();
+            self.runtime.pause_clock();
         }
 
         self.handle_after_move_board_flip();
-        self.logic.on_player_move();
+        self.runtime.on_player_move();
     }
 
     /// Method applied after selecting a cell on the board
@@ -278,21 +172,21 @@ impl Game {
         let square: Square = self.ui.cursor_coordinates.into();
         let square: Square = Coord::from(square).into();
 
-        let actual_square = flip_square_if_needed(square, self.logic.is_flipped());
+        let actual_square = flip_square_if_needed(square, self.runtime.is_flipped());
 
         // Check if there is a piece on the cell and if it's the right color
-        let piece_color = self.logic.get_piece_color_at_square(&actual_square);
+        let piece_color = self.runtime.get_piece_color_at_square(&actual_square);
 
-        if self.logic.get_role_at_square(&actual_square).is_none()
-            || piece_color != Some(self.logic.turn())
+        if self.runtime.get_role_at_square(&actual_square).is_none()
+            || piece_color != Some(self.runtime.turn())
         {
             return;
         }
 
         // Check if the piece on the cell can move before selecting it
         let authorized_positions = self
-            .logic
-            .get_authorized_positions(self.logic.turn(), &actual_square);
+            .runtime
+            .get_authorized_positions(self.runtime.turn(), &actual_square);
 
         if authorized_positions.is_empty() {
             return;
@@ -304,67 +198,54 @@ impl Game {
     }
 
     pub fn apply_player_move(&mut self, from: Square, to: Square, promotion: Option<Role>) -> bool {
-        let role_from = match self.logic.get_role_at_square(&from) {
-            Some(role) => role,
-            None => return false,
-        };
-        let role_to = self.logic.get_role_at_square(&to);
-
-        let executed_move = self.logic.play(from, to, promotion);
+        let executed_move = self.runtime.play(from, to, promotion);
 
         let Some(_executed_move) = executed_move else {
             return false;
         };
 
-        crate::sound::play_move_sound();
-        self.logic.record_move_for_draw_rule(role_from, role_to);
+        chess_tui_ui::sound::play_move_sound();
 
-        self.logic.update_game_state();
+        self.runtime.update_game_state();
 
-        if !self.logic.state().is_promotion() {
-            self.logic.start_clock_if_needed();
-            self.logic.switch_player_turn();
+        if !self.runtime.state().is_promotion() {
+            self.runtime.start_clock_if_needed();
+            self.runtime.switch_turn();
         } else {
-            self.logic.pause_clock();
+            self.runtime.pause_clock();
         }
 
         self.handle_after_move_board_flip();
-        self.logic.on_player_move();
+        self.runtime.on_player_move();
 
         true
     }
 
     pub fn clock_state(&self) -> ClockState {
-        self.logic.clock().state()
-    }
-}
-
-impl GameLogic {
-    pub fn update_game_state(&mut self) {
-        self.session_mut().update_game_state();
+        self.runtime.clock().state()
     }
 
-    /// Switch the player turn
-    pub fn switch_player_turn(&mut self) {
-        self.switch_turn();
-    }
-
-    /// Start the clock for the current player (used on first move)
-    pub fn start_clock_if_needed(&mut self) {
-        self.session_mut().start_clock_if_needed();
-    }
-
-    /// Sync player_turn with the current position's turn
-    /// This is needed when navigating history to ensure moves are allowed for the correct player
     pub fn sync_player_turn_with_position(&mut self) {
-        self.sync_turn_with_position();
+        self.runtime.sync_turn_with_position();
+    }
+
+    pub fn navigate_history_next(&mut self) {
+        let is_solo_mode = self.runtime.history_is_solo();
+        if self.runtime.navigate_history_next(is_solo_mode) {
+            self.runtime.sync_turn_with_position();
+        }
+    }
+
+    pub fn navigate_history_previous(&mut self) {
+        let is_solo_mode = self.runtime.history_is_solo();
+        if self.runtime.navigate_history_previous(is_solo_mode) {
+            self.runtime.sync_turn_with_position();
+        }
     }
 
     /// Method to promote a pawn
-    pub fn promote_piece(&mut self, role: Role, should_flip: bool) {
-        if let Some(last_move) = self.moves().last().cloned() {
-            let new_piece = role;
-
+    fn promote_piece(&mut self, role: Role, should_flip: bool) {
+        if let Some(last_move) = self.runtime.moves().last().cloned() {
             // Promotion moves are always pawn moves, so they should have a from square
             let from_square = match last_move.from() {
                 Some(sq) => sq,
@@ -376,79 +257,58 @@ impl GameLogic {
 
             let to_square = last_move.to();
             let capture = last_move.capture();
-            self.undo_last_move();
+            self.runtime.undo_last_move();
 
             // Re-execute the move with the correct promotion
-            self.play_and_record(from_square, to_square, Some(new_piece), |_| Move::Normal {
-                role: Role::Pawn,
-                from: from_square,
-                capture,
-                to: to_square,
-                promotion: Some(new_piece),
-            });
+            self.runtime
+                .play_and_record(from_square, to_square, Some(role), |_| Move::Normal {
+                    role: Role::Pawn,
+                    from: from_square,
+                    capture,
+                    to: to_square,
+                    promotion: Some(role),
+                });
         }
 
-        self.start_playing();
-        if should_flip && !self.is_draw() && !self.is_checkmate() {
-            self.flip();
+        self.runtime.start_playing();
+        if should_flip && !self.runtime.is_draw() && !self.runtime.is_checkmate() {
+            self.runtime.flip();
         }
     }
 
     /// Move a piece from a cell to another
     pub fn execute_move(&mut self, from: Square, to: Square) {
         // Check if moving a piece and get the piece type
-        let Some(role_from) = self.get_role_at_square(&from) else {
+        let Some(role_from) = self.runtime.get_role_at_square(&from) else {
             return;
         };
 
-        let role_to = self.get_role_at_square(&to);
-
-        let executed_move = self.play_and_record(from, to, None, |executed_move| {
-            // If this is a pawn reaching the last row, store it without promotion piece
-            // so that is_latest_move_promotion() returns true and the popup appears.
-            if role_from == Role::Pawn
-                && (executed_move.to().rank() == shakmaty::Rank::First
-                    || executed_move.to().rank() == shakmaty::Rank::Eighth)
-                && executed_move.promotion().is_some()
-            {
-                // from() returns None only for drops (non-Normal moves), but we know this is Normal
-                let from_square = executed_move.from().unwrap_or_else(|| executed_move.to());
-                shakmaty::Move::Normal {
-                    role: Role::Pawn,
-                    from: from_square,
-                    capture: executed_move.capture(),
-                    to: executed_move.to(),
-                    promotion: None,
+        let executed_move = self
+            .runtime
+            .play_and_record(from, to, None, |executed_move| {
+                // If this is a pawn reaching the last row, store it without promotion piece
+                // so that is_latest_move_promotion() returns true and the popup appears.
+                if role_from == Role::Pawn
+                    && (executed_move.to().rank() == shakmaty::Rank::First
+                        || executed_move.to().rank() == shakmaty::Rank::Eighth)
+                    && executed_move.promotion().is_some()
+                {
+                    // from() returns None only for drops (non-Normal moves), but we know this is Normal
+                    let from_square = executed_move.from().unwrap_or_else(|| executed_move.to());
+                    shakmaty::Move::Normal {
+                        role: Role::Pawn,
+                        from: from_square,
+                        capture: executed_move.capture(),
+                        to: executed_move.to(),
+                        promotion: None,
+                    }
+                } else {
+                    executed_move.clone()
                 }
-            } else {
-                executed_move.clone()
-            }
-        });
+            });
 
         if executed_move.is_some() {
-            // Play move sound
-            crate::sound::play_move_sound();
-
-            // We increment the consecutive_non_pawn_or_capture if the piece type is a pawn or if there is no capture
-            self.record_move_for_draw_rule(role_from, role_to);
-        }
-    }
-
-    /// Navigate to the next position in history (forward in time)
-    pub fn navigate_history_next(&mut self) {
-        let is_solo_mode = self.history_is_solo();
-        if self.session_mut().navigate_history_next(is_solo_mode) {
-            // Update player_turn to match the position's turn
-            self.sync_player_turn_with_position();
-        }
-    }
-
-    /// Navigate to the previous position in history (backward in time)
-    pub fn navigate_history_previous(&mut self) {
-        let is_solo_mode = self.history_is_solo();
-        if self.session_mut().navigate_history_previous(is_solo_mode) {
-            // Update player_turn to match the position's turn
-            self.sync_player_turn_with_position();
+            chess_tui_ui::sound::play_move_sound();
         }
     }
 }

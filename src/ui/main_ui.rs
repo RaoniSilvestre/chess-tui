@@ -55,7 +55,7 @@ pub fn render_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::lay
         Pages::Solo => render_game_ui(frame, app, main_area),
         Pages::Multiplayer => render_multiplayer_page(frame, app, main_area),
         Pages::Lichess => {
-            if app.game.logic.kind() == chess_tui_game::GameKind::Lichess {
+            if app.game.runtime.kind() == chess_tui_game::GameKind::Lichess {
                 render_game_ui(frame, app, main_area);
             }
         }
@@ -194,7 +194,7 @@ fn render_multiplayer_page(frame: &mut Frame<'_>, app: &mut App, main_area: rata
     if app.ui_state.current_popup == Some(Popups::Error) {
         return;
     }
-    if app.game.logic.kind() != chess_tui_game::GameKind::Tcp {
+    if app.game.runtime.kind() != chess_tui_game::GameKind::Tcp {
         if app.multiplayer_state.host_ip.is_none() {
             if app.multiplayer_state.hosting == Some(true) {
                 if let Some(color) = app.game_mode_state.selected_color {
@@ -207,7 +207,7 @@ fn render_multiplayer_page(frame: &mut Frame<'_>, app: &mut App, main_area: rata
         } else {
             app.create_opponent();
         }
-    } else if app.game.logic.is_ready() {
+    } else if app.game.runtime.is_ready() {
         render_game_ui(frame, app, main_area);
     }
 }
@@ -252,7 +252,7 @@ fn render_bot_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::lay
 
     if app.ui_state.current_popup != Some(Popups::Error) {
         app.game_mode_state.resolve_selected_color();
-        if app.game.logic.kind() != chess_tui_game::GameKind::Bot {
+        if app.game.runtime.kind() != chess_tui_game::GameKind::Bot {
             app.bot_setup();
         } else {
             render_game_ui(frame, app, main_area);

@@ -41,7 +41,7 @@ impl App {
                     self.game_mode_state.selected_color = Some(mode.my_color());
                     self.game_mode_state.is_random_color = false;
                 }
-                self.game.logic.set_mode(Box::new(mode));
+                self.game.runtime.set_mode(Box::new(mode));
             }
             Err(e) => {
                 log::error!("Failed to create TCP peer: {}", e);
@@ -54,7 +54,7 @@ impl App {
 
         if self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black {
             log::debug!("Flipping board for black player");
-            self.game.logic.flip();
+            self.game.runtime.flip();
         }
 
         // Ensure skin is preserved when starting multiplayer
@@ -68,10 +68,10 @@ impl App {
     pub fn cancel_hosting_cleanup(&mut self) {
         log::info!("Cancelling hosting and cleaning multiplayer state");
 
-        self.game.logic.disconnect();
+        self.game.runtime.disconnect();
         self.multiplayer_state.reset();
         self.game_mode_state.reset_selected_color();
-        self.game.logic.reset();
+        self.game.runtime.reset();
         self.game.ui.reset();
     }
 }
