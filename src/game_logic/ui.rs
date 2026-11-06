@@ -6,15 +6,15 @@ use super::game::{Game, GameLogic};
 use crate::{
     color::{adapt_color, board_black, board_white},
     constants::{BLACK, WHITE},
-    graphics::KittyPieces,
-    pieces::{PieceSize, role_to_utf_enum},
     ui::{components::cell::render_cell, prompt::Prompt},
 };
-use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
 use chess_tui_core::{
     Coord, MoveDirection,
     square_utils::{flip_square_if_needed, get_coord_from_square, get_square_from_coord},
 };
+use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
+use chess_tui_ui::graphics::KittyPieces;
+use chess_tui_ui::pieces::{PieceSize, role_to_utf_enum};
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -229,7 +229,7 @@ impl UI {
         piece_color: Option<shakmaty::Color>,
         square: Rect,
     ) -> (Paragraph<'static>, u16) {
-        use crate::pieces::{
+        use chess_tui_ui::pieces::{
             bishop::Bishop, king::King, knight::Knight, pawn::Pawn, queen::Queen, rook::Rook,
         };
 

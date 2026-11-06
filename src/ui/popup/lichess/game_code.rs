@@ -1,7 +1,7 @@
 //! Lichess game-code / URL entry popup.
 
-use crate::ui::prompt::Prompt;
 use crate::{constants::WHITE, ui::components::centered_rect::centered_rect};
+use chess_tui_ui::prompt::Prompt;
 use ratatui::{
     Frame,
     layout::{Alignment, Position},

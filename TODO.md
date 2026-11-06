@@ -19,3 +19,9 @@
 
 - [ ] Parse the Lichess `winner` field for resignation events and populate `GameOutcome::Resignation { winner: Some(...) }`.
 - [ ] Add a `DrawReason` if the UI needs to distinguish stalemate, fifty-move, repetition, insufficient material, and agreement.
+
+## UI migration follow-ups
+
+- [ ] Move board rendering from `src/game_logic/ui.rs` into `chess-tui-ui` using a `BoardView` view model once `BoardViewState` lives in the game page.
+- [ ] Remove the temporary `src/ui` re-exports of `chess-tui-ui` once pages import the UI crate directly.
+- [ ] Move page-specific menu/popup renderers into `chess-tui-pages`.

@@ -9,7 +9,7 @@ fn main() -> AppResult<()> {
 
     // Handle --update-skins: update config from default, then exit (no TUI)
     if args.update_skins {
-        return Skin::run_update_skins().map_err(Into::into);
+        return Skin::run_update_skins();
     }
 
     let mut app = chess_tui::setup::setup_app(&args)?;

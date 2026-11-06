@@ -6,6 +6,7 @@ use std::{
 use chess_tui_core::PgnViewer;
 use chess_tui_lichess::LichessClient;
 use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
+use chess_tui_ui::graphics;
 use dirs::config_dir;
 use log::LevelFilter;
 
@@ -13,8 +14,7 @@ use crate::{
     app::{App, AppResult},
     config::{Args, Config},
     constants::{Pages, SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
-    graphics, logging,
-    sound,
+    logging, sound,
     state::{bot_state::BotState, lichess_state::LichessState},
 };
 

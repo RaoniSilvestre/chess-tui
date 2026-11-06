@@ -1,6 +1,6 @@
 //! Generic error message popup.
 
-use crate::ui::components::centered_rect::centered_rect;
+use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::{
     Frame,
     layout::Alignment,

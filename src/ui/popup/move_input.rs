@@ -1,7 +1,7 @@
 //! SAN move-entry popup anchored to the right side of the screen.
 
-use crate::ui::prompt::Prompt;
 use crate::{constants::WHITE, ui::components::right_rect::right_rect};
+use chess_tui_ui::prompt::Prompt;
 use ratatui::{
     Frame,
     layout::{Alignment, Position},

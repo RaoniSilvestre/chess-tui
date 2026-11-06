@@ -2,13 +2,13 @@
 
 use crate::app::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
-use chess_tui_theme::DisplayMode;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
 use crate::handlers::game_mode_menu::{
     AvailableGameMode, cycle_difficulty_next, cycle_difficulty_prev,
 };
 use crate::sound::play_menu_nav_sound;
+use chess_tui_theme::DisplayMode;
 /// Typed representation of the main-menu entries, indexed by `menu_cursor`.
 pub enum MainMenuItems {
     GameModeMenu,

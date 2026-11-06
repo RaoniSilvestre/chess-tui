@@ -3,7 +3,6 @@
 use crate::animations::AnimationState;
 use crate::constants::Popups;
 use crate::game_logic::game::Game;
-use crate::graphics::KittyPieces;
 use crate::state::bot_state::BotState;
 use crate::state::game_mode_state::GameModeState;
 use crate::state::lichess_state::LichessState;
@@ -13,6 +12,7 @@ use crate::state::ui_state::UIState;
 use chess_tui_core::ClockState;
 use chess_tui_core::GameOutcome;
 use chess_tui_game::GameKind;
+use chess_tui_ui::graphics::KittyPieces;
 use log::LevelFilter;
 use std::error;
 use std::time::Instant;
