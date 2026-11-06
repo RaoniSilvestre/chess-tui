@@ -73,7 +73,7 @@ impl App {
             .logic
             .bot
             .as_ref()
-            .is_some_and(|bot| bot.bot_will_move);
+            .is_some_and(|bot| bot.move_requested());
 
         if bot_thinking || !bot_will_move {
             return;
@@ -81,14 +81,14 @@ impl App {
 
         if let Some(bot) = &self.game.logic.bot {
             self.bot_state.start_bot_thinking(
-                self.game.logic.game_board.fen_position(),
+                self.game.logic.game_board.fen(),
                 bot.depth(),
                 bot.difficulty(),
             );
         }
 
         if let Some(bot) = self.game.logic.bot.as_mut() {
-            bot.bot_will_move = false;
+            bot.clear_move_request();
         }
     }
 

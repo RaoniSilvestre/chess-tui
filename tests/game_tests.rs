@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use chess_tui::game_logic::game::Game;
-    use chess_tui_core::game_state::GameState;
+    use chess_tui_core::GameState;
 
     use shakmaty::{Color, Position, Square};
 
@@ -34,8 +34,8 @@ mod tests {
         game.logic.execute_move(Square::E2, Square::E4);
 
         // Check history in game_board
-        assert_eq!(game.logic.game_board.move_history.len(), 1);
-        assert_eq!(game.logic.game_board.position_history.len(), 2);
+        assert_eq!(game.logic.game_board.moves().len(), 1);
+        assert_eq!(game.logic.game_board.positions().len(), 2);
     }
 
     #[test]
@@ -71,10 +71,7 @@ mod tests {
 
         // Initial position: white's turn
         assert_eq!(game.logic.player_turn, Color::White);
-        assert_eq!(
-            game.logic.game_board.position_history[0].turn(),
-            Color::White
-        );
+        assert_eq!(game.logic.game_board.positions()[0].turn(), Color::White);
 
         // Make a move (white moves)
         game.logic.execute_move(Square::E2, Square::E4);
@@ -83,17 +80,14 @@ mod tests {
         // After white's move, it's black's turn
         assert_eq!(game.logic.player_turn, Color::Black);
         // position_history[1] is after white's move, so it should be black's turn
-        assert_eq!(
-            game.logic.game_board.position_history[1].turn(),
-            Color::Black
-        );
+        assert_eq!(game.logic.game_board.positions()[1].turn(), Color::Black);
 
         // Navigate to previous position (index 0, which is initial, so white's turn)
         // position_history[0] = initial (white to move)
         // position_history[1] = after move 0 (black to move)
         // When at latest (index 1), navigating previous goes to index 0
         game.logic.game_board.navigate_history_previous(true);
-        assert_eq!(game.logic.game_board.history_position_index, Some(0));
+        assert_eq!(game.logic.game_board.history_position(), Some(0));
         game.logic.sync_player_turn_with_position();
 
         // position_history[0] is initial position, so it should be white's turn
@@ -102,13 +96,13 @@ mod tests {
         // Can't go back further from initial position
         let success = game.logic.game_board.navigate_history_previous(true);
         assert!(!success);
-        assert_eq!(game.logic.game_board.history_position_index, Some(0));
+        assert_eq!(game.logic.game_board.history_position(), Some(0));
         game.logic.sync_player_turn_with_position();
         assert_eq!(game.logic.player_turn, Color::White);
 
         // Now navigate forward to position 1 (after move 0, black's turn)
         game.logic.game_board.navigate_history_next(true);
-        assert_eq!(game.logic.game_board.history_position_index, Some(1));
+        assert_eq!(game.logic.game_board.history_position(), Some(1));
         game.logic.sync_player_turn_with_position();
         assert_eq!(game.logic.player_turn, Color::Black);
     }
@@ -126,19 +120,19 @@ mod tests {
         game.logic.switch_player_turn();
 
         // Should have 3 moves
-        assert_eq!(game.logic.game_board.move_history.len(), 3);
-        assert_eq!(game.logic.game_board.position_history.len(), 4);
+        assert_eq!(game.logic.game_board.moves().len(), 3);
+        assert_eq!(game.logic.game_board.positions().len(), 4);
 
         // Navigate to position after first move
         game.logic.game_board.navigate_history_previous(true);
-        assert_eq!(game.logic.game_board.history_position_index, Some(2));
+        assert_eq!(game.logic.game_board.history_position(), Some(2));
 
         // Simulate making a move from this position (truncate should happen in handle_cell_click)
         game.logic.game_board.truncate_history_at(1);
 
         // Should have 1 move and 2 positions
-        assert_eq!(game.logic.game_board.move_history.len(), 1);
-        assert_eq!(game.logic.game_board.position_history.len(), 2);
-        assert_eq!(game.logic.game_board.history_position_index, None);
+        assert_eq!(game.logic.game_board.moves().len(), 1);
+        assert_eq!(game.logic.game_board.positions().len(), 2);
+        assert_eq!(game.logic.game_board.history_position(), None);
     }
 }

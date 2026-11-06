@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use chess_tui_core::pgn::PgnViewer;
+use chess_tui_core::PgnViewer;
 use dirs::config_dir;
 use log::LevelFilter;
 

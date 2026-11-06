@@ -48,7 +48,7 @@ impl BotState {
         // Spawn thread to compute bot move
         std::thread::spawn(move || {
             let bot = Bot::new(&engine_path, false, depth, bot_difficulty);
-            let uci_move = match bot.get_move(&fen) {
+            let uci_move = match bot.find_move(&fen) {
                 Ok(m) => m,
                 Err(e) => {
                     let _ = tx.send(Err(e));

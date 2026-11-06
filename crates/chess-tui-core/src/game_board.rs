@@ -2,6 +2,7 @@
 
 use super::coord::Coord;
 use shakmaty::{Chess, Color, Move, Piece, Position, Rank, Role, Square, san::San};
+use std::fmt;
 
 /// ## Visual representation
 ///
@@ -24,32 +25,60 @@ use shakmaty::{Chess, Color, Move, Piece, Position, Rank, Role, Square, san::San
 #[derive(Debug, Clone)]
 pub struct GameBoard {
     // Historic of the past Moves of the board
-    pub move_history: Vec<Move>,
+    moves: Vec<Move>,
     /// Historic of the past gameboards states.
     /// The last position is the current position.
-    pub position_history: Vec<Chess>,
+    positions: Vec<Chess>,
     // The number of consecutive non pawn or capture moves
-    pub consecutive_non_pawn_or_capture: i32,
+    halfmove_clock: i32,
     /// Stores the captured pieces
-    pub taken_pieces: Vec<Piece>,
+    taken_pieces: Vec<Piece>,
     /// Track if the board is currently flipped (for coordinate conversion)
-    pub is_flipped: bool,
+    is_flipped: bool,
     /// Current position index in history when navigating. None means viewing the latest position.
-    pub history_position_index: Option<usize>,
+    history_position: Option<usize>,
     /// Original flip state before navigating history (used to restore when returning to latest)
-    pub original_flip_state: Option<bool>,
+    flip_before_history: Option<bool>,
 }
+
+/// Errors returned when installing a board history.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HistoryError {
+    /// A board history must contain at least the starting position.
+    EmptyPositions,
+    /// `positions` must contain exactly one more entry than `moves`.
+    LengthMismatch { positions: usize, moves: usize },
+    /// The halfmove clock cannot be negative.
+    NegativeHalfmoveClock,
+}
+
+impl fmt::Display for HistoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HistoryError::EmptyPositions => write!(f, "board history must contain a position"),
+            HistoryError::LengthMismatch { positions, moves } => write!(
+                f,
+                "board history has {positions} positions but {moves} moves; expected positions == moves + 1"
+            ),
+            HistoryError::NegativeHalfmoveClock => {
+                write!(f, "halfmove clock cannot be negative")
+            }
+        }
+    }
+}
+
+impl std::error::Error for HistoryError {}
 
 impl Default for GameBoard {
     fn default() -> Self {
         Self {
-            move_history: Vec::new(),
-            position_history: vec![Chess::default()],
-            consecutive_non_pawn_or_capture: 0,
+            moves: Vec::new(),
+            positions: vec![Chess::default()],
+            halfmove_clock: 0,
             taken_pieces: Vec::new(),
             is_flipped: false,
-            history_position_index: None,
-            original_flip_state: None,
+            history_position: None,
+            flip_before_history: None,
         }
     }
 }
@@ -57,71 +86,130 @@ impl Default for GameBoard {
 impl GameBoard {
     /// Convert a move to Standard Algebraic Notation (e.g., "e4", "Nf3", "O-O", "Qxd5+")
     pub fn move_to_san(&self, move_index: usize) -> String {
-        if move_index >= self.move_history.len() || move_index >= self.position_history.len() {
+        if move_index >= self.moves.len() || move_index >= self.positions.len() {
             return String::new();
         }
 
         // Get the position before this move was made
-        let position = &self.position_history[move_index];
-        let chess_move = &self.move_history[move_index];
+        let position = &self.positions[move_index];
+        let chess_move = &self.moves[move_index];
 
         // Convert to SAN using shakmaty
         let san = San::from_move(position, chess_move);
         san.to_string()
     }
 
-    pub fn increment_consecutive_non_pawn_or_capture(
-        &mut self,
-        role_from: Role,
-        role_to: Option<Role>,
-    ) {
+    /// Access the recorded moves.
+    pub fn moves(&self) -> &[Move] {
+        &self.moves
+    }
+
+    /// Access the recorded positions. The last entry is the latest position.
+    pub fn positions(&self) -> &[Chess] {
+        &self.positions
+    }
+
+    /// Access the captured pieces, in capture order.
+    pub fn taken_pieces(&self) -> &[Piece] {
+        &self.taken_pieces
+    }
+
+    /// Number of consecutive non-pawn, non-capture moves.
+    pub fn halfmove_clock(&self) -> i32 {
+        self.halfmove_clock
+    }
+
+    pub fn is_flipped(&self) -> bool {
+        self.is_flipped
+    }
+
+    /// The history index currently being viewed, or `None` when viewing the latest position.
+    pub fn history_position(&self) -> Option<usize> {
+        self.history_position
+    }
+
+    /// Record a move for the fifty-move rule.
+    pub fn record_move_for_draw_rule(&mut self, role_from: Role, role_to: Option<Role>) {
         match (role_from, role_to) {
             (Role::Pawn, _) | (_, Some(_)) => {
-                self.consecutive_non_pawn_or_capture = 0;
+                self.halfmove_clock = 0;
             }
             _ => {
-                self.consecutive_non_pawn_or_capture += 1;
+                self.halfmove_clock += 1;
             }
         }
     }
 
     pub fn reset(&mut self) {
-        self.move_history.clear();
-        self.position_history.clear();
-        self.position_history.push(Chess::default());
-        self.consecutive_non_pawn_or_capture = 0;
+        self.moves.clear();
+        self.positions.clear();
+        self.positions.push(Chess::default());
+        self.halfmove_clock = 0;
         self.is_flipped = false;
-        self.history_position_index = None;
-        self.original_flip_state = None;
+        self.history_position = None;
+        self.flip_before_history = None;
     }
 
-    /// Gets a read-only reference to the last position in the history.
-    /// If navigating history, returns the position at history_position_index.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the position history is empty. This should never happen
-    /// as the game always starts with an initial position.
-    pub fn position_ref(&self) -> &Chess {
-        self.current_position().unwrap_or_else(|| {
-            panic!("Position history is empty: board was not initialized correctly")
-        })
-    }
-
-    /// Gets a read-only reference to the current position, or None if history is empty
-    /// If navigating history, returns the position at history_position_index.
-    pub fn current_position(&self) -> Option<&Chess> {
-        if let Some(index) = self.history_position_index {
-            self.position_history.get(index)
-        } else {
-            self.position_history.last()
+    /// Replace the full board history after validating its shape.
+    pub fn load_history(
+        &mut self,
+        positions: Vec<Chess>,
+        moves: Vec<Move>,
+        taken_pieces: Vec<Piece>,
+        halfmove_clock: i32,
+    ) -> Result<(), HistoryError> {
+        if positions.is_empty() {
+            return Err(HistoryError::EmptyPositions);
         }
+        if positions.len() != moves.len() + 1 {
+            return Err(HistoryError::LengthMismatch {
+                positions: positions.len(),
+                moves: moves.len(),
+            });
+        }
+        if halfmove_clock < 0 {
+            return Err(HistoryError::NegativeHalfmoveClock);
+        }
+
+        self.positions = positions;
+        self.moves = moves;
+        self.taken_pieces = taken_pieces;
+        self.halfmove_clock = halfmove_clock;
+        self.history_position = None;
+        self.flip_before_history = None;
+        Ok(())
+    }
+
+    /// Ensure the board has at least the starting position.
+    pub fn ensure_initial_position(&mut self) {
+        if self.positions.is_empty() {
+            self.positions.push(Chess::default());
+        }
+    }
+
+    /// Record a move recovered from an already-applied remote position.
+    ///
+    /// This is a legacy recovery path for Lichess historical moves. Prefer
+    /// [`Self::play_and_record`] for normal moves.
+    #[doc(hidden)]
+    pub fn record_recovery_move(&mut self, mv: Move) {
+        self.moves.push(mv);
+        self.history_position = None;
+        self.flip_before_history = None;
+    }
+
+    /// The position currently being viewed.
+    pub fn current_position(&self) -> &Chess {
+        let index = self
+            .history_position
+            .unwrap_or_else(|| self.positions.len() - 1);
+        &self.positions[index]
     }
 
     /// Check if the game is a draw by repetition
     pub fn is_draw_by_repetition(&self) -> bool {
         let mut position_counts = std::collections::HashMap::new();
-        for board in self.position_history.iter() {
+        for board in self.positions.iter() {
             let count = position_counts.entry(board).or_insert(0);
             *count += 1;
 
@@ -134,9 +222,9 @@ impl GameBoard {
 
     /// Check if the game is a draw
     pub fn is_draw(&self) -> bool {
-        let chess = self.position_ref();
+        let chess = self.current_position();
         chess.is_stalemate()
-            || self.consecutive_non_pawn_or_capture == 50
+            || self.halfmove_clock == 50
             || self.is_draw_by_repetition()
             || chess.is_insufficient_material()
     }
@@ -145,7 +233,7 @@ impl GameBoard {
     // We check manually if the last move was a pawn to one of the promotion squares
     // AND the promotion hasn't been handled yet (no promotion piece set)
     pub fn is_latest_move_promotion(&self) -> bool {
-        self.move_history
+        self.moves
             .last()
             .map(|last_move| {
                 // Check if it's a pawn move to promotion square
@@ -162,7 +250,7 @@ impl GameBoard {
 
     /// Get piece type at a coordinate (handles flipped board)
     pub fn get_role_at_square(&self, square: &Square) -> Option<Role> {
-        self.position_ref()
+        self.current_position()
             .board()
             .piece_at(*square)
             .map(|p| p.role)
@@ -170,19 +258,19 @@ impl GameBoard {
 
     /// Check if a square as a piece on it
     pub fn is_square_occupied(&self, square: &Square) -> bool {
-        self.position_ref().board().piece_at(*square).is_some()
+        self.current_position().board().piece_at(*square).is_some()
     }
 
     /// Get the color of a piece on a given square
     pub fn get_piece_color_at_square(&self, square: &Square) -> Option<Color> {
-        let piece = self.position_ref().board().piece_at(*square);
+        let piece = self.current_position().board().piece_at(*square);
         piece.map(|p| p.color)
     }
 
     /// Get authorized positions for a piece at the given coordinate
     pub fn get_authorized_positions(&self, player_turn: Color, square: &Square) -> Vec<Square> {
         // Check if there's a piece at this position and it's the right color
-        if let Some(piece) = self.position_ref().board().piece_at(*square) {
+        if let Some(piece) = self.current_position().board().piece_at(*square) {
             if piece.color != player_turn {
                 return vec![];
             }
@@ -191,7 +279,7 @@ impl GameBoard {
         }
 
         // Get all legal moves
-        self.position_ref()
+        self.current_position()
             .clone()
             .legal_moves()
             .iter()
@@ -202,13 +290,13 @@ impl GameBoard {
 
     /// Check if the king is in check
     pub fn is_getting_checked(&self, player_turn: Color) -> bool {
-        let chess = self.position_ref();
+        let chess = self.current_position();
         chess.is_check() && chess.turn() == player_turn
     }
 
     /// Get the king's coordinates, or `None` if the board is in an invalid state.
     pub fn get_king_coordinates(&self, color: Color) -> Option<Coord> {
-        let king_square = self.position_ref().board().king_of(color)?;
+        let king_square = self.current_position().board().king_of(color)?;
         let mut coord = Coord::from(king_square);
         if self.is_flipped {
             coord = coord.reverse();
@@ -218,19 +306,27 @@ impl GameBoard {
 
     /// Check if game is checkmate
     pub fn is_checkmate(&self) -> bool {
-        self.position_ref().clone().is_checkmate()
+        self.current_position().clone().is_checkmate()
     }
 
-    /// Flip the board for alternating perspectives
-    pub fn flip_the_board(&mut self) {
+    /// Flip the board for alternating perspectives.
+    pub fn flip(&mut self) {
         self.is_flipped = !self.is_flipped;
     }
 
-    /// Get FEN position for UCI engine
-    pub fn fen_position(&self) -> String {
+    /// Set the board orientation explicitly.
+    pub fn set_flipped(&mut self, flipped: bool) {
+        self.is_flipped = flipped;
+    }
+
+    /// Get FEN position for UCI engine.
+    pub fn fen(&self) -> String {
         // Use FEN display from shakmaty
         use shakmaty::fen::Fen;
-        let fen = Fen::from_position(self.position_ref().clone(), shakmaty::EnPassantMode::Legal);
+        let fen = Fen::from_position(
+            self.current_position().clone(),
+            shakmaty::EnPassantMode::Legal,
+        );
         fen.to_string()
     }
 
@@ -269,7 +365,7 @@ impl GameBoard {
         self.reset();
 
         // Start from the initial position
-        let mut current_position = self.position_history[0].clone();
+        let mut current_position = self.positions[0].clone();
         let mut moves_applied = 0;
         let mut moves_failed = 0;
 
@@ -315,8 +411,8 @@ impl GameBoard {
                             // Apply the move
                             match current_position.play(&chess_move) {
                                 Ok(new_pos) => {
-                                    self.move_history.push(chess_move);
-                                    self.position_history.push(new_pos.clone());
+                                    self.moves.push(chess_move);
+                                    self.positions.push(new_pos.clone());
                                     current_position = new_pos;
                                     moves_applied += 1;
                                 }
@@ -372,7 +468,7 @@ impl GameBoard {
 
         // Verify that the final position matches the expected FEN
         if let Some(fen_str) = expected_fen
-            && let Some(final_position) = self.position_history.last()
+            && let Some(final_position) = self.positions.last()
         {
             let final_fen = shakmaty::fen::Fen::from_position(
                 final_position.clone(),
@@ -403,7 +499,7 @@ impl GameBoard {
                         fen.into_position::<shakmaty::Chess>(shakmaty::CastlingMode::Standard)
                 {
                     // Replace the last position in history with the FEN position
-                    if let Some(last_pos) = self.position_history.last_mut() {
+                    if let Some(last_pos) = self.positions.last_mut() {
                         *last_pos = position;
                     }
                 }
@@ -413,16 +509,16 @@ impl GameBoard {
         }
     }
 
-    /// Execute a move on the board
-    /// Returns the executed Move if successful, None if illegal
+    /// Execute a move without recording it in `moves`.
+    /// Returns the executed Move if successful, None if illegal.
     #[allow(clippy::expect_used)]
-    pub fn execute_move(
+    fn execute_internal(
         &mut self,
         from: Square,
         to: Square,
         promotion: Option<Role>,
     ) -> Option<Move> {
-        let chess = self.position_ref().clone();
+        let chess = self.current_position().clone();
 
         // Find matching legal move
         let legal_moves = chess.legal_moves();
@@ -514,10 +610,10 @@ impl GameBoard {
             match chess.play(shakmaty_move) {
                 Ok(new_chess) => {
                     // Update history
-                    self.position_history.push(new_chess);
+                    self.positions.push(new_chess);
                     // Reset history navigation when a new move is made
-                    self.history_position_index = None;
-                    self.original_flip_state = None;
+                    self.history_position = None;
+                    self.flip_before_history = None;
                     Some(shakmaty_move.clone())
                 }
                 Err(e) => {
@@ -546,9 +642,9 @@ impl GameBoard {
                     // Execute the castling move even though destination doesn't match exactly
                     match chess_clone.play(castle_move) {
                         Ok(new_chess) => {
-                            self.position_history.push(new_chess);
-                            self.history_position_index = None;
-                            self.original_flip_state = None;
+                            self.positions.push(new_chess);
+                            self.history_position = None;
+                            self.flip_before_history = None;
                             log::info!("Castling move executed successfully: {:?}", castle_move);
                             return Some(castle_move.clone());
                         }
@@ -582,32 +678,38 @@ impl GameBoard {
         }
     }
 
-    // Execute a move on the shakmaty Chess position and sync the visual board
-    // Optionally specify a promotion piece type
-    /// Wrapper to execute a move from shakmaty
-    pub fn execute_shakmaty_move(&mut self, from: Square, to: Square) -> Option<Move> {
-        self.execute_move(from, to, None)
+    /// Play a move and record the executed move in history.
+    pub fn play(&mut self, from: Square, to: Square, promotion: Option<Role>) -> Option<Move> {
+        self.play_and_record(from, to, promotion, |executed| executed.clone())
     }
 
-    /// Execute a move from standard (non-flipped) coordinates
-    /// Used for bot and opponent moves which come from external sources in standard notation
-    pub fn execute_standard_move(
+    /// Play a move and record a caller-provided history entry.
+    ///
+    /// This is used for promotion placeholders and normalized history moves.
+    pub fn play_and_record<F>(
         &mut self,
         from: Square,
         to: Square,
         promotion: Option<Role>,
-    ) -> Option<Move> {
-        self.execute_move(from, to, promotion)
+        record: F,
+    ) -> Option<Move>
+    where
+        F: FnOnce(&Move) -> Move,
+    {
+        let executed = self.execute_internal(from, to, promotion)?;
+        self.moves.push(record(&executed));
+        self.history_position = None;
+        self.flip_before_history = None;
+        Some(executed)
     }
 
-    /// Execute a move with optional promotion
-    pub fn execute_shakmaty_move_with_promotion(
-        &mut self,
-        from: Square,
-        to: Square,
-        promotion: Option<Role>,
-    ) -> bool {
-        self.execute_move(from, to, promotion).is_some()
+    /// Undo the latest move and position.
+    pub fn undo_last_move(&mut self) -> Option<Move> {
+        let mv = self.moves.pop()?;
+        self.positions.pop();
+        self.history_position = None;
+        self.flip_before_history = None;
+        Some(mv)
     }
 
     /// Get the correct flip state for a given position index in solo mode
@@ -629,13 +731,13 @@ impl GameBoard {
     /// Returns true if navigation was successful, false if already at the latest position
     /// is_solo_mode: whether we're in solo mode (affects board flipping)
     pub fn navigate_history_next(&mut self, is_solo_mode: bool) -> bool {
-        if self.position_history.is_empty() {
+        if self.positions.is_empty() {
             return false;
         }
 
-        let max_index = self.position_history.len() - 1;
+        let max_index = self.positions.len() - 1;
 
-        match self.history_position_index {
+        match self.history_position {
             None => {
                 // Already at the latest position
                 false
@@ -643,15 +745,15 @@ impl GameBoard {
             Some(index) => {
                 if index < max_index {
                     let new_index = index + 1;
-                    self.history_position_index = Some(new_index);
+                    self.history_position = Some(new_index);
                     // Update flip state based on position index
                     self.is_flipped = self.get_flip_state_for_index(new_index, is_solo_mode);
                     true
                 } else {
                     // Reached the latest position, reset to None
                     // Restore the original flip state
-                    self.history_position_index = None;
-                    if let Some(original_flip) = self.original_flip_state.take() {
+                    self.history_position = None;
+                    if let Some(original_flip) = self.flip_before_history.take() {
                         self.is_flipped = original_flip;
                     } else {
                         // Fallback: calculate based on latest index
@@ -667,18 +769,18 @@ impl GameBoard {
     /// Returns true if navigation was successful, false if already at the first position
     /// is_solo_mode: whether we're in solo mode (affects board flipping)
     pub fn navigate_history_previous(&mut self, is_solo_mode: bool) -> bool {
-        if self.position_history.is_empty() {
+        if self.positions.is_empty() {
             return false;
         }
 
-        match self.history_position_index {
+        match self.history_position {
             None => {
                 // Currently at latest position, go to previous
                 // Store the current flip state before navigating
-                if self.position_history.len() > 1 {
-                    self.original_flip_state = Some(self.is_flipped);
-                    let prev_index = self.position_history.len() - 2;
-                    self.history_position_index = Some(prev_index);
+                if self.positions.len() > 1 {
+                    self.flip_before_history = Some(self.is_flipped);
+                    let prev_index = self.positions.len() - 2;
+                    self.history_position = Some(prev_index);
                     // Update flip state based on position index
                     self.is_flipped = self.get_flip_state_for_index(prev_index, is_solo_mode);
                     true
@@ -689,7 +791,7 @@ impl GameBoard {
             Some(index) => {
                 if index > 0 {
                     let new_index = index - 1;
-                    self.history_position_index = Some(new_index);
+                    self.history_position = Some(new_index);
                     // Update flip state based on position index
                     self.is_flipped = self.get_flip_state_for_index(new_index, is_solo_mode);
                     true
@@ -703,14 +805,14 @@ impl GameBoard {
     /// Reset history navigation to view the latest position
     /// is_solo_mode: whether we're in solo mode (affects board flipping)
     pub fn reset_history_navigation(&mut self, is_solo_mode: bool) {
-        if self.history_position_index.is_some() {
-            self.history_position_index = None;
+        if self.history_position.is_some() {
+            self.history_position = None;
             // Restore the original flip state
-            if let Some(original_flip) = self.original_flip_state.take() {
+            if let Some(original_flip) = self.flip_before_history.take() {
                 self.is_flipped = original_flip;
             } else {
                 // Fallback: calculate based on latest index
-                let max_index = self.position_history.len().saturating_sub(1);
+                let max_index = self.positions.len().saturating_sub(1);
                 self.is_flipped = self.get_flip_state_for_index(max_index, is_solo_mode);
             }
         }
@@ -719,24 +821,24 @@ impl GameBoard {
     /// Truncate history at the given index, removing all moves and positions after it
     /// This is used when making a move from a historical position to create a new branch
     pub fn truncate_history_at(&mut self, index: usize) {
-        if index >= self.position_history.len() {
+        if index >= self.positions.len() {
             return;
         }
 
         // Truncate position history to index + 1 (keep the position at index)
         // We keep index + 1 because position_history[i] is the position AFTER move i
         let new_len = index + 1;
-        if new_len < self.position_history.len() {
-            self.position_history.truncate(new_len);
+        if new_len < self.positions.len() {
+            self.positions.truncate(new_len);
         }
 
         // Truncate move history to index (remove moves after this point)
-        if index < self.move_history.len() {
-            self.move_history.truncate(index);
+        if index < self.moves.len() {
+            self.moves.truncate(index);
         }
 
         // Reset history navigation since we're now at the latest position
-        self.history_position_index = None;
-        self.original_flip_state = None;
+        self.history_position = None;
+        self.flip_before_history = None;
     }
 }

@@ -2,8 +2,8 @@
 
 use crate::game_logic::game::Game;
 use crate::lichess::models::{LichessClient, Puzzle};
-use chess_tui_core::game_board::GameBoard;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::GameBoard;
+use chess_tui_core::GameState;
 use chess_tui_core::square_utils::get_coord_from_square;
 use shakmaty::{Position, Square};
 use std::sync::mpsc::Receiver;
@@ -80,15 +80,14 @@ impl PuzzleGame {
     }
 
     fn reset_last_move(&self, game: &mut Game) {
-        if !game.logic.game_board.move_history.is_empty() {
-            game.logic.game_board.move_history.pop();
-            game.logic.game_board.position_history.pop();
+        if !game.logic.game_board.moves().is_empty() {
+            game.logic.game_board.undo_last_move();
             game.logic.sync_player_turn_with_position();
             game.ui.unselect_cell();
 
             // Reset game state to Playing if it was Promotion
-            if game.logic.game_state == chess_tui_core::game_state::GameState::Promotion {
-                game.logic.game_state = chess_tui_core::game_state::GameState::Playing;
+            if game.logic.game_state == chess_tui_core::GameState::Promotion {
+                game.logic.game_state = chess_tui_core::GameState::Playing;
             }
         }
     }
@@ -153,24 +152,26 @@ impl PuzzleGame {
 
         let piece_type_from = game.logic.game_board.get_role_at_square(&from);
 
-        if let Some(executed_move) = game.logic.game_board.execute_move(from, to, promotion) {
-            if let Some(piece_type) = piece_type_from {
-                game.logic
-                    .game_board
-                    .move_history
-                    .push(shakmaty::Move::Normal {
-                        role: piece_type,
-                        from,
-                        capture: executed_move.capture(),
-                        to,
-                        promotion: executed_move.promotion(),
-                    });
-            } else {
-                game.logic.game_board.move_history.push(executed_move);
-            }
+        let executed_move =
+            game.logic
+                .game_board
+                .play_and_record(from, to, promotion, |executed| {
+                    if let Some(piece_type) = piece_type_from {
+                        shakmaty::Move::Normal {
+                            role: piece_type,
+                            from,
+                            capture: executed.capture(),
+                            to,
+                            promotion: executed.promotion(),
+                        }
+                    } else {
+                        executed.clone()
+                    }
+                });
 
+        if executed_move.is_some() {
             game.logic.switch_player_turn();
-            game.logic.game_board.is_flipped = false;
+            game.logic.game_board.set_flipped(false);
             true
         } else {
             false
@@ -219,7 +220,7 @@ impl PuzzleGame {
             return;
         }
         if let Some(from_square) = self.get_next_move_from_square() {
-            let coord = get_coord_from_square(from_square, game.logic.game_board.is_flipped);
+            let coord = get_coord_from_square(from_square, game.logic.game_board.is_flipped());
             game.ui.cursor_coordinates = coord;
             game.select_cell();
         }
@@ -334,10 +335,12 @@ impl PuzzleGame {
                     position_history.len()
                 );
 
-                // Set up the game with the puzzle position and all past moves
-                game_board.position_history = position_history;
-                game_board.move_history = move_history;
-                game_board.history_position_index = None;
+                // Set up the game with the puzzle position and all past moves.
+                let taken_pieces = game_board.taken_pieces().to_vec();
+                let halfmove_clock = game_board.halfmove_clock();
+                game_board
+                    .load_history(position_history, move_history, taken_pieces, halfmove_clock)
+                    .map_err(|e| e.to_string())?;
 
                 Ok(puzzle)
             }

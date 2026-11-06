@@ -17,11 +17,11 @@ pub const BOT_DIFFICULTY_MOVETIME_MS: [u64; 4] = [25, 120, 500, 12_000];
 /// Configuration and UCI access for a chess engine process.
 #[derive(Clone)]
 pub struct Engine {
-    pub engine_path: String,
+    engine_path: String,
     /// Base depth when difficulty is Off (full strength)
-    pub depth: u8,
+    depth: u8,
     /// Difficulty preset index: None = Off (full strength), Some(0..=3) = Easy/Medium/Hard/Magnus
-    pub difficulty: Option<u8>,
+    difficulty: Option<u8>,
 }
 
 impl Engine {
@@ -71,8 +71,16 @@ impl Engine {
         })
     }
 
+    pub fn depth(&self) -> u8 {
+        self.depth
+    }
+
+    pub fn difficulty(&self) -> Option<u8> {
+        self.difficulty
+    }
+
     /// Get the best move from the chess engine.
-    pub fn get_move(&self, fen: &str) -> Result<UciMove, String> {
+    pub fn find_move(&self, fen: &str) -> Result<UciMove, String> {
         let parts: Vec<&str> = self.engine_path.split_whitespace().collect();
         let (command, args) = if parts.is_empty() {
             (self.engine_path.as_str(), &[] as &[&str])

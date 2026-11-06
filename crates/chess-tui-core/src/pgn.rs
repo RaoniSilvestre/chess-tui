@@ -20,27 +20,27 @@ pub const DEFAULT_SPEED_IDX: usize = 1; // 1x
 
 pub struct PgnViewer {
     /// positions[0] = starting position, positions[i] = position after moves[i-1]
-    pub positions: Vec<Chess>,
+    positions: Vec<Chess>,
     /// shakmaty Move objects - for board highlighting
-    pub moves: Vec<Move>,
+    moves: Vec<Move>,
     /// SAN strings - for display in the history panel
-    pub sans: Vec<String>,
+    sans: Vec<String>,
     /// Which ply is currently shown (0 = start)
-    pub current_ply: usize,
+    current_ply: usize,
     /// Auto-play state
-    pub auto_play: bool,
-    pub speed_idx: usize,
-    pub auto_play_accum: f32,
+    auto_play: bool,
+    speed_idx: usize,
+    auto_play_accum: f32,
     /// Set to true when the user presses `h` on the end-of-game banner.
     /// Reset when the viewer moves off the final ply.
-    pub end_banner_dismissed: bool,
+    end_banner_dismissed: bool,
     /// Metadata from PGN headers
-    pub title: String,
-    pub white: String,
-    pub black: String,
-    pub result: String,
+    title: String,
+    white: String,
+    black: String,
+    result: String,
     /// Termination reason (e.g. "Normal", "Time forfeit", "Player A won by checkmate")
-    pub termination: String,
+    termination: String,
 }
 
 impl PgnViewer {
@@ -64,6 +64,69 @@ impl PgnViewer {
         } else {
             Ok(viewers)
         }
+    }
+
+    // ── Accessors ───────────────────────────────────────────────────────────
+
+    pub fn positions(&self) -> &[Chess] {
+        &self.positions
+    }
+
+    pub fn moves(&self) -> &[Move] {
+        &self.moves
+    }
+
+    pub fn sans(&self) -> &[String] {
+        &self.sans
+    }
+
+    pub fn current_ply(&self) -> usize {
+        self.current_ply
+    }
+
+    /// Positions and moves up to the current ply, for replaying the viewer state.
+    pub fn current_snapshot(&self) -> (&[Chess], &[Move]) {
+        (
+            &self.positions[..=self.current_ply],
+            &self.moves[..self.current_ply],
+        )
+    }
+
+    pub fn auto_play(&self) -> bool {
+        self.auto_play
+    }
+
+    pub fn toggle_auto_play(&mut self) {
+        self.auto_play = !self.auto_play;
+        self.auto_play_accum = 0.0;
+    }
+
+    pub fn end_banner_dismissed(&self) -> bool {
+        self.end_banner_dismissed
+    }
+
+    pub fn dismiss_end_banner(&mut self) {
+        self.end_banner_dismissed = true;
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn white(&self) -> &str {
+        &self.white
+    }
+
+    pub fn black(&self) -> &str {
+        &self.black
+    }
+
+    pub fn result(&self) -> &str {
+        &self.result
+    }
+
+    pub fn termination(&self) -> &str {
+        &self.termination
     }
 
     // ── Navigation ──────────────────────────────────────────────────────────

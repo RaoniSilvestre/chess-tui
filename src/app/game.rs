@@ -3,8 +3,8 @@
 use crate::app::App;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
-use chess_tui_core::clock::Clock;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::Clock;
+use chess_tui_core::GameState;
 use shakmaty::Color;
 
 impl App {
@@ -92,8 +92,9 @@ impl App {
         self.game.logic.bot = bot;
         self.game.logic.opponent = opponent;
         if let Some(bot) = self.game.logic.bot.as_mut() {
-            bot.is_bot_starting =
-                self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
+            bot.set_starting(
+                self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black,
+            );
         }
         // Restore skin, display mode and piece styles
         self.game.ui.skin = current_skin;
@@ -111,13 +112,13 @@ impl App {
             .logic
             .bot
             .as_ref()
-            .is_some_and(|bot| bot.is_bot_starting)
+            .is_some_and(|bot| bot.is_starting())
         {
             // Flip the board once so Black player sees from their perspective
-            self.game.logic.game_board.flip_the_board();
+            self.game.logic.game_board.flip();
             if let Some(bot) = &self.game.logic.bot {
                 self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen_position(),
+                    self.game.logic.game_board.fen(),
                     bot.depth(),
                     bot.difficulty(),
                 );

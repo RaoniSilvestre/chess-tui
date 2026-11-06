@@ -2,8 +2,8 @@
 
 use crate::app::App;
 use crate::constants::{Pages, Popups};
-use chess_tui_core::coord::Coord;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::Coord;
+use chess_tui_core::GameState;
 use chess_tui_core::square_utils::flip_square_if_needed;
 use shakmaty::CastlingMode;
 
@@ -119,39 +119,40 @@ impl App {
             // Check authorized positions before taking any action.
 
             // Store move info before execution for puzzle validation
-            let puzzle_move_info = if self.lichess_state.puzzle_game.is_some()
-                && self.game.ui.is_cell_selected()
-            {
-                if let Some(selected_square) = self.game.ui.selected_square {
-                    let cursor_square = self.game.ui.cursor_coordinates.into();
+            let puzzle_move_info =
+                if self.lichess_state.puzzle_game.is_some() && self.game.ui.is_cell_selected() {
+                    if let Some(selected_square) = self.game.ui.selected_square {
+                        let cursor_square = self.game.ui.cursor_coordinates.into();
 
-                    let from = flip_square_if_needed(
-                        selected_square,
-                        self.game.logic.game_board.is_flipped,
-                    );
-                    let to =
-                        flip_square_if_needed(cursor_square, self.game.logic.game_board.is_flipped);
+                        let from = flip_square_if_needed(
+                            selected_square,
+                            self.game.logic.game_board.is_flipped(),
+                        );
+                        let to = flip_square_if_needed(
+                            cursor_square,
+                            self.game.logic.game_board.is_flipped(),
+                        );
 
-                    // Check if it is a valid move. This could be improved by having a single source
-                    // of truth. Maybe the game return an Option<(Square, Square)> so anyone can see
-                    // if a move was actually made by a movement.
-                    let authorized_positions = self
-                        .game
-                        .logic
-                        .game_board
-                        .get_authorized_positions(self.game.logic.player_turn, &from);
+                        // Check if it is a valid move. This could be improved by having a single source
+                        // of truth. Maybe the game return an Option<(Square, Square)> so anyone can see
+                        // if a move was actually made by a movement.
+                        let authorized_positions = self
+                            .game
+                            .logic
+                            .game_board
+                            .get_authorized_positions(self.game.logic.player_turn, &from);
 
-                    if authorized_positions.contains(&to) {
-                        Some((from, to))
+                        if authorized_positions.contains(&to) {
+                            Some((from, to))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
                 } else {
                     None
-                }
-            } else {
-                None
-            };
+                };
 
             self.game
                 .handle_cell_click(self.game_mode_state.selected_color);
@@ -171,7 +172,7 @@ impl App {
 
             // Ensure board stays unflipped in puzzle mode
             if self.lichess_state.puzzle_game.is_some() {
-                self.game.logic.game_board.is_flipped = false;
+                self.game.logic.game_board.set_flipped(false);
             }
 
             self.check_and_show_game_end();
@@ -196,7 +197,7 @@ impl App {
             // Standard UCI so castling is "e1g1" (not king to rook) and promotions keep their piece
             let move_uci = chess_move.to_uci(CastlingMode::Standard).to_string();
             self.validate_puzzle_move_uci(move_uci);
-            self.game.logic.game_board.is_flipped = false;
+            self.game.logic.game_board.set_flipped(false);
         }
 
         self.check_and_show_game_end();
@@ -215,13 +216,13 @@ impl App {
         };
         let authorized_positions = self.game.logic.game_board.get_authorized_positions(
             self.game.logic.player_turn,
-            &flip_square_if_needed(selected_square, self.game.logic.game_board.is_flipped),
+            &flip_square_if_needed(selected_square, self.game.logic.game_board.is_flipped()),
         );
 
         // Check if target square is a valid move destination
         if authorized_positions.contains(&flip_square_if_needed(
             target_square,
-            self.game.logic.game_board.is_flipped,
+            self.game.logic.game_board.is_flipped(),
         )) {
             self.game.ui.cursor_coordinates = coords;
             self.process_cell_click();

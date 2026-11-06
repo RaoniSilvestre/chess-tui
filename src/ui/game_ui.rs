@@ -5,10 +5,7 @@ use crate::{
     constants::Popups,
     ui::popup::{end::render_end_popup, promotion::render_promotion_popup},
 };
-use chess_tui_core::{
-    clock::{Clock, ClockState},
-    game_state::GameState,
-};
+use chess_tui_core::{Clock, ClockState, GameState};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
@@ -120,13 +117,13 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     );
 
     // Render rank labels (1-8) on the left - aligned with board's inner area
-    ui.render_rank_labels(frame, rank_label_area[0], logic.game_board.is_flipped);
+    ui.render_rank_labels(frame, rank_label_area[0], logic.game_board.is_flipped());
 
     // Render file labels (A-H) below the board
     ui.render_file_labels(
         frame,
         board_with_labels[file_labels_index],
-        logic.game_board.is_flipped,
+        logic.game_board.is_flipped(),
     );
 
     //top box for black material

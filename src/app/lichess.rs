@@ -6,8 +6,8 @@ use crate::game_logic::opponent::Opponent;
 use crate::game_logic::puzzle::PuzzleGame;
 use crate::lichess::models::LichessClient;
 use crate::state::lichess_state::LichessUpdate;
-use chess_tui_core::clock::Clock;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::Clock;
+use chess_tui_core::GameState;
 use shakmaty::Color;
 use std::sync::mpsc::channel;
 
@@ -315,10 +315,20 @@ impl App {
                         .into_position::<shakmaty::Chess>(shakmaty::CastlingMode::Standard)
                     {
                         Ok(position) => {
-                            self.game.logic.game_board.position_history = vec![position];
-                            self.game.logic.game_board.move_history = vec![];
-                            self.game.logic.game_board.taken_pieces = vec![];
-                            self.game.logic.game_board.history_position_index = None;
+                            let halfmove_clock = self.game.logic.game_board.halfmove_clock();
+                            if let Err(e) = self.game.logic.game_board.load_history(
+                                vec![position],
+                                vec![],
+                                vec![],
+                                halfmove_clock,
+                            ) {
+                                log::error!("Failed to load Lichess position: {e}");
+                                self.ui_state.show_message_popup(
+                                    format!("Failed to load position: {e}"),
+                                    Popups::Error,
+                                );
+                                return false;
+                            }
                             self.game.logic.sync_player_turn_with_position();
                             // Send last move immediately if we have it, so it shows in green right away
                             self.setup_lichess_game(
@@ -429,7 +439,7 @@ impl App {
         self.game.logic.opponent = Some(opponent);
 
         if color == Color::Black {
-            self.game.logic.game_board.flip_the_board();
+            self.game.logic.game_board.flip();
         }
         // Ensure skin is preserved
         if let Some(skin) = &self.theme_state.loaded_skin {
@@ -680,7 +690,7 @@ impl App {
 
         // Ensure board stays unflipped in puzzle mode
         if self.lichess_state.puzzle_game.is_some() {
-            self.game.logic.game_board.is_flipped = false;
+            self.game.logic.game_board.set_flipped(false);
         }
         // Switch to Solo page to show the board
         self.ui_state.current_page = Pages::Solo;

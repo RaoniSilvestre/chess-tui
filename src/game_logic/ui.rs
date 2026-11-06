@@ -12,7 +12,7 @@ use crate::{
     ui::{components::cell::render_cell, prompt::Prompt},
 };
 use chess_tui_core::{
-    coord::{Coord, MoveDirection},
+    Coord, MoveDirection,
     square_utils::{flip_square_if_needed, get_coord_from_square, get_square_from_coord},
 };
 use ratatui::{
@@ -333,8 +333,8 @@ impl UI {
 
         let mut lines: Vec<Line> = vec![];
 
-        for i in (0..game.logic.game_board.move_history.len()).step_by(2) {
-            let role_from = game.logic.game_board.move_history[i].role();
+        for i in (0..game.logic.game_board.moves().len()).step_by(2) {
+            let role_from = game.logic.game_board.moves()[i].role();
 
             let utf_icon_white = role_to_utf_enum(&role_from, Some(shakmaty::Color::White));
             let move_white = game.logic.game_board.move_to_san(i);
@@ -343,8 +343,8 @@ impl UI {
             let mut move_black: String = "   ".to_string();
 
             // If there is something for black
-            if i + 1 < game.logic.game_board.move_history.len() {
-                let role_to = game.logic.game_board.move_history[i + 1].role();
+            if i + 1 < game.logic.game_board.moves().len() {
+                let role_to = game.logic.game_board.moves()[i + 1].role();
 
                 move_black = game.logic.game_board.move_to_san(i + 1);
                 utf_icon_black = role_to_utf_enum(&role_to, Some(shakmaty::Color::Black));
@@ -541,11 +541,11 @@ impl UI {
 
     /// Get the last move squares for rendering
     fn get_last_move_squares(logic: &GameLogic) -> (Option<Square>, Option<Square>) {
-        if logic.game_board.move_history.is_empty() {
+        if logic.game_board.moves().is_empty() {
             return (None, None);
         }
 
-        let Some(last_move) = logic.game_board.move_history.last() else {
+        let Some(last_move) = logic.game_board.moves().last() else {
             return (None, None);
         };
 
@@ -566,7 +566,8 @@ impl UI {
 
         // For bot mode or when position is available, determine who made the last move
         // After a move, the turn switches, so the last move was made by the opposite color
-        if let Some(position) = logic.game_board.current_position() {
+        {
+            let position = logic.game_board.current_position();
             let last_move_color = match position.turn() {
                 shakmaty::Color::White => shakmaty::Color::Black,
                 shakmaty::Color::Black => shakmaty::Color::White,
@@ -612,7 +613,7 @@ impl UI {
                 .map(|&s| Coord::from(s))
                 .collect();
 
-            if logic.game_board.is_flipped {
+            if logic.game_board.is_flipped() {
                 authorized_positions = authorized_positions.iter().map(Coord::reverse).collect();
             }
             return authorized_positions;
@@ -632,20 +633,20 @@ impl UI {
         logic: &GameLogic,
         kitty_pieces: Option<&mut KittyPieces>,
     ) {
-        let Some(last_position) = logic.game_board.position_history.last() else {
+        let Some(last_position) = logic.game_board.positions().last() else {
             return;
         };
         let mut board = last_position.board().clone();
 
         // if the board is flipped, we need to flip the board
-        if logic.game_board.is_flipped {
+        if logic.game_board.is_flipped() {
             board.flip_vertical();
             board.flip_horizontal();
         }
 
         let actual_square = self
             .selected_square
-            .map(|s| flip_square_if_needed(s, logic.game_board.is_flipped));
+            .map(|s| flip_square_if_needed(s, logic.game_board.is_flipped()));
 
         self.render_board_grid(area, frame, logic, actual_square);
         if let Some(pieces) = kitty_pieces {
@@ -661,8 +662,8 @@ impl UI {
     ) {
         for i in 0..8u8 {
             for j in 0..8u8 {
-                let square = get_square_from_coord(Coord::new(i, j), logic.game_board.is_flipped);
-                if let Some(piece) = logic.game_board.position_ref().board().piece_at(square) {
+                let square = get_square_from_coord(Coord::new(i, j), logic.game_board.is_flipped());
+                if let Some(piece) = logic.game_board.current_position().board().piece_at(square) {
                     let area = Rect::new(
                         self.top_x + u16::from(j) * self.width,
                         self.top_y + u16::from(i) * self.height,
@@ -776,11 +777,11 @@ impl UI {
 
         let current_rendering_coord = Coord::new(i, j);
         let current_rendering_square =
-            get_square_from_coord(current_rendering_coord, logic.game_board.is_flipped);
+            get_square_from_coord(current_rendering_coord, logic.game_board.is_flipped());
 
         // Safely determine if this specific cell is the one selected by the player
         let is_selected_cell = actual_square.is_some_and(|s| {
-            get_coord_from_square(s, logic.game_board.is_flipped) == current_rendering_coord
+            get_coord_from_square(s, logic.game_board.is_flipped()) == current_rendering_coord
         });
 
         // Color of the cell to draw the board
@@ -856,7 +857,7 @@ impl UI {
 
         // Get piece and color
         let coord = Coord::new(i, j);
-        let square_index = get_square_from_coord(coord, logic.game_board.is_flipped);
+        let square_index = get_square_from_coord(coord, logic.game_board.is_flipped());
         let piece_color = logic.game_board.get_piece_color_at_square(&square_index);
         let piece_type = logic.game_board.get_role_at_square(&square_index);
 

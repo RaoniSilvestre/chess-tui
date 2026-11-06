@@ -6,7 +6,7 @@ use crate::{
     handlers::handler::fallback_key_handler,
     state::{resume::ResumeMode, ui_state::NewGame},
 };
-use chess_tui_core::clock::Clock;
+use chess_tui_core::Clock;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 /// The four game modes available from the game-mode selection menu.

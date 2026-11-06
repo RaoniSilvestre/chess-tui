@@ -8,7 +8,7 @@ mod local_game_tests {
         handlers::handler::handle_key_events,
         ui::popup::help::render_help_popup,
     };
-    use chess_tui_core::coord::Coord;
+    use chess_tui_core::Coord;
     use ratatui::{
         Terminal,
         backend::TestBackend,
@@ -80,7 +80,7 @@ mod local_game_tests {
             "Selection should clear after making a valid move"
         );
         assert_eq!(
-            app.game.logic.game_board.move_history.len(),
+            app.game.logic.game_board.moves().len(),
             1,
             "One move should be recorded in the history"
         );
@@ -114,7 +114,7 @@ mod local_game_tests {
 
         // Verify the move was rejected and state remains untouched
         assert_eq!(
-            app.game.logic.game_board.move_history.len(),
+            app.game.logic.game_board.moves().len(),
             0,
             "No move should be recorded for an illegal destination"
         );
@@ -225,7 +225,7 @@ mod local_game_tests {
             "Input must be preserved so the user can edit it"
         );
         assert_eq!(
-            app.game.logic.game_board.move_history.len(),
+            app.game.logic.game_board.moves().len(),
             0,
             "No move should be applied"
         );
@@ -344,7 +344,7 @@ mod local_game_tests {
             app.game.ui.selected_square.is_none(),
             "Pressing enter on the currently selected piece should deselect it"
         );
-        assert_eq!(app.game.logic.game_board.move_history.len(), 0);
+        assert_eq!(app.game.logic.game_board.moves().len(), 0);
 
         Ok(())
     }

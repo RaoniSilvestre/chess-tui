@@ -123,7 +123,7 @@ impl App {
 
         if self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black {
             log::debug!("Flipping board for black player");
-            self.game.logic.game_board.flip_the_board();
+            self.game.logic.game_board.flip();
         }
 
         // Ensure skin is preserved when starting multiplayer

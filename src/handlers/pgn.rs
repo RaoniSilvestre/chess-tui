@@ -31,8 +31,8 @@ pub fn handle_pgn_viewer_events(app: &mut App, key_event: KeyEvent) {
                 && let Some(v) = games.get_mut(app.pgn_viewer_game_idx)
             {
                 let is_h = matches!(key_event.code, KeyCode::Char('h' | 'H'));
-                if is_h && v.is_at_end() && !v.end_banner_dismissed {
-                    v.end_banner_dismissed = true;
+                if is_h && v.is_at_end() && !v.end_banner_dismissed() {
+                    v.dismiss_end_banner();
                 } else {
                     v.prev();
                 }
@@ -65,8 +65,7 @@ pub fn handle_pgn_viewer_events(app: &mut App, key_event: KeyEvent) {
             if let Some(ref mut games) = app.pgn_viewer_state
                 && let Some(v) = games.get_mut(app.pgn_viewer_game_idx)
             {
-                v.auto_play = !v.auto_play;
-                v.auto_play_accum = 0.0;
+                v.toggle_auto_play();
             }
         }
 

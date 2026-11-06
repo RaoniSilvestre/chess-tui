@@ -11,8 +11,8 @@ use crate::game_logic::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
-use chess_tui_core::clock::{Clock, TimeControl};
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::GameState;
+use chess_tui_core::{Clock, TimeControl};
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};
 
@@ -79,7 +79,7 @@ impl App {
             return;
         }
 
-        let count = self.game.logic.game_board.move_history.len();
+        let count = self.game.logic.game_board.moves().len();
         if count == 0 {
             return;
         }
@@ -89,13 +89,13 @@ impl App {
 
         let saved = SavedGame {
             mode,
-            fen: self.game.logic.game_board.fen_position(),
-            is_flipped: self.game.logic.game_board.is_flipped,
+            fen: self.game.logic.game_board.fen(),
+            is_flipped: self.game.logic.game_board.is_flipped(),
             taken_pieces: self
                 .game
                 .logic
                 .game_board
-                .taken_pieces
+                .taken_pieces()
                 .iter()
                 .map(|p| TakenPieceRecord::from_piece(*p))
                 .collect(),
@@ -108,7 +108,7 @@ impl App {
                 .game
                 .logic
                 .game_board
-                .move_history
+                .moves()
                 .iter()
                 .map(|m| UciMove::from_standard(m).to_string())
                 .collect(),
@@ -210,18 +210,29 @@ impl App {
             // FEN. The move history will be empty — accepted trade-off.
             // The FEN was validated above, so the chained parse cannot fail
             // here; we still match defensively rather than unwrap.
-            if let Some(position) = Fen::from_ascii(saved.fen.as_bytes())
+            let position = Fen::from_ascii(saved.fen.as_bytes())
                 .ok()
-                .and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).ok())
-            {
-                self.game.logic.game_board.position_history = vec![position];
+                .and_then(|f| f.into_position::<Chess>(CastlingMode::Standard).ok());
+            if let Some(position) = position {
+                let taken_pieces = saved
+                    .taken_pieces
+                    .iter()
+                    .filter_map(|r| r.to_piece())
+                    .collect();
+                if let Err(e) =
+                    self.game
+                        .logic
+                        .game_board
+                        .load_history(vec![position], vec![], taken_pieces, 0)
+                {
+                    log::error!("Failed to load saved position: {e}");
+                    self.ui_state.show_message_popup(
+                        format!("Saved game could not be loaded: {e}"),
+                        Popups::Error,
+                    );
+                    return false;
+                }
             }
-            self.game.logic.game_board.move_history = vec![];
-            self.game.logic.game_board.taken_pieces = saved
-                .taken_pieces
-                .iter()
-                .filter_map(|r| r.to_piece())
-                .collect();
         } else {
             // Replay the UCI moves from the default initial position so the
             // resumed game has full history (P/N navigation, move log).
@@ -234,8 +245,7 @@ impl App {
                 .reconstruct_history(&moves_joined, Some(&saved.fen));
         }
 
-        self.game.logic.game_board.history_position_index = None;
-        self.game.logic.game_board.is_flipped = saved.is_flipped;
+        self.game.logic.game_board.set_flipped(saved.is_flipped);
         self.game.logic.sync_player_turn_with_position();
         self.game.logic.game_state = GameState::Playing;
 
@@ -300,7 +310,7 @@ impl App {
                     && let Some(bot) = &self.game.logic.bot
                 {
                     self.bot_state.start_bot_thinking(
-                        self.game.logic.game_board.fen_position(),
+                        self.game.logic.game_board.fen(),
                         bot.depth(),
                         bot.difficulty(),
                     );

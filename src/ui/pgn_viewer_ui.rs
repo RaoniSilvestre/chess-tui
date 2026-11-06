@@ -2,7 +2,7 @@
 
 use crate::ui::components::centered_rect::centered_rect;
 use crate::{app::App, ui::game_ui::render_game_ui};
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::GameState;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -17,19 +17,24 @@ pub fn sync_pgn_to_board(app: &mut App) {
     let (positions, moves, current_ply) = {
         if let Some(ref viewer) = app.pgn_viewer_state {
             let v = &viewer[app.pgn_viewer_game_idx];
-            (
-                v.positions[..=v.current_ply].to_vec(),
-                v.moves[..v.current_ply].to_vec(),
-                v.current_ply,
-            )
+            let (positions, moves) = v.current_snapshot();
+            (positions.to_vec(), moves.to_vec(), v.current_ply())
         } else {
             return;
         }
     };
 
-    app.game.logic.game_board.position_history = positions;
-    app.game.logic.game_board.move_history = moves;
-    app.game.logic.game_board.history_position_index = None;
+    let taken_pieces = app.game.logic.game_board.taken_pieces().to_vec();
+    let halfmove_clock = app.game.logic.game_board.halfmove_clock();
+    if let Err(e) =
+        app.game
+            .logic
+            .game_board
+            .load_history(positions, moves, taken_pieces, halfmove_clock)
+    {
+        log::error!("Failed to sync PGN viewer to board: {e}");
+        return;
+    }
     app.game.ui.selected_square = None;
     app.game.logic.game_state = GameState::Playing;
     // Hide the square cursor - viewer is read-only, nothing to select.
@@ -85,14 +90,14 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|gs| gs.len())
                 .unwrap_or(1);
             (
-                v.current_ply,
+                v.current_ply(),
                 v.total_plies(),
-                v.auto_play,
+                v.auto_play(),
                 v.speed_label(),
-                v.title.as_str(),
-                v.white.as_str(),
-                v.black.as_str(),
-                v.result.as_str(),
+                v.title(),
+                v.white(),
+                v.black(),
+                v.result(),
                 count,
             )
         } else {
@@ -208,7 +213,7 @@ fn render_end_banner(frame: &mut Frame, app: &App, board_area: Rect) {
         return;
     };
 
-    if !viewer.is_at_end() || viewer.end_banner_dismissed {
+    if !viewer.is_at_end() || viewer.end_banner_dismissed() {
         return;
     }
 
@@ -235,11 +240,11 @@ fn render_end_banner(frame: &mut Frame, app: &App, board_area: Rect) {
             .alignment(Alignment::Center)
             .style(Style::default().fg(Color::LightBlue)),
     ];
-    if !viewer.termination.is_empty() {
+    if !viewer.termination().is_empty() {
         lines.push(Line::from(""));
         lines.push(
             Line::from(Span::styled(
-                viewer.termination.clone(),
+                viewer.termination().to_string(),
                 Style::default().fg(Color::Gray),
             ))
             .alignment(Alignment::Center),

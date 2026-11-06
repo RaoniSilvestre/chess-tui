@@ -10,7 +10,7 @@ use chess_tui::{
     constants::{Pages, Popups},
     handlers::handler::handle_key_events,
 };
-use chess_tui_core::pgn::PgnViewer;
+use chess_tui_core::PgnViewer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 fn key(code: KeyCode) -> KeyEvent {
@@ -54,9 +54,9 @@ fn help_popup_opens_in_pgn_mode() -> AppResult<()> {
 fn p_and_n_navigate_prev_next() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('N'), KeyCode::Char('N')])?;
-    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply, 2);
+    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(), 2);
     send(&mut app, &[KeyCode::Char('P')])?;
-    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply, 1);
+    assert_eq!(app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(), 1);
     Ok(())
 }
 
@@ -70,7 +70,7 @@ fn g_and_capital_g_jump_to_start_and_end() -> AppResult<()> {
 
     send(&mut app, &[KeyCode::Char('g')])?;
     let v = &app.pgn_viewer_state.as_ref().unwrap()[0];
-    assert_eq!(v.current_ply, 0);
+    assert_eq!(v.current_ply(), 0);
     assert!(total > 0);
     Ok(())
 }
@@ -82,27 +82,28 @@ fn h_dismisses_end_banner_and_step_back_restores_it() -> AppResult<()> {
     assert!(app.pgn_viewer_state.as_ref().unwrap()[0].is_at_end());
 
     // Pressing `h` at the end banner should hide it, NOT step back.
-    let end_ply = app.pgn_viewer_state.as_ref().unwrap()[0].current_ply;
+    let end_ply = app.pgn_viewer_state.as_ref().unwrap()[0].current_ply();
     send(&mut app, &[KeyCode::Char('h')])?;
     let v = &app.pgn_viewer_state.as_ref().unwrap()[0];
     assert_eq!(
-        v.current_ply, end_ply,
+        v.current_ply(),
+        end_ply,
         "h must not step back when banner is visible"
     );
-    assert!(v.end_banner_dismissed);
+    assert!(v.end_banner_dismissed());
 
     // After dismissal, `h` falls through to Previous move.
     send(&mut app, &[KeyCode::Char('h')])?;
     assert_eq!(
-        app.pgn_viewer_state.as_ref().unwrap()[0].current_ply,
+        app.pgn_viewer_state.as_ref().unwrap()[0].current_ply(),
         end_ply - 1
     );
 
     // Stepping back clears the dismissal so re-entering the end shows it again.
-    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed);
+    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed());
     send(&mut app, &[KeyCode::Char('N')])?;
     assert!(app.pgn_viewer_state.as_ref().unwrap()[0].is_at_end());
-    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed);
+    assert!(!app.pgn_viewer_state.as_ref().unwrap()[0].end_banner_dismissed());
     Ok(())
 }
 
@@ -162,7 +163,7 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     use chess_tui::ui::pgn_viewer_ui::sync_pgn_to_board;
     sync_pgn_to_board(&mut app);
     assert!(app.game.ui.hide_cursor, "precondition: viewer hides cursor");
-    assert!(!app.game.logic.game_board.position_history.is_empty());
+    assert!(!app.game.logic.game_board.positions().is_empty());
 
     // Exit viewer with Esc.
     send(&mut app, &[KeyCode::Esc])?;
@@ -175,11 +176,11 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
         "cursor must be visible after exit"
     );
     assert_eq!(
-        app.game.logic.game_board.position_history.len(),
+        app.game.logic.game_board.positions().len(),
         1,
         "new game must start with just the initial position"
     );
-    assert!(app.game.logic.game_board.move_history.is_empty());
+    assert!(app.game.logic.game_board.moves().is_empty());
     Ok(())
 }
 

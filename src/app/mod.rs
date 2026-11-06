@@ -10,8 +10,8 @@ use crate::state::lichess_state::LichessState;
 use crate::state::multiplayer_state::MultiplayerState;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
-use chess_tui_core::clock::ClockState;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::ClockState;
+use chess_tui_core::GameState;
 use log::LevelFilter;
 use std::error;
 use std::time::Instant;
@@ -58,7 +58,7 @@ pub struct App {
     /// Everything related to Lichess
     pub lichess_state: LichessState,
     /// PGN viewer: list of games loaded from a PGN file
-    pub pgn_viewer_state: Option<Vec<chess_tui_core::pgn::PgnViewer>>,
+    pub pgn_viewer_state: Option<Vec<chess_tui_core::PgnViewer>>,
     /// PGN viewer: which game is currently shown
     pub pgn_viewer_game_idx: usize,
     pub animations: AnimationState,

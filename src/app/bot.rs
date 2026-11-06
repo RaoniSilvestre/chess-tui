@@ -4,7 +4,7 @@ use crate::app::App;
 use crate::constants::Popups;
 use crate::game_logic::bot::Bot;
 use crate::sound::play_move_sound;
-use chess_tui_core::clock::Clock;
+use chess_tui_core::Clock;
 use shakmaty::{Color, Move};
 
 impl App {
@@ -29,13 +29,13 @@ impl App {
             && color == Color::Black
         {
             // Flip the board once so Black player sees from their perspective
-            self.game.logic.game_board.flip_the_board();
+            self.game.logic.game_board.flip();
 
             if let Some(bot) = &self.game.logic.bot
                 && self.game.logic.player_turn != color
             {
                 self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen_position(),
+                    self.game.logic.game_board.fen(),
                     bot.depth(),
                     bot.difficulty(),
                 );
@@ -75,64 +75,33 @@ impl App {
 
     /// Applies a bot move. Records captures, updates position history, switches turn, and plays the move sound.
     pub fn apply_bot_move(&mut self, bot_move: Move) {
-        use shakmaty::Position;
-
-        let current_position = match self.game.logic.game_board.current_position() {
-            Some(pos) => pos.clone(),
-            None => {
-                log::error!("Cannot apply bot move: position history is empty");
-                return;
-            }
-        };
-
-        // Record captured piece (before applying the move) so material display is correct
-        match &bot_move {
-            Move::Normal { .. } => {
-                if let Some(captured_piece) = current_position.board().piece_at(bot_move.to()) {
-                    self.game.logic.game_board.taken_pieces.push(captured_piece);
-                }
-            }
-            Move::EnPassant { .. } => {
-                if let (Some(from_square), to_square) = (bot_move.from(), bot_move.to()) {
-                    // Captured pawn sits on the destination file but the origin rank (behind the passing pawn).
-                    let captured_pawn_square =
-                        shakmaty::Square::from_coords(to_square.file(), from_square.rank());
-                    if let Some(captured_piece) =
-                        current_position.board().piece_at(captured_pawn_square)
-                    {
-                        self.game.logic.game_board.taken_pieces.push(captured_piece);
-                    }
-                }
-            }
-            Move::Castle { .. } | Move::Put { .. } => {}
-        }
-
-        // Store in history
         let Some(from_square) = bot_move.from() else {
             log::error!("Bot move has no from square");
             return;
         };
-        // Normalize all move types to Normal for history display (castles/en-passant share the same fields).
-        self.game.logic.game_board.move_history.push(Move::Normal {
-            role: bot_move.role(),
-            from: from_square,
-            capture: bot_move.capture(),
-            to: bot_move.to(),
-            promotion: bot_move.promotion(),
-        });
+        let to_square = bot_move.to();
+        let role = bot_move.role();
+        let capture = bot_move.capture();
+        let promotion = bot_move.promotion();
 
-        let Ok(new_position) = current_position.play(&bot_move) else {
+        // Normalize all move types to Normal for history display (castles/en-passant share the same fields).
+        let played =
+            self.game
+                .logic
+                .game_board
+                .play_and_record(from_square, to_square, promotion, |_| Move::Normal {
+                    role,
+                    from: from_square,
+                    capture,
+                    to: to_square,
+                    promotion,
+                });
+
+        if played.is_none() {
             log::error!("Failed to play bot move");
             return;
-        };
-        self.game
-            .logic
-            .game_board
-            .position_history
-            .push(new_position);
-        // Reset history navigation. A new move invalidates any in-progress replay and restores board orientation.
-        self.game.logic.game_board.history_position_index = None;
-        self.game.logic.game_board.original_flip_state = None;
+        }
+
         self.game.logic.switch_player_turn();
 
         // Play move sound

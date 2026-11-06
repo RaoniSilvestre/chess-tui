@@ -16,8 +16,8 @@ use crate::{
     app::{App, AppResult},
     constants::Pages,
 };
-use chess_tui_core::coord::Coord;
-use chess_tui_core::game_state::GameState;
+use chess_tui_core::Coord;
+use chess_tui_core::GameState;
 use chess_tui_core::square_utils::{flip_square_if_needed, get_coord_from_square};
 use ratatui::crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -296,7 +296,7 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
                 .game_board
                 .get_piece_color_at_square(&flip_square_if_needed(
                     square,
-                    app.game.logic.game_board.is_flipped,
+                    app.game.logic.game_board.is_flipped(),
                 ));
 
         // Handle click on empty square
@@ -316,9 +316,9 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
             if let Some(selected_square) = app.game.ui.selected_square {
                 // Check if this is a castling attempt: king selected, rook clicked
                 let actual_selected =
-                    flip_square_if_needed(selected_square, app.game.logic.game_board.is_flipped);
+                    flip_square_if_needed(selected_square, app.game.logic.game_board.is_flipped());
                 let actual_clicked =
-                    flip_square_if_needed(square, app.game.logic.game_board.is_flipped);
+                    flip_square_if_needed(square, app.game.logic.game_board.is_flipped());
 
                 let selected_role = app
                     .game
@@ -360,12 +360,12 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
                         // Castling is legal, execute it
                         let castling_coords = Coord::from(flip_square_if_needed(
                             castling_dest,
-                            app.game.logic.game_board.is_flipped,
+                            app.game.logic.game_board.is_flipped(),
                         ));
                         if app.try_mouse_move(
                             flip_square_if_needed(
                                 castling_dest,
-                                app.game.logic.game_board.is_flipped,
+                                app.game.logic.game_board.is_flipped(),
                             ),
                             castling_coords,
                         ) {

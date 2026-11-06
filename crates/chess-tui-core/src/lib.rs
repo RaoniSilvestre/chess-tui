@@ -1,8 +1,14 @@
 //! Pure chess domain types shared by the application.
 
-pub mod clock;
-pub mod coord;
-pub mod game_board;
-pub mod game_state;
-pub mod pgn;
+mod clock;
+mod coord;
+mod game_board;
+mod game_state;
+mod pgn;
 pub mod square_utils;
+
+pub use clock::{Clock, ClockState, TimeControl};
+pub use coord::{Coord, MoveDirection};
+pub use game_board::{GameBoard, HistoryError};
+pub use game_state::GameState;
+pub use pgn::{DEFAULT_SPEED_IDX, PgnViewer, SPEEDS};

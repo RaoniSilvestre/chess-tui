@@ -175,7 +175,7 @@ fn handle_load_pgn_path(app: &mut App, key_event: KeyEvent) {
                 app.ui_state.current_popup = None;
                 return;
             }
-            match chess_tui_core::pgn::PgnViewer::from_file(&path) {
+            match chess_tui_core::PgnViewer::from_file(&path) {
                 Ok(games) => {
                     app.pgn_viewer_state = Some(games);
                     app.pgn_viewer_game_idx = 0;
@@ -324,7 +324,7 @@ fn handle_move_input_selection(app: &mut App, key_event: KeyEvent) {
                 }
             };
 
-            let position = app.game.logic.game_board.position_ref().clone();
+            let position = app.game.logic.game_board.current_position().clone();
 
             let chess_move = match san.to_move(&position) {
                 Ok(chess_move) => chess_move,
