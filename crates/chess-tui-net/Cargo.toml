@@ -1,0 +1,12 @@
+[package]
+name = "chess-tui-net"
+version = "2.8.0"
+edition = "2024"
+license = "MIT"
+authors = ["Thomas Mauran"]
+repository = "https://github.com/thomas-mauran/chess-tui"
+publish = false
+
+[dependencies]
+log = "0.4.32"
+shakmaty = "0.27.3"

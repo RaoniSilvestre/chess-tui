@@ -19,9 +19,6 @@ impl App {
     /// Multiplayer and Lichess games are not eligible — their state lives on
     /// the wire / on lichess.org.
     pub fn current_resume_mode(&self) -> Option<ResumeMode> {
-        if self.game.logic.opponent.is_some() {
-            return None;
-        }
         match (self.ui_state.current_page, self.game.logic.kind()) {
             (Pages::Solo, chess_tui_game::GameKind::Local) => Some(ResumeMode::Local),
             (Pages::Bot, chess_tui_game::GameKind::Bot) => Some(ResumeMode::Bot),

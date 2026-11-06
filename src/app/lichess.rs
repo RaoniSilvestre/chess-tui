@@ -406,7 +406,6 @@ impl App {
             }
         };
         self.game.logic.set_mode(Box::new(mode));
-        self.game.logic.opponent = None;
 
         self.game_mode_state.selected_color = Some(color);
         self.game_mode_state.is_random_color = false;
@@ -620,7 +619,6 @@ impl App {
         self.game
             .logic
             .set_mode(Box::new(chess_tui_game::LocalMode));
-        self.game.logic.opponent = None;
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;
 

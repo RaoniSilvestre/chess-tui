@@ -2,9 +2,10 @@
 
 use crate::ui::prompt::Prompt;
 use crate::{
-    constants::{DOCS_URL, NETWORK_PORT, WHITE},
+    constants::{DOCS_URL, WHITE},
     ui::components::centered_rect::centered_rect,
 };
+use chess_tui_net::NETWORK_PORT;
 use ratatui::{
     Frame,
     layout::{Alignment, Position},

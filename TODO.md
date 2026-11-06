@@ -13,7 +13,7 @@
 ## Temporary migration bridges
 
 - [ ] Remove `GameSession`'s `Deref`/`DerefMut` to `GameBoard` once call sites use `board()` and session methods directly.
-- [ ] Remove `GameLogic`'s `Deref`/`DerefMut` to `GameSession` once bot/opponent orchestration moves into `GameMode`.
+- [ ] Collapse the remaining `GameLogic` wrapper into `GameRuntime` now that bot/opponent orchestration lives in modes.
 
 ## Game-state follow-ups
 

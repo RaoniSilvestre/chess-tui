@@ -252,10 +252,6 @@ pub fn handle_mouse_events(mouse_event: MouseEvent, app: &mut App) -> AppResult<
                     app.game.logic.start_playing();
                 }
             }
-            // Notify opponent in multiplayer games
-            if app.game.logic.opponent.is_some() {
-                app.game.logic.handle_multiplayer_promotion();
-            }
             return Ok(());
         }
 

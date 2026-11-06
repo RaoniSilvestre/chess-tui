@@ -1,7 +1,7 @@
 //! Board cursor movement and move submission.
 
 use crate::app::App;
-use crate::constants::{Pages, Popups};
+use crate::constants::Popups;
 use chess_tui_core::Coord;
 use chess_tui_core::square_utils::flip_square_if_needed;
 use shakmaty::CastlingMode;
@@ -97,24 +97,6 @@ impl App {
             self.check_and_show_game_end();
         } else {
             // In multiplayer/Lichess mode, only allow input if it's our turn (but not for promotion, handled above)
-            if (self.ui_state.current_page == Pages::Multiplayer
-                || self.ui_state.current_page == Pages::Lichess)
-                && let Some(my_color) = self.game_mode_state.selected_color
-            {
-                // For TCP multiplayer, additional check is done in handle_cell_click
-                // For Lichess, we need to check here
-                if self.ui_state.current_page == Pages::Lichess {
-                    if self.game.logic.turn() != my_color {
-                        return;
-                    }
-                } else if let Some(opponent) = &self.game.logic.opponent {
-                    // For TCP multiplayer, check if it's our turn
-                    if opponent.is_tcp_multiplayer() && self.game.logic.turn() != my_color {
-                        return;
-                    }
-                }
-            }
-
             // Check authorized positions before taking any action.
 
             // Store move info before execution for puzzle validation
@@ -147,8 +129,7 @@ impl App {
                 None
             };
 
-            self.game
-                .handle_cell_click(self.game_mode_state.selected_color);
+            self.game.handle_cell_click();
 
             // Validate puzzle moves after execution. Promotion validation happens
             // when the player chooses the piece.

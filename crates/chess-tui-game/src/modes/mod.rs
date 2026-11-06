@@ -3,3 +3,4 @@
 pub mod bot;
 pub mod lichess;
 pub mod local;
+pub mod tcp;

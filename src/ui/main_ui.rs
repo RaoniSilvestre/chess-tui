@@ -9,7 +9,6 @@ use ratatui::{
 
 use crate::{
     constants::{DOCS_URL, Popups},
-    server::game_server::{get_host_ip, setup_game_server},
     ui::{
         components::centered_rect::centered_rect,
         game_ui::render_game_ui,
@@ -44,6 +43,7 @@ use super::ongoing_games::render_ongoing_games;
 use super::pgn_viewer_ui::render_pgn_viewer;
 
 use crate::{app::App, constants::Pages};
+use chess_tui_net::{get_host_ip, setup_game_server};
 use std::path::Path;
 use tachyonfx::{EffectRenderer, Interpolation, Motion, fx};
 
@@ -189,7 +189,7 @@ fn render_multiplayer_page(frame: &mut Frame<'_>, app: &mut App, main_area: rata
     if app.ui_state.current_popup == Some(Popups::Error) {
         return;
     }
-    if app.game.logic.opponent.is_none() {
+    if app.game.logic.kind() != chess_tui_game::GameKind::Tcp {
         if app.multiplayer_state.host_ip.is_none() {
             if app.multiplayer_state.hosting == Some(true) {
                 if let Some(color) = app.game_mode_state.selected_color {
@@ -202,13 +202,7 @@ fn render_multiplayer_page(frame: &mut Frame<'_>, app: &mut App, main_area: rata
         } else {
             app.create_opponent();
         }
-    } else if app
-        .game
-        .logic
-        .opponent
-        .as_ref()
-        .is_some_and(|o| o.game_started)
-    {
+    } else if app.game.logic.is_ready() {
         render_game_ui(frame, app, main_area);
     }
 }

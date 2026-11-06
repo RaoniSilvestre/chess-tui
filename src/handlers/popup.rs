@@ -93,7 +93,10 @@ fn handle_end_screen(app: &mut App, key_event: KeyEvent) {
             app.ui_state.end_screen_dismissed = true;
         }
         KeyCode::Char('r' | 'R') => {
-            if app.game.logic.opponent.is_none() {
+            if matches!(
+                app.game.logic.kind(),
+                chess_tui_game::GameKind::Local | chess_tui_game::GameKind::Bot
+            ) {
                 app.restart();
                 app.ui_state.close_popup();
             }
@@ -126,12 +129,7 @@ fn handle_error_popup(app: &mut App, key_event: KeyEvent) {
                 Pages::Multiplayer | Pages::Bot => {
                     app.ui_state.current_page = Pages::Home;
                 }
-                _ => {
-                    if app.ui_state.current_page == Pages::Solo && app.game.logic.opponent.is_some()
-                    {
-                        app.ui_state.current_page = Pages::Home;
-                    }
-                }
+                _ => {}
             }
         }
         _ => fallback_key_handler(app, key_event),
@@ -154,12 +152,7 @@ fn handle_success_popup(app: &mut App, key_event: KeyEvent) {
                 Pages::Multiplayer | Pages::Bot => {
                     app.ui_state.current_page = Pages::Home;
                 }
-                _ => {
-                    if app.ui_state.current_page == Pages::Solo && app.game.logic.opponent.is_some()
-                    {
-                        app.ui_state.current_page = Pages::Home;
-                    }
-                }
+                _ => {}
             }
         }
         _ => fallback_key_handler(app, key_event),

@@ -552,39 +552,24 @@ impl UI {
         let last_move_from = last_move.from();
         let last_move_to = Some(last_move.to());
 
-        // Check if this is multiplayer mode first (TCP or Lichess)
-        // In multiplayer modes, always show the last move regardless of who made it
-        if let Some(opponent) = logic.opponent.as_ref() {
-            // Check if this is multiplayer (TCP or Lichess)
-            let is_multiplayer = opponent.is_tcp_multiplayer() || opponent.is_lichess();
+        // Multiplayer modes always show the last move. Bot mode only shows
+        // the bot's moves, matching the previous behavior.
+        let last_move_color = match logic.current_position().turn() {
+            shakmaty::Color::White => shakmaty::Color::Black,
+            shakmaty::Color::Black => shakmaty::Color::White,
+        };
 
-            if is_multiplayer {
-                // In multiplayer mode (TCP or Lichess), always show the last move
-                return (last_move_from, last_move_to);
-            }
+        if matches!(
+            logic.kind(),
+            chess_tui_game::GameKind::Tcp | chess_tui_game::GameKind::Lichess
+        ) {
+            return (last_move_from, last_move_to);
         }
 
-        // For bot mode or when position is available, determine who made the last move
-        // After a move, the turn switches, so the last move was made by the opposite color
-        {
-            let position = logic.current_position();
-            let last_move_color = match position.turn() {
-                shakmaty::Color::White => shakmaty::Color::Black,
-                shakmaty::Color::Black => shakmaty::Color::White,
-            };
-
-            // For bot mode: only show opponent's moves
-            if let Some(opponent) = logic.opponent.as_ref() {
-                // If the last move was made by the opponent, show it
-                if last_move_color == opponent.color {
-                    return (last_move_from, last_move_to);
-                }
-                // Last move was made by the player, don't show it
-                return (None, None);
-            }
+        if !logic.mode().shows_last_move_from(last_move_color) {
+            return (None, None);
         }
 
-        // Fallback: show the move if no opponent (solo mode)
         (last_move_from, last_move_to)
     }
 

@@ -141,13 +141,10 @@ impl App {
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;
 
-        // Clean up multiplayer connection if active
-        if let Some(opponent) = self.game.logic.opponent.as_mut() {
-            opponent.send_end_game_to_server();
-            self.game.logic.opponent = None;
-            self.multiplayer_state.hosting = None;
-            self.multiplayer_state.host_ip = None;
-        }
+        // Clean up any active network mode.
+        self.game.logic.disconnect();
+        self.multiplayer_state.hosting = None;
+        self.multiplayer_state.host_ip = None;
 
         // Clear puzzle state
         self.lichess_state.puzzle_game = None;

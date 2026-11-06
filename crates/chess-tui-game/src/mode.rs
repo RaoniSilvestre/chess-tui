@@ -32,6 +32,10 @@ pub enum GameEvent {
 pub trait GameMode {
     fn kind(&self) -> GameKind;
 
+    fn is_ready(&self) -> bool {
+        true
+    }
+
     fn can_player_move(&self, session: &GameSession) -> bool {
         !session.state().is_finished() && !session.state().is_promotion()
     }
@@ -57,7 +61,13 @@ pub trait GameMode {
         false
     }
 
+    fn shows_last_move_from(&self, _color: shakmaty::Color) -> bool {
+        true
+    }
+
     fn end_screen(&self) -> EndScreenKind {
         EndScreenKind::Standard
     }
+
+    fn disconnect(&mut self) {}
 }

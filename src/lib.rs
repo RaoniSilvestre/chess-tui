@@ -12,7 +12,6 @@ pub mod graphics;
 pub mod handlers;
 pub mod logging;
 pub mod pieces;
-pub mod server;
 pub mod setup;
 pub mod skin;
 pub mod sound;

@@ -67,15 +67,13 @@ impl App {
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
         let mode_kind = self.game.logic.kind();
-        let opponent = self.game.logic.opponent.clone();
         // Preserve skin and display mode
         let current_skin = self.game.ui.skin.clone();
         let display_mode = self.game.ui.display_mode;
         // Check if we're in a local game or bot game to preserve clock
-        let is_local_game = self.ui_state.current_page == Pages::Solo
-            && mode_kind == GameKind::Local
-            && opponent.is_none();
-        let is_bot_game = mode_kind == GameKind::Bot && opponent.is_none();
+        let is_local_game =
+            self.ui_state.current_page == Pages::Solo && mode_kind == GameKind::Local;
+        let is_bot_game = mode_kind == GameKind::Bot;
 
         if is_bot_game && self.game_mode_state.is_random_color {
             self.game_mode_state.selected_color = Some(if rand::random::<bool>() {
@@ -86,7 +84,6 @@ impl App {
         }
 
         self.game = Game::default();
-        self.game.logic.opponent = opponent;
 
         if is_bot_game {
             let bot_starting =

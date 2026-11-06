@@ -19,14 +19,6 @@ pub const WHITE: Color = Color::Rgb(160, 160, 160);
 /// Dark square / piece color used throughout the board renderer.
 pub const BLACK: Color = Color::Rgb(128, 95, 69);
 
-/// TCP port for peer-to-peer multiplayer connections.
-pub const NETWORK_PORT: u16 = 2308;
-/// Byte length of the move message exchanged over TCP.
-pub const NETWORK_BUFFER_SIZE: usize = 5;
-/// Short poll interval used when waiting for network events.
-pub const SLEEP_DURATION_SHORT_MS: u64 = 50;
-/// Longer poll interval used for less time-sensitive waits.
-pub const SLEEP_DURATION_LONG_MS: u64 = 100;
 /// Wait after sending a resign to Lichess before continuing.
 pub const SLEEP_DURATION_RESIGN_MS: u64 = 500;
 /// Pause after showing puzzle solution before proceeding.

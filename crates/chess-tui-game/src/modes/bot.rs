@@ -137,6 +137,10 @@ impl GameMode for BotMode {
         }
     }
 
+    fn shows_last_move_from(&self, color: shakmaty::Color) -> bool {
+        color == self.bot_color
+    }
+
     fn end_screen(&self) -> EndScreenKind {
         EndScreenKind::Standard
     }

@@ -144,22 +144,6 @@ impl App {
             }
             self.check_and_show_game_end();
         }
-
-        // Check for opponent moves (Lichess or Multiplayer)
-        // Skip if we're in puzzle mode
-        if self.lichess_state.puzzle_game.is_some() {
-            return; // Puzzles have all moves pre-loaded, no need to check for opponent moves
-        }
-
-        // TCP multiplayer moves are polled here. Lichess moves are handled by
-        // LichessMode::tick in the main loop.
-        if let Some(opponent) = self.game.logic.opponent.as_ref() {
-            let is_opponent_turn = self.game.logic.turn() == opponent.color;
-            if is_opponent_turn && self.game.logic.execute_opponent_move() {
-                self.game.logic.switch_player_turn();
-                self.check_and_show_game_end();
-            }
-        }
     }
 
     /// Set running to false to quit the application.

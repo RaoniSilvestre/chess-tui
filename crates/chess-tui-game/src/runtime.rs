@@ -42,6 +42,10 @@ impl GameRuntime {
         self.mode.kind()
     }
 
+    pub fn is_ready(&self) -> bool {
+        self.mode.is_ready()
+    }
+
     pub fn can_player_move(&self) -> bool {
         self.mode.can_player_move(&self.session)
     }
@@ -74,6 +78,10 @@ impl GameRuntime {
         let mut events = Vec::new();
         self.mode.on_promotion(&mut self.session, &mut events);
         self.events.extend(events);
+    }
+
+    pub fn disconnect(&mut self) {
+        self.mode.disconnect();
     }
 }
 

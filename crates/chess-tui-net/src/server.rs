@@ -12,10 +12,7 @@ use std::{
     time::Duration,
 };
 
-use crate::constants::{
-    NETWORK_BUFFER_SIZE, NETWORK_PORT, SLEEP_DURATION_LONG_MS, SLEEP_DURATION_SHORT_MS,
-};
-use log;
+use crate::{NETWORK_BUFFER_SIZE, NETWORK_PORT, SLEEP_DURATION_LONG_MS, SLEEP_DURATION_SHORT_MS};
 use shakmaty::Color;
 
 #[derive(Debug)]
@@ -26,17 +23,15 @@ pub struct Client {
 
 #[derive(Clone)]
 pub struct GameServer {
-    pub clients: Arc<Mutex<Vec<Client>>>,
-    pub client_id: usize,
-    pub is_host_white: bool,
-    pub stop_signal: Arc<AtomicBool>,
+    clients: Arc<Mutex<Vec<Client>>>,
+    is_host_white: bool,
+    stop_signal: Arc<AtomicBool>,
 }
 
 impl GameServer {
     pub fn new(is_host_white: bool) -> Self {
         Self {
             clients: Arc::new(Mutex::new(vec![])),
-            client_id: 0,
             is_host_white,
             stop_signal: Arc::new(AtomicBool::new(false)),
         }
