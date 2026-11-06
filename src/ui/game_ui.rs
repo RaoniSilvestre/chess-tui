@@ -5,7 +5,7 @@ use crate::{
     constants::Popups,
     ui::popup::{end::render_end_popup, promotion::render_promotion_popup},
 };
-use chess_tui_core::{Clock, ClockState, GameOutcome};
+use chess_tui_core::{Clock, ClockState, DrawReason, GameOutcome};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
@@ -187,7 +187,17 @@ fn outcome_message(outcome: GameOutcome) -> String {
             format!("{} Won \nOpponent resigned", color_name(winner))
         }
         GameOutcome::Resignation { winner: None } => "Game over by resignation".to_string(),
-        GameOutcome::Draw => "That's a draw".to_string(),
+        GameOutcome::Draw { reason } => {
+            let reason = match reason {
+                DrawReason::Stalemate => "Stalemate",
+                DrawReason::FiftyMove => "Fifty-move rule",
+                DrawReason::Repetition => "Threefold repetition",
+                DrawReason::InsufficientMaterial => "Insufficient material",
+                DrawReason::Agreement => "Agreement",
+                DrawReason::Unknown => "Draw",
+            };
+            format!("That's a draw\n{reason}")
+        }
         GameOutcome::Aborted => "Game aborted".to_string(),
     }
 }

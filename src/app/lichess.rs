@@ -648,7 +648,7 @@ impl App {
         }
 
         // Initialize PuzzleGame
-        let puzzle = match PuzzleGame::load(client, &mut self.game.runtime) {
+        let puzzle = match PuzzleGame::load(client, self.game.runtime.session_mut().board_mut()) {
             Ok(p) => p,
             Err(e) => {
                 self.ui_state.show_message_popup(e, Popups::Error);

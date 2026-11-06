@@ -31,11 +31,22 @@ impl PendingPromotion {
     }
 }
 
+/// Why a game was drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DrawReason {
+    Stalemate,
+    FiftyMove,
+    Repetition,
+    InsufficientMaterial,
+    Agreement,
+    Unknown,
+}
+
 /// Why a game ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GameOutcome {
     Checkmate { winner: Color },
-    Draw,
+    Draw { reason: DrawReason },
     Timeout { winner: Color },
     Resignation { winner: Option<Color> },
     Aborted,
@@ -46,12 +57,12 @@ impl GameOutcome {
         match self {
             GameOutcome::Checkmate { winner } | GameOutcome::Timeout { winner } => Some(winner),
             GameOutcome::Resignation { winner } => winner,
-            GameOutcome::Draw | GameOutcome::Aborted => None,
+            GameOutcome::Draw { .. } | GameOutcome::Aborted => None,
         }
     }
 
     pub fn is_draw(self) -> bool {
-        matches!(self, GameOutcome::Draw)
+        matches!(self, GameOutcome::Draw { .. })
     }
 }
 
@@ -111,8 +122,11 @@ mod tests {
 
     #[test]
     fn draw_has_no_winner() {
-        assert_eq!(GameOutcome::Draw.winner(), None);
-        assert!(GameOutcome::Draw.is_draw());
+        let draw = GameOutcome::Draw {
+            reason: DrawReason::Stalemate,
+        };
+        assert_eq!(draw.winner(), None);
+        assert!(draw.is_draw());
     }
 
     #[test]

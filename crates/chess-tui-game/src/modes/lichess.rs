@@ -1,7 +1,7 @@
 //! Lichess game mode: board stream, clock sync, and remote moves.
 
 use crate::{EndScreenKind, GameEvent, GameKind, GameMode, GameSession};
-use chess_tui_core::GameOutcome;
+use chess_tui_core::{DrawReason, GameOutcome};
 use chess_tui_lichess::LichessClient;
 use shakmaty::{Color, Move, Role, Square};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
@@ -116,20 +116,53 @@ impl LichessMode {
         }
 
         if let Some(status) = message.strip_prefix("GAME_STATUS:") {
+            let (status, winner) = match status.split_once(':') {
+                Some((status, winner)) => (
+                    status,
+                    match winner {
+                        "white" => Some(Color::White),
+                        "black" => Some(Color::Black),
+                        _ => None,
+                    },
+                ),
+                None => (status, None),
+            };
             match status {
                 "checkmate" => {
                     session.update_game_state();
                     if !session.state().is_finished() {
                         session.finish(GameOutcome::Checkmate {
-                            winner: session.turn().other(),
+                            winner: winner.unwrap_or_else(|| session.turn().other()),
                         });
                     }
                 }
-                "draw" | "stalemate" | "repetition" | "insufficient" | "fifty" => {
-                    session.finish(GameOutcome::Draw);
+                "draw" => {
+                    session.finish(GameOutcome::Draw {
+                        reason: DrawReason::Agreement,
+                    });
+                }
+                "stalemate" => {
+                    session.finish(GameOutcome::Draw {
+                        reason: DrawReason::Stalemate,
+                    });
+                }
+                "repetition" => {
+                    session.finish(GameOutcome::Draw {
+                        reason: DrawReason::Repetition,
+                    });
+                }
+                "insufficient" => {
+                    session.finish(GameOutcome::Draw {
+                        reason: DrawReason::InsufficientMaterial,
+                    });
+                }
+                "fifty" => {
+                    session.finish(GameOutcome::Draw {
+                        reason: DrawReason::FiftyMove,
+                    });
                 }
                 "resign" => {
-                    session.finish(GameOutcome::Resignation { winner: None });
+                    session.finish(GameOutcome::Resignation { winner });
                 }
                 "aborted" => {
                     session.finish(GameOutcome::Aborted);

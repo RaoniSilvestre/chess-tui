@@ -60,6 +60,8 @@ pub struct GameState {
     pub moves: String,
     pub status: String,
     #[serde(default)]
+    pub winner: Option<String>,
+    #[serde(default)]
     pub wtime: usize,
     #[serde(default)]
     pub btime: usize,

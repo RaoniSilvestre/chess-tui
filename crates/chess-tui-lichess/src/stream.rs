@@ -18,16 +18,21 @@ fn parse_game_color(color_str: &str) -> Color {
     }
 }
 
-fn send_status_message(status: &str, move_tx: &Sender<String>) {
+fn send_status_message(status: &str, winner: Option<&str>, move_tx: &Sender<String>) {
+    let winner_suffix = winner.map(|w| format!(":{w}")).unwrap_or_default();
     let msg = match status {
-        "mate" | "checkmate" => Some("GAME_STATUS:checkmate"),
-        "draw" | "stalemate" | "repetition" | "insufficient" | "fifty" => Some("GAME_STATUS:draw"),
-        "resign" => Some("GAME_STATUS:resign"),
-        "aborted" => Some("GAME_STATUS:aborted"),
+        "mate" | "checkmate" => Some(format!("GAME_STATUS:checkmate{winner_suffix}")),
+        "draw" => Some("GAME_STATUS:draw".to_string()),
+        "stalemate" => Some("GAME_STATUS:stalemate".to_string()),
+        "repetition" => Some("GAME_STATUS:repetition".to_string()),
+        "insufficient" => Some("GAME_STATUS:insufficient".to_string()),
+        "fifty" => Some("GAME_STATUS:fifty".to_string()),
+        "resign" => Some(format!("GAME_STATUS:resign{winner_suffix}")),
+        "aborted" => Some("GAME_STATUS:aborted".to_string()),
         _ => None,
     };
     if let Some(m) = msg {
-        let _ = move_tx.send(m.to_string());
+        let _ = move_tx.send(m);
     }
 }
 
@@ -253,7 +258,11 @@ impl LichessClient {
                             // Check for status changes
                             if last_status.as_ref() != Some(&state.status) {
                                 log::info!("Game status changed: {}", state.status);
-                                send_status_message(&state.status, &move_tx);
+                                send_status_message(
+                                    &state.status,
+                                    state.winner.as_deref(),
+                                    &move_tx,
+                                );
                                 last_status = Some(state.status.clone());
                             }
 
@@ -334,7 +343,8 @@ impl LichessClient {
                                         .and_then(|n| n.as_str())
                                         && last_status.as_ref() != Some(&status.to_string())
                                     {
-                                        send_status_message(status, &move_tx);
+                                        let winner = json.get("winner").and_then(|w| w.as_str());
+                                        send_status_message(status, winner, &move_tx);
                                         last_status = Some(status.to_string());
                                     }
                                 }

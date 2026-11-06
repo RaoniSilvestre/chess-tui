@@ -129,7 +129,7 @@ impl Board {
     }
 
     /// Record a move for the fifty-move rule.
-    pub fn record_move_for_draw_rule(&mut self, role_from: Role, role_to: Option<Role>) {
+    fn record_move_for_draw_rule(&mut self, role_from: Role, role_to: Option<Role>) {
         match (role_from, role_to) {
             (Role::Pawn, _) | (_, Some(_)) => {
                 self.halfmove_clock = 0;
@@ -144,6 +144,7 @@ impl Board {
         self.moves.clear();
         self.positions.clear();
         self.positions.push(Chess::default());
+        self.taken_pieces.clear();
         self.halfmove_clock = 0;
         self.is_flipped = false;
         self.history_position = None;
@@ -579,6 +580,9 @@ impl Board {
             }
         });
 
+        let role_from = chess.board().piece_at(from).map(|piece| piece.role);
+        let role_to = chess.board().piece_at(to).map(|piece| piece.role);
+
         if let Some(shakmaty_move) = matching_move {
             // It's a legal move. Check for capture.
             match *shakmaty_move {
@@ -611,6 +615,9 @@ impl Board {
                 Ok(new_chess) => {
                     // Update history
                     self.positions.push(new_chess);
+                    if let Some(role_from) = role_from {
+                        self.record_move_for_draw_rule(role_from, role_to);
+                    }
                     // Reset history navigation when a new move is made
                     self.history_position = None;
                     self.flip_before_history = None;
@@ -643,6 +650,9 @@ impl Board {
                     match chess_clone.play(castle_move) {
                         Ok(new_chess) => {
                             self.positions.push(new_chess);
+                            if let Some(role_from) = role_from {
+                                self.record_move_for_draw_rule(role_from, role_to);
+                            }
                             self.history_position = None;
                             self.flip_before_history = None;
                             log::info!("Castling move executed successfully: {:?}", castle_move);
@@ -706,6 +716,20 @@ impl Board {
     /// Undo the latest move and position.
     pub fn undo_last_move(&mut self) -> Option<Move> {
         let mv = self.moves.pop()?;
+
+        let captured = match &mv {
+            Move::Normal {
+                capture: Some(_),
+                to,
+                ..
+            } => Some(*to),
+            Move::EnPassant { from, to } => Some(Square::from_coords(to.file(), from.rank())),
+            _ => None,
+        };
+        if captured.is_some() {
+            self.taken_pieces.pop();
+        }
+
         self.positions.pop();
         self.history_position = None;
         self.flip_before_history = None;
@@ -1503,27 +1527,18 @@ mod tests {
 
         // Develop knights - these are non-pawn, non-capture moves
         game_board.play(Square::G1, Square::F3, None);
-        game_board.record_move_for_draw_rule(Role::Knight, None);
         assert_eq!(game_board.halfmove_clock(), 1);
 
         game_board.play(Square::G8, Square::F6, None);
-        game_board.record_move_for_draw_rule(Role::Knight, None);
         assert_eq!(game_board.halfmove_clock(), 2);
 
         // Now we need 48 more moves to reach 50 total
         // We'll do 12 cycles of 4 moves each = 48 moves
         for _i in 0..12 {
-            game_board.play(Square::F3, Square::E1, None);
-            game_board.record_move_for_draw_rule(Role::Knight, None);
-
-            game_board.play(Square::F6, Square::E8, None);
-            game_board.record_move_for_draw_rule(Role::Knight, None);
-
-            game_board.play(Square::E1, Square::F3, None);
-            game_board.record_move_for_draw_rule(Role::Knight, None);
-
-            game_board.play(Square::E8, Square::F6, None);
-            game_board.record_move_for_draw_rule(Role::Knight, None);
+            game_board.play(Square::F3, Square::G1, None);
+            game_board.play(Square::F6, Square::G8, None);
+            game_board.play(Square::G1, Square::F3, None);
+            game_board.play(Square::G8, Square::F6, None);
 
             // Check counter before we hit 50
             if game_board.halfmove_clock() < 50 && !game_board.is_draw_by_repetition() {
@@ -1541,7 +1556,6 @@ mod tests {
 
         // A pawn move resets the counter
         game_board.play(Square::D2, Square::D4, None);
-        game_board.record_move_for_draw_rule(Role::Pawn, None);
         assert_eq!(game_board.halfmove_clock(), 0);
     }
 
@@ -1792,5 +1806,30 @@ mod tests {
         game_board.reconstruct_history("e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 f3e5", None);
 
         assert_eq!(game_board.move_to_san(6), "Nxe5");
+    }
+    #[test]
+    fn test_undo_restores_captured_piece() {
+        let mut game_board = Board::default();
+        // Italian game through Nxe5.
+        game_board.reconstruct_history("e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 f3e5", None);
+        assert_eq!(game_board.taken_pieces().len(), 1);
+
+        game_board.undo_last_move();
+        assert!(game_board.taken_pieces().is_empty());
+        assert_eq!(game_board.get_role_at_square(&Square::E5), Some(Role::Pawn));
+        assert_eq!(
+            game_board.get_role_at_square(&Square::F3),
+            Some(Role::Knight)
+        );
+    }
+
+    #[test]
+    fn test_reset_clears_captured_pieces() {
+        let mut game_board = Board::default();
+        game_board.reconstruct_history("e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 f3e5", None);
+        assert_eq!(game_board.taken_pieces().len(), 1);
+
+        game_board.reset();
+        assert!(game_board.taken_pieces().is_empty());
     }
 }
