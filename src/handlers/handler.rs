@@ -3,11 +3,9 @@
 use crate::constants::Popups;
 use crate::handlers::bot::handle_bot_page_events;
 use crate::handlers::credits::handle_credit_page_events;
-use crate::handlers::game_mode_menu::handle_game_mode_menu_page_events;
 use crate::handlers::home::handle_home_page_events;
 use crate::handlers::multiplayer::handle_multiplayer_page_events;
 use crate::handlers::popup::handle_popup_input;
-use crate::handlers::settings_menu::handle_settings_menu_page_events;
 use crate::handlers::solo::handle_solo_page_events;
 use crate::{
     app::{App, AppResult},
@@ -66,12 +64,14 @@ pub fn handle_page_input(app: &mut App, key_event: KeyEvent) {
         Pages::Solo => handle_solo_page_events(app, key_event),
         Pages::Multiplayer => handle_multiplayer_page_events(app, key_event),
         Pages::Lichess => handle_multiplayer_page_events(app, key_event),
-        Pages::GameModeMenu => handle_game_mode_menu_page_events(app, key_event),
         Pages::Bot => handle_bot_page_events(app, key_event),
         Pages::Credit => handle_credit_page_events(app, key_event),
-        Pages::SettingsMenu => handle_settings_menu_page_events(app, key_event),
         // Migrated pages are dispatched by the page router, not this legacy path.
-        Pages::LichessMenu | Pages::OngoingGames | Pages::PgnViewer => {}
+        Pages::GameModeMenu
+        | Pages::SettingsMenu
+        | Pages::LichessMenu
+        | Pages::OngoingGames
+        | Pages::PgnViewer => {}
     }
 }
 

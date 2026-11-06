@@ -7,5 +7,4 @@ pub mod handler;
 pub mod home;
 pub mod multiplayer;
 pub mod popup;
-pub mod settings_menu;
 pub mod solo;

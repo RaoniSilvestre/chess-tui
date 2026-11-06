@@ -12,10 +12,7 @@ use crate::{
     ui::{
         components::centered_rect::centered_rect,
         game_ui::render_game_ui,
-        menu::{
-            game_mode_menu::render_game_mode_menu, main_menu::render_menu_ui,
-            settings_menu::render_settings_menu,
-        },
+        menu::main_menu::render_menu_ui,
         popup::{
             credits::render_credit_popup,
             engine_path::render_enter_engine_path_popup,
@@ -63,9 +60,11 @@ pub fn render_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::lay
             }
         }
         Pages::Bot => render_bot_page(frame, app, main_area),
-        Pages::LichessMenu | Pages::OngoingGames | Pages::PgnViewer => {}
-        Pages::GameModeMenu => render_game_mode_menu(frame, app),
-        Pages::SettingsMenu => render_settings_menu(frame, app),
+        Pages::GameModeMenu
+        | Pages::SettingsMenu
+        | Pages::LichessMenu
+        | Pages::OngoingGames
+        | Pages::PgnViewer => {}
         Pages::Home | Pages::Credit => render_menu_ui(frame, app, main_area),
     }
 
