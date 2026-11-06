@@ -3,11 +3,11 @@
 use crate::{
     app::App,
     constants::Popups,
-    game_logic::{
-        clock::{Clock, ClockState},
-        game::GameState,
-    },
     ui::popup::{end::render_end_popup, promotion::render_promotion_popup},
+};
+use chess_tui_core::{
+    clock::{Clock, ClockState},
+    game_state::GameState,
 };
 use ratatui::{
     Frame,

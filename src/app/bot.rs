@@ -1,9 +1,10 @@
 //! Engine thread and move application.
 
+use crate::app::App;
 use crate::constants::Popups;
 use crate::game_logic::bot::Bot;
 use crate::sound::play_move_sound;
-use crate::{app::App, game_logic::clock::Clock};
+use chess_tui_core::clock::Clock;
 use shakmaty::{Color, Move};
 
 impl App {
@@ -35,8 +36,8 @@ impl App {
             {
                 self.bot_state.start_bot_thinking(
                     self.game.logic.game_board.fen_position(),
-                    bot.depth,
-                    bot.difficulty,
+                    bot.depth(),
+                    bot.difficulty(),
                 );
             }
             // Don't set player_turn to Black here - the bot (White) moves first,

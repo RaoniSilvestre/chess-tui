@@ -9,8 +9,8 @@ use chess_tui::{
     app::{App, AppResult},
     constants::{Pages, Popups},
     handlers::handler::handle_key_events,
-    pgn_viewer::PgnViewer,
 };
+use chess_tui_core::pgn::PgnViewer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 fn key(code: KeyCode) -> KeyEvent {

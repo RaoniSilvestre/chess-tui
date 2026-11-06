@@ -3,10 +3,10 @@
 use crate::{
     app::App,
     constants::{BOT_DIFFICULTY_COUNT, Pages, Popups},
-    game_logic::clock::Clock,
     handlers::handler::fallback_key_handler,
     state::{resume::ResumeMode, ui_state::NewGame},
 };
+use chess_tui_core::clock::Clock;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 /// The four game modes available from the game-mode selection menu.

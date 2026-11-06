@@ -1,8 +1,6 @@
 //! Routes raw crossterm events to the active page handler and shared chess input bindings.
 
 use crate::constants::Popups;
-use crate::game_logic::coord::Coord;
-use crate::game_logic::game::GameState;
 use crate::handlers::bot::handle_bot_page_events;
 use crate::handlers::credits::handle_credit_page_events;
 use crate::handlers::game_mode_menu::handle_game_mode_menu_page_events;
@@ -14,11 +12,13 @@ use crate::handlers::pgn::handle_pgn_viewer_events;
 use crate::handlers::popup::handle_popup_input;
 use crate::handlers::settings_menu::handle_settings_menu_page_events;
 use crate::handlers::solo::handle_solo_page_events;
-use crate::utils::{flip_square_if_needed, get_coord_from_square};
 use crate::{
     app::{App, AppResult},
     constants::Pages,
 };
+use chess_tui_core::coord::Coord;
+use chess_tui_core::game_state::GameState;
+use chess_tui_core::square_utils::{flip_square_if_needed, get_coord_from_square};
 use ratatui::crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };

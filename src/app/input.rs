@@ -2,9 +2,9 @@
 
 use crate::app::App;
 use crate::constants::{Pages, Popups};
-use crate::game_logic::coord::Coord;
-use crate::game_logic::game::GameState;
-use crate::utils::flip_square_if_needed;
+use chess_tui_core::coord::Coord;
+use chess_tui_core::game_state::GameState;
+use chess_tui_core::square_utils::flip_square_if_needed;
 use shakmaty::CastlingMode;
 
 impl App {

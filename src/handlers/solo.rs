@@ -1,6 +1,7 @@
 //! Solo game keyboard handler.
 
-use crate::{app::App, game_logic::game::GameState, handlers::handler::chess_inputs};
+use crate::{app::App, handlers::handler::chess_inputs};
+use chess_tui_core::game_state::GameState;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 /// Handles keyboard input during solo (two-player) game mode.

@@ -50,6 +50,6 @@ jobs:
       continue-on-error: true
     - name: Install clippy and rustfmt
       run: rustup component add clippy rustfmt
-    - run: cargo fmt --check
-    - run: cargo clippy --verbose -- -D warnings
-    - run: cargo test --verbose
+    - run: cargo fmt --all --check
+    - run: cargo clippy --workspace --verbose -- -D warnings
+    - run: cargo test --workspace --verbose

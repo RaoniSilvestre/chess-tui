@@ -1,7 +1,7 @@
 //! Captures the game mode, color choice, clock settings, and bot difficulty selected during game configuration.
 
-use crate::game_logic::clock::TimeControl;
 use crate::handlers::game_mode_menu::AvailableGameMode;
+use chess_tui_core::clock::TimeControl;
 use shakmaty::Color;
 
 /// Form state and settings captured during game-mode configuration.

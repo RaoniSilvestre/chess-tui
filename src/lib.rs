@@ -12,7 +12,6 @@ pub mod graphics;
 pub mod handlers;
 pub mod lichess;
 pub mod logging;
-pub mod pgn_viewer;
 pub mod pieces;
 pub mod server;
 pub mod setup;

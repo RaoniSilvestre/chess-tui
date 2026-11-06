@@ -84,12 +84,6 @@ pub const LICHESS_TIME_CONTROLS: [LichessTimeControl; 2] = [
 /// Display labels for the four bot difficulty presets.
 pub const BOT_DIFFICULTY_NAMES: [&str; 4] =
     ["Easy (400)", "Medium (900)", "Hard (1500)", "Magnus (2700)"];
-/// `UCI_Elo` values passed to the engine for each difficulty preset.
-pub const BOT_DIFFICULTY_ELO: [u16; 4] = [400, 900, 1500, 2700];
-/// Engine search depth for each difficulty preset.
-pub const BOT_DIFFICULTY_DEPTH: [u8; 4] = [1, 4, 8, 20];
-/// Engine think time in milliseconds for each difficulty preset.
-pub const BOT_DIFFICULTY_MOVETIME_MS: [u64; 4] = [25, 120, 500, 12_000];
 /// Number of bot difficulty presets.
 pub const BOT_DIFFICULTY_COUNT: usize = 4;
 

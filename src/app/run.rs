@@ -82,8 +82,8 @@ impl App {
         if let Some(bot) = &self.game.logic.bot {
             self.bot_state.start_bot_thinking(
                 self.game.logic.game_board.fen_position(),
-                bot.depth,
-                bot.difficulty,
+                bot.depth(),
+                bot.difficulty(),
             );
         }
 

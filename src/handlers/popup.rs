@@ -5,8 +5,8 @@ use crate::{
     constants::{Pages, Popups},
     handlers::{game_mode_menu::start_game, handler::fallback_key_handler},
     state::{resume::ResumeMode, ui_state::NewGame},
-    utils::normalize_lowercase_to_san,
 };
+use chess_tui_core::square_utils::normalize_lowercase_to_san;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use shakmaty::san::San;
 
@@ -175,7 +175,7 @@ fn handle_load_pgn_path(app: &mut App, key_event: KeyEvent) {
                 app.ui_state.current_popup = None;
                 return;
             }
-            match crate::pgn_viewer::PgnViewer::from_file(&path) {
+            match chess_tui_core::pgn::PgnViewer::from_file(&path) {
                 Ok(games) => {
                     app.pgn_viewer_state = Some(games);
                     app.pgn_viewer_game_idx = 0;

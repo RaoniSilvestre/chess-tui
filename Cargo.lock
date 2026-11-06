@@ -380,6 +380,8 @@ dependencies = [
 name = "chess-tui"
 version = "2.8.0"
 dependencies = [
+ "chess-tui-core",
+ "chess-tui-engine",
  "chrono",
  "clap",
  "dirs",
@@ -399,6 +401,22 @@ dependencies = [
  "tempfile",
  "throbber-widgets-tui",
  "toml",
+]
+
+[[package]]
+name = "chess-tui-core"
+version = "2.8.0"
+dependencies = [
+ "log",
+ "shakmaty",
+]
+
+[[package]]
+name = "chess-tui-engine"
+version = "2.8.0"
+dependencies = [
+ "ruci",
+ "shakmaty",
 ]
 
 [[package]]

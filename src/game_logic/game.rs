@@ -1,19 +1,15 @@
 //! Game state and move execution.
 
-use super::{
-    bot::Bot, clock::Clock, coord::Coord, game_board::GameBoard, opponent::Opponent, ui::UI,
+use super::{bot::Bot, opponent::Opponent, ui::UI};
+use chess_tui_core::{
+    clock::{Clock, ClockState},
+    coord::Coord,
+    game_board::GameBoard,
+    game_state::GameState,
+    square_utils::flip_square_if_needed,
 };
-use crate::{game_logic::clock::ClockState, utils::flip_square_if_needed};
 use shakmaty::{Color, Move, Position, Role, Square};
 use std::time::Instant;
-
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
-pub enum GameState {
-    Checkmate,
-    Draw,
-    Playing,
-    Promotion,
-}
 
 impl Clone for GameLogic {
     fn clone(&self) -> Self {

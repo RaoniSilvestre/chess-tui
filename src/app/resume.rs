@@ -7,11 +7,12 @@
 use crate::app::App;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::bot::Bot;
-use crate::game_logic::clock::{Clock, TimeControl};
-use crate::game_logic::game::{Game, GameState};
+use crate::game_logic::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
+use chess_tui_core::clock::{Clock, TimeControl};
+use chess_tui_core::game_state::GameState;
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};
 
@@ -140,8 +141,8 @@ impl App {
         };
         Some(BotConfig {
             path,
-            depth: bot.depth,
-            difficulty: bot.difficulty,
+            depth: bot.depth(),
+            difficulty: bot.difficulty(),
             player_color: player_color.to_string(),
             is_random_color: self.game_mode_state.is_random_color,
         })
@@ -300,8 +301,8 @@ impl App {
                 {
                     self.bot_state.start_bot_thinking(
                         self.game.logic.game_board.fen_position(),
-                        bot.depth,
-                        bot.difficulty,
+                        bot.depth(),
+                        bot.difficulty(),
                     );
                 }
             }

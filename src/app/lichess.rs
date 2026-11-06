@@ -2,12 +2,12 @@
 
 use crate::app::App;
 use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Pages, Popups, SLEEP_DURATION_RESIGN_MS};
-use crate::game_logic::clock::Clock;
-use crate::game_logic::game::GameState;
 use crate::game_logic::opponent::Opponent;
 use crate::game_logic::puzzle::PuzzleGame;
 use crate::lichess::models::LichessClient;
 use crate::state::lichess_state::LichessUpdate;
+use chess_tui_core::clock::Clock;
+use chess_tui_core::game_state::GameState;
 use shakmaty::Color;
 use std::sync::mpsc::channel;
 

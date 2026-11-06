@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use chess_tui_core::pgn::PgnViewer;
 use dirs::config_dir;
 use log::LevelFilter;
 
@@ -13,7 +14,6 @@ use crate::{
     graphics,
     lichess::models::LichessClient,
     logging,
-    pgn_viewer::PgnViewer,
     skin::{PieceStyle, Skin},
     sound,
     state::{bot_state::BotState, lichess_state::LichessState},

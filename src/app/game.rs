@@ -2,9 +2,9 @@
 
 use crate::app::App;
 use crate::constants::{Pages, Popups};
-use crate::game_logic::clock::Clock;
 use crate::game_logic::game::Game;
-use crate::game_logic::game::GameState;
+use chess_tui_core::clock::Clock;
+use chess_tui_core::game_state::GameState;
 use shakmaty::Color;
 
 impl App {
@@ -118,8 +118,8 @@ impl App {
             if let Some(bot) = &self.game.logic.bot {
                 self.bot_state.start_bot_thinking(
                     self.game.logic.game_board.fen_position(),
-                    bot.depth,
-                    bot.difficulty,
+                    bot.depth(),
+                    bot.difficulty(),
                 );
             }
             // Don't set player_turn to Black here - the bot (White) moves first,

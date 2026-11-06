@@ -1,10 +1,10 @@
 //! Lichess puzzle state and move validation.
 
 use crate::game_logic::game::Game;
-use crate::game_logic::game::GameState;
-use crate::game_logic::game_board::GameBoard;
 use crate::lichess::models::{LichessClient, Puzzle};
-use crate::utils::get_coord_from_square;
+use chess_tui_core::game_board::GameBoard;
+use chess_tui_core::game_state::GameState;
+use chess_tui_core::square_utils::get_coord_from_square;
 use shakmaty::{Position, Square};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -87,8 +87,8 @@ impl PuzzleGame {
             game.ui.unselect_cell();
 
             // Reset game state to Playing if it was Promotion
-            if game.logic.game_state == crate::game_logic::game::GameState::Promotion {
-                game.logic.game_state = crate::game_logic::game::GameState::Playing;
+            if game.logic.game_state == chess_tui_core::game_state::GameState::Promotion {
+                game.logic.game_state = chess_tui_core::game_state::GameState::Playing;
             }
         }
     }

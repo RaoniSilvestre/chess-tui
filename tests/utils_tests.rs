@@ -1,5 +1,5 @@
-use chess_tui::game_logic::coord::Coord;
-use chess_tui::utils::{
+use chess_tui_core::coord::Coord;
+use chess_tui_core::square_utils::{
     convert_position_into_notation, flip_square_if_needed, get_coord_from_square,
     get_int_from_char, get_opposite_square, get_square_from_coord,
 };
@@ -105,7 +105,7 @@ fn test_normalize_lowercase_to_san() {
 
     for (&input, &expected) in moves.iter().zip(expected.iter()) {
         assert_eq!(
-            chess_tui::utils::normalize_lowercase_to_san(input),
+            chess_tui_core::square_utils::normalize_lowercase_to_san(input),
             expected
         );
     }
@@ -115,7 +115,7 @@ fn test_normalize_lowercase_to_san() {
     let expected = ["O-O", "O-O-O"];
     for (&input, &expected) in moves.iter().zip(expected.iter()) {
         assert_eq!(
-            chess_tui::utils::normalize_lowercase_to_san(input),
+            chess_tui_core::square_utils::normalize_lowercase_to_san(input),
             expected
         );
     }
@@ -125,18 +125,18 @@ fn test_normalize_lowercase_to_san() {
     let expected = ["e8=Q", "e8=R", "e8=B", "e8=N"];
     for (&input, &expected) in moves.iter().zip(expected.iter()) {
         assert_eq!(
-            chess_tui::utils::normalize_lowercase_to_san(input),
+            chess_tui_core::square_utils::normalize_lowercase_to_san(input),
             expected
         );
     }
 
     // check empty string
     assert_eq!(
-        chess_tui::utils::normalize_lowercase_to_san("                       "),
+        chess_tui_core::square_utils::normalize_lowercase_to_san("                       "),
         ""
     );
     assert_eq!(
-        chess_tui::utils::normalize_lowercase_to_san("      kh4             "),
+        chess_tui_core::square_utils::normalize_lowercase_to_san("      kh4             "),
         "Kh4"
     );
 }

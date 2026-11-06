@@ -2,19 +2,18 @@
 
 use std::fmt::Write as _;
 
-use super::{
-    coord::Coord,
-    game::{Game, GameLogic},
-};
+use super::game::{Game, GameLogic};
 use crate::{
     color::{adapt_color, board_black, board_white},
     constants::{BLACK, DisplayMode, WHITE},
-    game_logic::coord::MoveDirection,
     graphics::KittyPieces,
     pieces::{PieceSize, role_to_utf_enum},
     skin::{PieceStyle, Skin},
     ui::{components::cell::render_cell, prompt::Prompt},
-    utils::{flip_square_if_needed, get_coord_from_square, get_square_from_coord},
+};
+use chess_tui_core::{
+    coord::{Coord, MoveDirection},
+    square_utils::{flip_square_if_needed, get_coord_from_square, get_square_from_coord},
 };
 use ratatui::{
     Frame,

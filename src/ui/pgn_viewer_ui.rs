@@ -1,7 +1,8 @@
 //! PGN viewer page renderer.
 
 use crate::ui::components::centered_rect::centered_rect;
-use crate::{app::App, game_logic::game::GameState, ui::game_ui::render_game_ui};
+use crate::{app::App, ui::game_ui::render_game_ui};
+use chess_tui_core::game_state::GameState;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},

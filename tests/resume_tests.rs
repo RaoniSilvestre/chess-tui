@@ -7,14 +7,14 @@
 use std::sync::Mutex;
 use std::{path::PathBuf, time::Instant};
 
-use chess_tui::game_logic::clock::TimeControl::{self};
 use chess_tui::{
     app::{App, AppResult},
     constants::{Pages, Popups},
-    game_logic::game::GameState,
     handlers::handler::handle_key_events,
     state::resume::{ClockState, ResumeMode, SavedGame, has_save, save, save_path},
 };
+use chess_tui_core::clock::TimeControl::{self};
+use chess_tui_core::game_state::GameState;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tempfile::TempDir;
 
@@ -447,7 +447,7 @@ fn flush_captures_clock_between_moves() -> AppResult<()> {
     start_local_game(&mut app)?;
     // Attach a clock that the game would normally get from the time-control
     // form. After the first move the clock starts for whoever is to move.
-    app.game.logic.clock = chess_tui::game_logic::clock::Clock::new(TimeControl::Blitz);
+    app.game.logic.clock = chess_tui_core::clock::Clock::new(TimeControl::Blitz);
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     let after_move: SavedGame = serde_json::from_str(&std::fs::read_to_string(
@@ -687,7 +687,7 @@ fn quit_flushes_clock_state() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = App::default();
     start_local_game(&mut app)?;
-    app.game.logic.clock = chess_tui::game_logic::clock::Clock::new(TimeControl::Blitz);
+    app.game.logic.clock = chess_tui_core::clock::Clock::new(TimeControl::Blitz);
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     // Assert on the persisted clock value rather than the file mtime: on
@@ -721,7 +721,7 @@ fn reset_home_flushes_then_preserves_save() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = App::default();
     start_local_game(&mut app)?;
-    app.game.logic.clock = chess_tui::game_logic::clock::Clock::new(TimeControl::Blitz);
+    app.game.logic.clock = chess_tui_core::clock::Clock::new(TimeControl::Blitz);
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     // Content-based assertion, not file mtime — see `quit_flushes_clock_state`
@@ -758,7 +758,7 @@ fn tick_throttles_clock_only_writes() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = App::default();
     start_local_game(&mut app)?;
-    app.game.logic.clock = chess_tui::game_logic::clock::Clock::new(TimeControl::Blitz);
+    app.game.logic.clock = chess_tui_core::clock::Clock::new(TimeControl::Blitz);
     play_e2e4(&mut app)?;
 
     app.tick_resume_state();
@@ -840,7 +840,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     start_local_game(&mut app)?;
     // A 0-second clock reports time-up immediately, which the tick handler
     // uses to declare the other side the winner.
-    app.game.logic.clock = chess_tui::game_logic::clock::Clock::new(TimeControl::Custom(0));
+    app.game.logic.clock = chess_tui_core::clock::Clock::new(TimeControl::Custom(0));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     assert!(has_save(ResumeMode::Local));

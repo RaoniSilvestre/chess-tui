@@ -5,10 +5,10 @@ mod local_game_tests {
     use chess_tui::{
         app::{App, AppResult},
         constants::Popups,
-        game_logic::coord::Coord,
         handlers::handler::handle_key_events,
         ui::popup::help::render_help_popup,
     };
+    use chess_tui_core::coord::Coord;
     use ratatui::{
         Terminal,
         backend::TestBackend,
