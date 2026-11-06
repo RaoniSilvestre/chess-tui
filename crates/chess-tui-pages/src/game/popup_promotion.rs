@@ -1,6 +1,6 @@
 //! Pawn promotion piece-selection popup.
 
-use crate::{app::App, constants::WHITE};
+use chess_tui_app::game::Game;
 use chess_tui_ui::components::centered_rect::centered_rect;
 use chess_tui_ui::pieces::{PieceSize, bishop::Bishop, knight::Knight, queen::Queen, rook::Rook};
 use ratatui::{
@@ -13,15 +13,15 @@ use ratatui::{
 
 /// Renders a 4-option piece grid (Queen / Rook / Bishop / Knight) for pawn promotion.
 ///
-/// Also writes the popup cell geometry into `app.game.ui` so that mouse clicks
+/// Also writes the popup cell geometry into `game.ui` so that mouse clicks
 /// on the pieces are handled correctly by the input layer.
-pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
+pub fn render_promotion_popup(frame: &mut Frame, game: &mut Game) {
     let block = Block::default()
         .title("Pawn promotion")
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .padding(Padding::horizontal(1))
-        .border_style(Style::default().fg(WHITE));
+        .border_style(Style::default().fg(chess_tui_ui::color::board_white()));
     let area = centered_rect(40, 40, frame.area());
 
     let text = vec![
@@ -58,16 +58,16 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
         .split(inner_popup_layout_vertical[1]);
 
     // When a promotion is happening, the mouse should be able to know where the icons are
-    app.game.ui.top_x = inner_popup_layout_horizontal[0].x;
-    app.game.ui.top_y = inner_popup_layout_horizontal[0].y;
-    app.game.ui.width = inner_popup_layout_horizontal[0].width;
-    app.game.ui.height = inner_popup_layout_horizontal[0].height;
+    game.ui.top_x = inner_popup_layout_horizontal[0].x;
+    game.ui.top_y = inner_popup_layout_horizontal[0].y;
+    game.ui.width = inner_popup_layout_horizontal[0].width;
+    game.ui.height = inner_popup_layout_horizontal[0].height;
 
-    let piece_style = &app.game.ui.skin.piece_style;
+    let piece_style = &game.ui.skin.piece_style;
     let piece_size = PieceSize::from_dimensions(inner_popup_layout_horizontal[0].height);
-    let piece_color = Some(app.game.runtime.turn());
+    let piece_color = Some(game.runtime.turn());
 
-    let piece_styles = &app.game.ui.available_piece_styles;
+    let piece_styles = &game.ui.available_piece_styles;
     let queen_p = Paragraph::new(Queen::to_string(
         piece_style.clone(),
         piece_size,
@@ -76,7 +76,7 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
     ))
     .block(Block::default())
     .alignment(Alignment::Center)
-    .style(Style::default().bg(if app.game.ui.promotion_cursor == 0 {
+    .style(Style::default().bg(if game.ui.promotion_cursor == 0 {
         Color::LightBlue
     } else {
         Color::Reset // Set to the default background color when the condition is false
@@ -90,7 +90,7 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
     ))
     .block(Block::default())
     .alignment(Alignment::Center)
-    .style(Style::default().bg(if app.game.ui.promotion_cursor == 1 {
+    .style(Style::default().bg(if game.ui.promotion_cursor == 1 {
         Color::LightBlue
     } else {
         Color::Reset // Set to the default background color when the condition is false
@@ -104,7 +104,7 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
     ))
     .block(Block::default())
     .alignment(Alignment::Center)
-    .style(Style::default().bg(if app.game.ui.promotion_cursor == 2 {
+    .style(Style::default().bg(if game.ui.promotion_cursor == 2 {
         Color::LightBlue
     } else {
         Color::Reset // Set to the default background color when the condition is false
@@ -118,7 +118,7 @@ pub fn render_promotion_popup(frame: &mut Frame, app: &mut App) {
     ))
     .block(Block::default())
     .alignment(Alignment::Center)
-    .style(Style::default().bg(if app.game.ui.promotion_cursor == 3 {
+    .style(Style::default().bg(if game.ui.promotion_cursor == 3 {
         Color::LightBlue
     } else {
         Color::Reset // Set to the default background color when the condition is false

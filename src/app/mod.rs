@@ -474,7 +474,15 @@ impl PgnViewerContext for App {
     }
 
     fn pgn_render_board(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
-        crate::ui::game_ui::render_game_ui(frame, self, area);
+        chess_tui_pages::game::render_game_ui(
+            frame,
+            area,
+            &mut self.game,
+            &mut self.kitty_pieces,
+            self.kitty_graphics_enabled,
+            false,
+            false,
+        );
     }
 
     fn pgn_exit(&mut self) {
@@ -587,7 +595,15 @@ impl GamePageContext for App {
     }
 
     fn game_render(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
-        crate::ui::game_ui::render_game_ui(frame, self, area);
+        chess_tui_pages::game::render_game_ui(
+            frame,
+            area,
+            &mut self.game,
+            &mut self.kitty_pieces,
+            self.kitty_graphics_enabled,
+            self.lichess_state.puzzle_game.is_some(),
+            self.ui_state.current_popup == Some(Popups::EndScreen),
+        );
     }
 }
 

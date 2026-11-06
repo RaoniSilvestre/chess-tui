@@ -1,5 +1,11 @@
 //! Shared game page for Solo, Bot, Multiplayer, and Lichess games.
 
+mod popup_end;
+mod popup_promotion;
+mod render;
+
+pub use render::render_game_ui;
+
 use chess_tui_app::game::Game;
 use chess_tui_app::{GamePageContext, GamePageKind, Nav, Page};
 use chess_tui_core::Coord;

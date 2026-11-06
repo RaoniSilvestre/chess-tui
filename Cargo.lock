@@ -477,6 +477,7 @@ version = "2.8.0"
 dependencies = [
  "chess-tui-app",
  "chess-tui-core",
+ "chess-tui-game",
  "chess-tui-lichess",
  "chess-tui-ui",
  "chrono",

@@ -1,11 +1,10 @@
 //! In-game board and piece rendering.
 
-use crate::{
-    app::App,
-    constants::Popups,
-    ui::popup::{end::render_end_popup, promotion::render_promotion_popup},
-};
+use super::popup_end::render_end_popup;
+use super::popup_promotion::render_promotion_popup;
+use chess_tui_app::game::Game;
 use chess_tui_core::{Clock, ClockState, DrawReason, GameOutcome};
+use chess_tui_ui::graphics::KittyPieces;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
@@ -20,7 +19,15 @@ use ratatui::{
 use std::time::Instant;
 
 /// Renders the game board, clock, move history, and any in-game popups.
-pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
+pub fn render_game_ui(
+    frame: &mut Frame<'_>,
+    main_area: Rect,
+    game: &mut Game,
+    kitty_pieces: &mut Option<KittyPieces>,
+    kitty_graphics_enabled: bool,
+    is_puzzle_mode: bool,
+    end_screen_visible: bool,
+) {
     let main_layout_horizontal = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -42,8 +49,8 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         .split(main_layout_horizontal[1]);
 
     // Create layout for board + file labels + clock
-    let has_clock = app.game.runtime.clock().state() != ClockState::Disabled
-        || app.game.runtime.kind() == chess_tui_game::GameKind::Lichess;
+    let has_clock = game.runtime.clock().state() != ClockState::Disabled
+        || game.runtime.kind() == chess_tui_game::GameKind::Lichess;
     let board_with_labels = if has_clock {
         Layout::default()
             .direction(Direction::Vertical)
@@ -67,7 +74,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     if has_clock {
         render_clock(
             frame,
-            app.game.runtime.clock(),
+            game.runtime.clock(),
             board_with_labels[0],
             Instant::now(),
         );
@@ -100,7 +107,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     frame.render_widget(board_block.clone(), board_with_labels[board_index]);
 
     // Split borrows to avoid borrow checker issue
-    let (ui, logic, kitty_pieces) = (&mut app.game.ui, &app.game.runtime, &mut app.kitty_pieces);
+    let (ui, logic, kitty_pieces) = (&mut game.ui, &game.runtime, kitty_pieces);
 
     // Get the inner area of the board (accounting for any block padding)
     let board_inner = board_block.inner(board_with_labels[board_index]);
@@ -108,7 +115,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         board_inner,
         frame,
         logic,
-        kitty_pieces.as_mut().filter(|_| app.kitty_graphics_enabled),
+        kitty_pieces.as_mut().filter(|_| kitty_graphics_enabled),
     );
 
     // Render rank labels (1-8) on the left - aligned with board's inner area
@@ -122,45 +129,37 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     );
 
     //top box for black material
-    let black_taken = app.game.runtime.black_taken_pieces();
-    app.game
-        .ui
+    let black_taken = game.runtime.black_taken_pieces();
+    game.ui
         .black_material_render(board_block.inner(right_box_layout[0]), frame, &black_taken);
 
     // History area
-    app.game.ui.history_render(
-        board_block.inner(right_box_layout[1]),
-        frame,
-        &app.game.runtime,
-    );
+    game.ui
+        .history_render(board_block.inner(right_box_layout[1]), frame, &game.runtime);
 
     //bottom box for white material
-    let white_taken = app.game.runtime.white_taken_pieces();
-    let is_puzzle_mode = app.lichess_state.puzzle_game.is_some();
+    let white_taken = game.runtime.white_taken_pieces();
     if is_puzzle_mode {
-        app.game.ui.white_material_render_with_puzzle_hint(
+        game.ui.white_material_render_with_puzzle_hint(
             board_block.inner(right_box_layout[2]),
             frame,
             &white_taken,
             true,
         );
     } else {
-        app.game.ui.white_material_render(
-            board_block.inner(right_box_layout[2]),
-            frame,
-            &white_taken,
-        );
+        game.ui
+            .white_material_render(board_block.inner(right_box_layout[2]), frame, &white_taken);
     }
 
-    if app.game.runtime.state().is_promotion() {
-        render_promotion_popup(frame, app);
+    if game.runtime.state().is_promotion() {
+        render_promotion_popup(frame, game);
     }
 
-    if let Some(outcome) = app.game.runtime.state().outcome()
-        && app.ui_state.current_popup == Some(Popups::EndScreen)
+    if let Some(outcome) = game.runtime.state().outcome()
+        && end_screen_visible
     {
         // Check if it's Lichess multiplayer (restart not available in Lichess)
-        let is_lichess = app.game.runtime.kind() == chess_tui_game::GameKind::Lichess;
+        let is_lichess = game.runtime.kind() == chess_tui_game::GameKind::Lichess;
 
         render_end_popup(frame, &outcome_message(outcome), is_lichess);
     }
