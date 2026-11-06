@@ -1,7 +1,7 @@
 //! Lichess puzzle state and move validation.
 
 use crate::game_logic::game::Game;
-use chess_tui_core::GameBoard;
+use chess_tui_core::Board;
 use chess_tui_core::square_utils::get_coord_from_square;
 use chess_tui_lichess::{LichessClient, Puzzle};
 use shakmaty::{Position, Square};
@@ -245,7 +245,7 @@ impl PuzzleGame {
         Square::from_ascii(from_str.as_bytes()).ok()
     }
 
-    pub fn load(client: &LichessClient, game_board: &mut GameBoard) -> Result<Puzzle, String> {
+    pub fn load(client: &LichessClient, game_board: &mut Board) -> Result<Puzzle, String> {
         match client.get_next_puzzle() {
             Ok(puzzle) => {
                 log::info!(

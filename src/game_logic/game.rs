@@ -1,9 +1,7 @@
 //! Game state and move execution.
 
 use super::ui::UI;
-use chess_tui_core::{
-    ClockState, Coord, GameBoard, GameState, square_utils::flip_square_if_needed,
-};
+use chess_tui_core::{Board, ClockState, Coord, GameState, square_utils::flip_square_if_needed};
 use chess_tui_game::{GameEvent, GameKind, GameMode, GameRuntime, GameSession, LocalMode};
 use shakmaty::{Color, Move, Role, Square};
 use std::ops::{Deref, DerefMut};
@@ -36,7 +34,7 @@ impl DerefMut for GameLogic {
 }
 
 impl GameLogic {
-    pub fn new(board: GameBoard, turn: Color) -> Self {
+    pub fn new(board: Board, turn: Color) -> Self {
         Self {
             runtime: GameRuntime::new(GameSession::new(board, turn), Box::new(LocalMode)),
         }
@@ -103,7 +101,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(game_board: GameBoard, player_turn: Color) -> Self {
+    pub fn new(game_board: Board, player_turn: Color) -> Self {
         Self {
             logic: GameLogic::new(game_board, player_turn),
             ui: UI::default(),

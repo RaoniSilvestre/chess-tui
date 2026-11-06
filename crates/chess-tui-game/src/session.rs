@@ -1,6 +1,6 @@
 //! Game session state and move application.
 
-use chess_tui_core::{Clock, GameBoard, GameOutcome, GameState, PendingPromotion};
+use chess_tui_core::{Board, Clock, GameOutcome, GameState, PendingPromotion};
 use shakmaty::{Color, Position};
 use std::ops::{Deref, DerefMut};
 use std::time::Instant;
@@ -12,7 +12,7 @@ use std::time::Instant;
 /// new code.
 #[derive(Clone, Debug)]
 pub struct GameSession {
-    board: GameBoard,
+    board: Board,
     clock: Clock,
     turn: Color,
     state: GameState,
@@ -21,7 +21,7 @@ pub struct GameSession {
 impl Default for GameSession {
     fn default() -> Self {
         Self {
-            board: GameBoard::default(),
+            board: Board::default(),
             clock: Clock::default(),
             turn: Color::White,
             state: GameState::Playing,
@@ -30,7 +30,7 @@ impl Default for GameSession {
 }
 
 impl GameSession {
-    pub fn new(board: GameBoard, turn: Color) -> Self {
+    pub fn new(board: Board, turn: Color) -> Self {
         Self {
             board,
             turn,
@@ -38,7 +38,7 @@ impl GameSession {
         }
     }
 
-    pub fn board(&self) -> &GameBoard {
+    pub fn board(&self) -> &Board {
         &self.board
     }
 
@@ -174,7 +174,7 @@ impl GameSession {
 }
 
 impl Deref for GameSession {
-    type Target = GameBoard;
+    type Target = Board;
 
     fn deref(&self) -> &Self::Target {
         &self.board
