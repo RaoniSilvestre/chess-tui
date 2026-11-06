@@ -607,6 +607,9 @@ impl App {
     }
 
     pub fn dispatch_mouse(&mut self, mouse: ratatui::crossterm::event::MouseEvent) {
+        if self.ui_state.current_popup.is_some() {
+            return;
+        }
         self.sync_page();
         if let Some(mut router) = self.router.take() {
             router.handle_mouse(mouse, self);
