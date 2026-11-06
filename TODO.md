@@ -24,7 +24,8 @@
 
 - [x] Moved board rendering into `chess-tui-ui` behind the `BoardView` view model.
 - [x] Removed the temporary `src/ui` re-exports of `chess-tui-ui`.
-- [ ] Move the remaining page-specific popup renderers (promotion, end screen, move input, new game, resignation, puzzle end) into `chess-tui-pages`.
+- [x] Moved game rendering, promotion, and end-screen popups into `chess-tui-pages`.
+- [ ] Move the remaining page-specific popups (move input, new game, resignation, puzzle end) into `chess-tui-pages`.
 
 ## Pages migration
 
