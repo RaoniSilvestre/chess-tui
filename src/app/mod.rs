@@ -1,17 +1,20 @@
 //! Single mutable root passed to every handler; owns all game logic, state structs, and global settings.
 
 use crate::animations::AnimationState;
-use crate::constants::Popups;
+use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
+use crate::handlers::handler::{handle_mouse_events, handle_page_input};
 use crate::state::bot_state::BotState;
 use crate::state::game_mode_state::GameModeState;
 use crate::state::lichess_state::LichessState;
 use crate::state::multiplayer_state::MultiplayerState;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
+use chess_tui_app::{AppContext, Page, Router};
 use chess_tui_core::ClockState;
 use chess_tui_core::GameOutcome;
 use chess_tui_game::GameKind;
+use chess_tui_pages::{CreditsPage, HomePage};
 use chess_tui_ui::graphics::KittyPieces;
 use log::LevelFilter;
 use std::error;
@@ -69,11 +72,15 @@ pub struct App {
     /// Wall-clock time of the last resume-state flush. Used to throttle the
     /// per-tick clock-capture write so we don't hammer the disk.
     pub last_resume_flush_at: Option<std::time::Instant>,
+    /// Active page router. `None` only while a dispatch/render borrows it.
+    pub router: Option<Router<App>>,
+    /// Last page used to build a router page.
+    pub last_page: Pages,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self {
+        let mut app = Self {
             kitty_pieces: None,
             running: true,
             game: Game::default(),
@@ -92,13 +99,132 @@ impl Default for App {
             animations: AnimationState::default(),
             last_saved_move_count: None,
             last_resume_flush_at: None,
+            router: None,
+            last_page: Pages::Home,
+        };
+        app.router = Some(Router::new(Box::new(HomePage::new())));
+        app
+    }
+}
+
+/// Compatibility page for screens that still use the old handlers/renderers.
+struct LegacyPage;
+
+impl Page<App> for LegacyPage {
+    fn handle_key(
+        &mut self,
+        key: ratatui::crossterm::event::KeyEvent,
+        app: &mut App,
+    ) -> chess_tui_app::Nav<App> {
+        handle_page_input(app, key);
+        chess_tui_app::Nav::None
+    }
+
+    fn handle_mouse(
+        &mut self,
+        mouse: ratatui::crossterm::event::MouseEvent,
+        app: &mut App,
+    ) -> chess_tui_app::Nav<App> {
+        let _ = handle_mouse_events(mouse, app);
+        chess_tui_app::Nav::None
+    }
+
+    fn render(
+        &mut self,
+        frame: &mut ratatui::Frame<'_>,
+        area: ratatui::layout::Rect,
+        app: &mut App,
+    ) {
+        crate::ui::main_ui::render_page(frame, app, area);
+    }
+}
+
+impl AppContext for App {
+    fn home_cursor(&self) -> u8 {
+        self.ui_state.menu_cursor
+    }
+
+    fn home_cursor_up(&mut self) {
+        self.ui_state.menu_cursor_up(5);
+    }
+
+    fn home_cursor_down(&mut self) {
+        self.ui_state.menu_cursor_down(5);
+    }
+
+    fn open_game_mode_menu(&mut self) {
+        self.ui_state.menu_cursor = 0;
+        self.menu_select();
+    }
+
+    fn open_lichess_menu(&mut self) {
+        self.ui_state.menu_cursor = 1;
+        self.menu_select();
+    }
+
+    fn open_settings(&mut self) {
+        self.ui_state.menu_cursor = 2;
+        self.menu_select();
+    }
+
+    fn open_help(&mut self) {
+        self.ui_state.menu_cursor = 3;
+        self.menu_select();
+    }
+
+    fn open_credits(&mut self) {
+        self.ui_state.menu_cursor = 4;
+        self.menu_select();
+    }
+
+    fn go_home(&mut self) {
+        self.ui_state.navigate_to_homepage();
+    }
+
+    fn quit(&mut self) {
+        self.quit();
+    }
+
+    fn take_page(&mut self) -> Option<Box<dyn Page<Self>>> {
+        let current = self.ui_state.current_page;
+        if current == self.last_page {
+            return None;
         }
+        self.last_page = current;
+        Some(match current {
+            Pages::Home => Box::new(HomePage::new()),
+            Pages::Credit => Box::new(CreditsPage::new()),
+            _ => Box::new(LegacyPage),
+        })
     }
 }
 
 impl App {
+    pub fn sync_page(&mut self) {
+        if let Some(page) = self.take_page() {
+            self.router = Some(Router::new(page));
+        }
+    }
+
+    pub fn dispatch_key(&mut self, key: ratatui::crossterm::event::KeyEvent) {
+        self.sync_page();
+        if let Some(mut router) = self.router.take() {
+            router.handle_key(key, self);
+            self.router = Some(router);
+        }
+    }
+
+    pub fn dispatch_tick(&mut self) {
+        self.sync_page();
+        if let Some(mut router) = self.router.take() {
+            router.tick(self);
+            self.router = Some(router);
+        }
+    }
+
     /// Handles the tick event of the terminal.
     pub fn tick(&mut self) {
+        self.dispatch_tick();
         // Advance PGN viewer auto-play
         if let Some(ref mut games) = self.pgn_viewer_state
             && let Some(viewer) = games.get_mut(self.pgn_viewer_game_idx)

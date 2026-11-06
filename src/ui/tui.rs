@@ -26,9 +26,18 @@ impl Tui {
         Ok(Self { terminal, events })
     }
 
-    /// Draws one frame by calling [`main_ui::render`] inside a `terminal.draw` closure.
+    /// Draws one frame: the active page, then global overlays and animations.
     pub fn draw(&mut self, app: &mut App) -> AppResult<()> {
-        self.terminal.draw(|frame| main_ui::render(app, frame))?;
+        self.terminal.draw(|frame| {
+            let area = frame.area();
+            app.sync_page();
+            if let Some(mut router) = app.router.take() {
+                router.render(frame, area, app);
+                app.router = Some(router);
+            }
+            main_ui::render_popups(frame, app, area);
+            main_ui::render_animations(frame, app, area);
+        })?;
         Ok(())
     }
 }

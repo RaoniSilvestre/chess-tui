@@ -380,11 +380,13 @@ dependencies = [
 name = "chess-tui"
 version = "2.8.0"
 dependencies = [
+ "chess-tui-app",
  "chess-tui-core",
  "chess-tui-engine",
  "chess-tui-game",
  "chess-tui-lichess",
  "chess-tui-net",
+ "chess-tui-pages",
  "chess-tui-theme",
  "chess-tui-ui",
  "chrono",
@@ -406,6 +408,13 @@ dependencies = [
  "tempfile",
  "throbber-widgets-tui",
  "toml",
+]
+
+[[package]]
+name = "chess-tui-app"
+version = "2.8.0"
+dependencies = [
+ "ratatui",
 ]
 
 [[package]]
@@ -453,6 +462,15 @@ version = "2.8.0"
 dependencies = [
  "log",
  "shakmaty",
+]
+
+[[package]]
+name = "chess-tui-pages"
+version = "2.8.0"
+dependencies = [
+ "chess-tui-app",
+ "chess-tui-ui",
+ "ratatui",
 ]
 
 [[package]]

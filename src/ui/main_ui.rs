@@ -47,11 +47,16 @@ use chess_tui_net::{get_host_ip, setup_game_server};
 use std::path::Path;
 use tachyonfx::{EffectRenderer, Interpolation, Motion, fx};
 
-/// Renders the user interface widgets.
+/// Renders the full UI: page, overlays, and animations.
 pub fn render(app: &mut App, frame: &mut Frame<'_>) {
     let main_area = frame.area();
-    let elapsed = app.animations.tick();
+    render_page(frame, app, main_area);
+    render_popups(frame, app, main_area);
+    render_animations(frame, app, main_area);
+}
 
+/// Renders only the active page.
+pub fn render_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::layout::Rect) {
     match app.ui_state.current_page {
         Pages::Solo => render_game_ui(frame, app, main_area),
         Pages::Multiplayer => render_multiplayer_page(frame, app, main_area),
@@ -72,8 +77,10 @@ pub fn render(app: &mut App, frame: &mut Frame<'_>) {
     if app.ui_state.current_page == Pages::Credit {
         render_credit_popup(frame);
     }
+}
 
-    // Render popups
+/// Renders global popups.
+pub fn render_popups(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::layout::Rect) {
     match app.ui_state.current_popup {
         Some(Popups::EnterHostIP) => {
             render_enter_multiplayer_ip(frame, &app.game.ui.prompt);
@@ -122,14 +129,12 @@ pub fn render(app: &mut App, frame: &mut Frame<'_>) {
             render_new_game_confirmation_popup(frame, app);
         }
         Some(Popups::PuzzleEndScreen) => {
-            // Show puzzle completion message
             let message = if let Some(ref msg) = app.ui_state.popup_message {
                 msg.clone()
             } else {
                 "Puzzle solved! Well done!".to_string()
             };
 
-            // Check if we're still waiting for Elo change calculation
             let (elo_change, is_calculating) = if let Some(puzzle_game) =
                 &app.lichess_state.puzzle_game
             {
@@ -156,32 +161,38 @@ pub fn render(app: &mut App, frame: &mut Frame<'_>) {
         }
         _ => {}
     }
+}
 
-    if app.animations_enabled {
-        let current_page = app.ui_state.current_page;
-
-        if !app.animations.startup_done {
-            app.animations.startup_done = true;
-            app.animations.last_page = Some(current_page);
-            let effect = fx::sweep_in(
-                Motion::UpToDown,
-                15,
-                5,
-                ratatui::style::Color::Black,
-                (750u32, Interpolation::CubicOut),
-            );
-            app.animations.push(effect, main_area);
-        } else if app.animations.last_page != Some(current_page) {
-            let effect = fx::coalesce((300u32, Interpolation::QuadOut));
-            app.animations.push(effect, main_area);
-            app.animations.last_page = Some(current_page);
-        }
-
-        for (effect, area) in &mut app.animations.effects {
-            frame.render_effect(effect, *area, elapsed);
-        }
-        app.animations.effects.retain(|(e, _)| !e.done());
+/// Renders page-transition animations.
+pub fn render_animations(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::layout::Rect) {
+    if !app.animations_enabled {
+        return;
     }
+
+    let elapsed = app.animations.tick();
+    let current_page = app.ui_state.current_page;
+
+    if !app.animations.startup_done {
+        app.animations.startup_done = true;
+        app.animations.last_page = Some(current_page);
+        let effect = fx::sweep_in(
+            Motion::UpToDown,
+            15,
+            5,
+            ratatui::style::Color::Black,
+            (750u32, Interpolation::CubicOut),
+        );
+        app.animations.push(effect, main_area);
+    } else if app.animations.last_page != Some(current_page) {
+        let effect = fx::coalesce((300u32, Interpolation::QuadOut));
+        app.animations.push(effect, main_area);
+        app.animations.last_page = Some(current_page);
+    }
+
+    for (effect, area) in &mut app.animations.effects {
+        frame.render_effect(effect, *area, elapsed);
+    }
+    app.animations.effects.retain(|(e, _)| !e.done());
 }
 
 fn render_multiplayer_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::layout::Rect) {

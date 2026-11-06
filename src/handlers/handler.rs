@@ -56,7 +56,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     // therefore, if there is some popup active, handle it, if not, handle the page event
     match app.ui_state.current_popup {
         Some(popup) => handle_popup_input(app, key_event, popup),
-        None => handle_page_input(app, key_event),
+        None => app.dispatch_key(key_event),
     }
 
     Ok(())

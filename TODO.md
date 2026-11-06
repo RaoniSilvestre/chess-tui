@@ -25,3 +25,11 @@
 - [ ] Move board rendering from `src/game_logic/ui.rs` into `chess-tui-ui` using a `BoardView` view model once `BoardViewState` lives in the game page.
 - [ ] Remove the temporary `src/ui` re-exports of `chess-tui-ui` once pages import the UI crate directly.
 - [ ] Move page-specific menu/popup renderers into `chess-tui-pages`.
+
+## Pages migration
+
+- [ ] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
+- [ ] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages` with `GameRuntime` + `BoardViewState`.
+- [ ] Move page-local state out of `App`/`UIState` into page structs.
+- [ ] Remove the `AppContext` compatibility methods once pages own their services/state directly.
+- [ ] Remove `LegacyPage`, `Pages`, and `Popups` dispatch.
