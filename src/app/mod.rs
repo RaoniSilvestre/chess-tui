@@ -3,7 +3,6 @@
 use crate::animations::AnimationState;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
-use crate::handlers::handler::{handle_mouse_events, handle_page_input};
 use crate::state::bot_state::BotState;
 use crate::state::lichess_state::LichessState;
 use crate::state::multiplayer_state::MultiplayerState;
@@ -12,15 +11,15 @@ use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_app::GameModeState;
 use chess_tui_app::{
-    AppContext, GameModeContext, LichessMenuContext, OngoingGamesContext, Page, PgnViewerContext,
-    Router, SettingsContext,
+    AppContext, GameModeContext, GamePageContext, GamePageKind, LichessMenuContext,
+    OngoingGamesContext, Page, PgnViewerContext, Router, SettingsContext,
 };
 use chess_tui_core::GameOutcome;
 use chess_tui_core::{Clock, ClockState};
 use chess_tui_game::GameKind;
 use chess_tui_pages::{
-    CreditsPage, GameModeMenuPage, HomePage, LichessMenuPage, OngoingGamesPage, PgnViewerPage,
-    SettingsPage,
+    CreditsPage, GameModeMenuPage, GamePage, HomePage, LichessMenuPage, OngoingGamesPage,
+    PgnViewerPage, SettingsPage,
 };
 use chess_tui_theme::DisplayMode;
 use chess_tui_ui::graphics::KittyPieces;
@@ -115,38 +114,6 @@ impl Default for App {
     }
 }
 
-/// Compatibility page for screens that still use the old handlers/renderers.
-struct LegacyPage;
-
-impl Page<App> for LegacyPage {
-    fn handle_key(
-        &mut self,
-        key: ratatui::crossterm::event::KeyEvent,
-        app: &mut App,
-    ) -> chess_tui_app::Nav<App> {
-        handle_page_input(app, key);
-        chess_tui_app::Nav::None
-    }
-
-    fn handle_mouse(
-        &mut self,
-        mouse: ratatui::crossterm::event::MouseEvent,
-        app: &mut App,
-    ) -> chess_tui_app::Nav<App> {
-        let _ = handle_mouse_events(mouse, app);
-        chess_tui_app::Nav::None
-    }
-
-    fn render(
-        &mut self,
-        frame: &mut ratatui::Frame<'_>,
-        area: ratatui::layout::Rect,
-        app: &mut App,
-    ) {
-        crate::ui::main_ui::render_page(frame, app, area);
-    }
-}
-
 impl AppContext for App {
     fn home_cursor(&self) -> u8 {
         self.ui_state.menu_cursor
@@ -210,7 +177,10 @@ impl AppContext for App {
                 self.pgn_viewer_state.take().unwrap_or_default(),
                 self.pgn_viewer_game_idx,
             )),
-            _ => Box::new(LegacyPage),
+            Pages::Solo => Box::new(GamePage::new(GamePageKind::Solo)),
+            Pages::Bot => Box::new(GamePage::new(GamePageKind::Bot)),
+            Pages::Multiplayer => Box::new(GamePage::new(GamePageKind::Multiplayer)),
+            Pages::Lichess => Box::new(GamePage::new(GamePageKind::Lichess)),
         })
     }
 }
@@ -516,6 +486,113 @@ impl PgnViewerContext for App {
     }
 }
 
+impl GamePageContext for App {
+    fn game_take(&mut self) -> chess_tui_app::game::Game {
+        std::mem::take(&mut self.game)
+    }
+
+    fn game_put(&mut self, game: chess_tui_app::game::Game) {
+        self.game = game;
+    }
+
+    fn game_is_puzzle(&self) -> bool {
+        self.lichess_state.puzzle_game.is_some()
+    }
+
+    fn game_selected_color(&self) -> Option<shakmaty::Color> {
+        self.game_mode_state.selected_color
+    }
+
+    fn game_is_lichess(&self) -> bool {
+        self.game.runtime.kind() == GameKind::Lichess
+    }
+
+    fn game_validate_promotion(
+        &mut self,
+        game: &mut chess_tui_app::game::Game,
+        move_uci: String,
+    ) -> bool {
+        let placeholder = std::mem::take(&mut self.game);
+        self.game = std::mem::take(game);
+        let result = self.validate_puzzle_move_uci(move_uci);
+        *game = std::mem::take(&mut self.game);
+        self.game = placeholder;
+        result
+    }
+
+    fn game_validate_move(
+        &mut self,
+        game: &mut chess_tui_app::game::Game,
+        from: shakmaty::Square,
+        to: shakmaty::Square,
+    ) {
+        let placeholder = std::mem::take(&mut self.game);
+        self.game = std::mem::take(game);
+        self.validate_puzzle_move_after_execution(from, to);
+        *game = std::mem::take(&mut self.game);
+        self.game = placeholder;
+    }
+
+    fn game_check_end(&mut self, game: &mut chess_tui_app::game::Game) {
+        let placeholder = std::mem::take(&mut self.game);
+        self.game = std::mem::take(game);
+        self.check_and_show_game_end();
+        *game = std::mem::take(&mut self.game);
+        self.game = placeholder;
+    }
+
+    fn game_puzzle_hint(&mut self, game: &mut chess_tui_app::game::Game) {
+        let placeholder = std::mem::take(&mut self.game);
+        self.game = std::mem::take(game);
+        if let Some(puzzle_game) = &self.lichess_state.puzzle_game {
+            puzzle_game.show_hint(&mut self.game);
+        }
+        *game = std::mem::take(&mut self.game);
+        self.game = placeholder;
+    }
+
+    fn game_toggle_end_screen(&mut self) {
+        if self.ui_state.current_popup == Some(Popups::EndScreen) {
+            self.ui_state.close_popup();
+            self.ui_state.end_screen_dismissed = true;
+        } else if self.ui_state.end_screen_dismissed {
+            self.ui_state.end_screen_dismissed = false;
+            self.show_end_screen();
+        } else {
+            self.show_end_screen();
+        }
+    }
+
+    fn game_request_restart(&mut self) {
+        self.request_restart();
+    }
+
+    fn game_reset_home(&mut self) {
+        self.reset_home();
+    }
+
+    fn game_open_move_input(&mut self) {
+        self.game.ui.prompt.reset();
+        self.ui_state.current_popup = Some(Popups::MoveInputSelection);
+    }
+
+    fn game_cycle_skin(&mut self, next: bool) {
+        self.cycle_skin(next);
+    }
+
+    fn game_prepare(&mut self, kind: GamePageKind) -> bool {
+        match kind {
+            GamePageKind::Bot => self.prepare_bot_page(),
+            GamePageKind::Multiplayer => self.prepare_multiplayer_page(),
+            GamePageKind::Solo | GamePageKind::Lichess => true,
+        }
+    }
+
+    fn game_render(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
+        crate::ui::game_ui::render_game_ui(frame, self, area);
+    }
+}
+
 impl App {
     pub fn sync_page(&mut self) {
         if let Some(page) = self.take_page() {
@@ -527,6 +604,14 @@ impl App {
         self.sync_page();
         if let Some(mut router) = self.router.take() {
             router.handle_key(key, self);
+            self.router = Some(router);
+        }
+    }
+
+    pub fn dispatch_mouse(&mut self, mouse: ratatui::crossterm::event::MouseEvent) {
+        self.sync_page();
+        if let Some(mut router) = self.router.take() {
+            router.handle_mouse(mouse, self);
             self.router = Some(router);
         }
     }

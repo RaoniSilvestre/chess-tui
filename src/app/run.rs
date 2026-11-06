@@ -1,7 +1,7 @@
 use crate::{
     app::{App, AppResult},
     event::Event,
-    handlers::handler::{handle_key_events, handle_mouse_events},
+    handlers::handler::handle_key_events,
     sound::play_move_sound,
     ui::tui::Tui,
 };
@@ -19,7 +19,6 @@ impl App {
 
             self.handle_events(&mut tui)?;
 
-            self.game.runtime.tick();
             self.handle_game_events();
             self.check_game_end_status();
 
@@ -40,7 +39,7 @@ impl App {
             match tui.events.try_next() {
                 Some(Event::Tick) => self.tick(),
                 Some(Event::Key(key_event)) => handle_key_events(key_event, self)?,
-                Some(Event::Mouse(mouse_event)) => handle_mouse_events(mouse_event, self)?,
+                Some(Event::Mouse(mouse_event)) => self.dispatch_mouse(mouse_event),
                 Some(Event::Resize(_, _)) | None => {}
             }
             std::thread::sleep(std::time::Duration::from_millis(16));
@@ -48,7 +47,7 @@ impl App {
             match tui.events.next()? {
                 Event::Tick => self.tick(),
                 Event::Key(key_event) => handle_key_events(key_event, self)?,
-                Event::Mouse(mouse_event) => handle_mouse_events(mouse_event, self)?,
+                Event::Mouse(mouse_event) => self.dispatch_mouse(mouse_event),
                 Event::Resize(_, _) => {}
             }
         };

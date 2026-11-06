@@ -138,3 +138,85 @@ impl App {
         }
     }
 }
+
+impl App {
+    /// Prepare the bot page and report whether the board should be rendered.
+    pub fn prepare_bot_page(&mut self) -> bool {
+        if self
+            .bot_state
+            .chess_engine_path
+            .as_ref()
+            .is_none_or(|p| p.is_empty())
+        {
+            self.ui_state.popup_message = Some(
+                "Chess engine path not configured.\n\n".to_string()
+                    + &format!(
+                        "To configure the chess engine follow the documentation: {}/Bot/bot-engines\n\n",
+                        crate::constants::DOCS_URL
+                    )
+                    + "Example:\n"
+                    + "chess-tui -e /opt/homebrew/opt/stockfish\n"
+                    + " or execute the script: ./scripts/install-stockfish.sh\n"
+                    + "to install stockfish automatically and set it as the chess engine path \n",
+            );
+            self.ui_state.current_popup = Some(crate::constants::Popups::Error);
+            return false;
+        }
+
+        if let Some(engine_path) = &self.bot_state.chess_engine_path {
+            let command_path = engine_path.split_whitespace().next().unwrap_or(engine_path);
+            if !std::path::Path::new(command_path).exists()
+                || !std::path::Path::new(command_path).is_file()
+            {
+                self.ui_state.popup_message = Some(format!(
+                    "Chess engine path is invalid.\n\n\
+                    The configured path does not exist or is not a file:\n\
+                    {}\n\n\
+                    Please check the path and update it in your configuration.\n\n\
+                    To configure the chess engine follow the documentation: {}/Bot/bot-engines\n\n\
+                    Example:\n\
+                    chess-tui -e /opt/homebrew/bin/stockfish\n\
+                    or execute the script: ./scripts/install-stockfish.sh\n\
+                    to install stockfish automatically and set it as the chess engine path",
+                    command_path,
+                    crate::constants::DOCS_URL
+                ));
+                self.ui_state.current_popup = Some(crate::constants::Popups::Error);
+                return false;
+            }
+        }
+
+        self.game_mode_state.resolve_selected_color();
+        if self.game.runtime.kind() != chess_tui_game::GameKind::Bot {
+            self.bot_setup();
+            false
+        } else {
+            true
+        }
+    }
+
+    /// Prepare the multiplayer page and report whether the board should be rendered.
+    pub fn prepare_multiplayer_page(&mut self) -> bool {
+        self.game_mode_state.resolve_selected_color();
+        if self.ui_state.current_popup == Some(crate::constants::Popups::Error) {
+            return false;
+        }
+        if self.game.runtime.kind() != chess_tui_game::GameKind::Tcp {
+            if self.multiplayer_state.host_ip.is_none() {
+                if self.multiplayer_state.hosting == Some(true) {
+                    if let Some(color) = self.game_mode_state.selected_color {
+                        chess_tui_net::setup_game_server(color);
+                        self.multiplayer_state.host_ip = Some("127.0.0.1".to_string());
+                    }
+                } else {
+                    self.ui_state.current_popup = Some(crate::constants::Popups::EnterHostIP);
+                }
+            } else {
+                self.create_opponent();
+            }
+            false
+        } else {
+            self.game.runtime.is_ready()
+        }
+    }
+}

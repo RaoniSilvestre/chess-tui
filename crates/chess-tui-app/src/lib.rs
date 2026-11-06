@@ -1,6 +1,16 @@
 //! Page and modal framework for the application.
 
+pub mod game;
 pub mod game_mode;
+
+/// The concrete game page being shown.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum GamePageKind {
+    Solo,
+    Bot,
+    Multiplayer,
+    Lichess,
+}
 
 use ratatui::Frame;
 use ratatui::crossterm::event::{KeyEvent, MouseEvent};
@@ -180,4 +190,33 @@ pub trait PgnViewerContext: AppContext {
     fn pgn_render_board(&mut self, frame: &mut Frame<'_>, area: Rect);
     /// Leave the viewer and reset the shared game state.
     fn pgn_exit(&mut self);
+}
+
+/// Game-page context. The page owns the game while it handles input/render,
+/// then hands it back so global popups and app services can use it.
+pub trait GamePageContext: AppContext {
+    fn game_take(&mut self) -> game::Game;
+    fn game_put(&mut self, game: game::Game);
+
+    fn game_is_puzzle(&self) -> bool;
+    fn game_selected_color(&self) -> Option<shakmaty::Color>;
+    fn game_is_lichess(&self) -> bool;
+
+    fn game_validate_promotion(&mut self, game: &mut game::Game, move_uci: String) -> bool;
+    fn game_validate_move(
+        &mut self,
+        game: &mut game::Game,
+        from: shakmaty::Square,
+        to: shakmaty::Square,
+    );
+    fn game_check_end(&mut self, game: &mut game::Game);
+    fn game_puzzle_hint(&mut self, game: &mut game::Game);
+    fn game_toggle_end_screen(&mut self);
+
+    fn game_request_restart(&mut self);
+    fn game_reset_home(&mut self);
+    fn game_open_move_input(&mut self);
+    fn game_cycle_skin(&mut self, next: bool);
+    fn game_prepare(&mut self, kind: GamePageKind) -> bool;
+    fn game_render(&mut self, frame: &mut Frame<'_>, area: Rect);
 }

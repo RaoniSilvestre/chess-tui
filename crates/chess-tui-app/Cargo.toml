@@ -9,6 +9,9 @@ publish = false
 
 [dependencies]
 chess-tui-core = { path = "../chess-tui-core" }
+chess-tui-game = { path = "../chess-tui-game" }
+chess-tui-ui = { path = "../chess-tui-ui" }
+log = "0.4.32"
 chess-tui-lichess = { path = "../chess-tui-lichess" }
 rand = "0.10.1"
 ratatui = { version = "0.30.0", features = ["serde"] }

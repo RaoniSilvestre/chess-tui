@@ -415,7 +415,10 @@ name = "chess-tui-app"
 version = "2.8.0"
 dependencies = [
  "chess-tui-core",
+ "chess-tui-game",
  "chess-tui-lichess",
+ "chess-tui-ui",
+ "log",
  "rand 0.10.3",
  "ratatui",
  "shakmaty",
