@@ -39,8 +39,6 @@ use crate::{
     },
 };
 
-use super::pgn_viewer_ui::render_pgn_viewer;
-
 use crate::{app::App, constants::Pages};
 use chess_tui_net::{get_host_ip, setup_game_server};
 use std::path::Path;
@@ -65,9 +63,8 @@ pub fn render_page(frame: &mut Frame<'_>, app: &mut App, main_area: ratatui::lay
             }
         }
         Pages::Bot => render_bot_page(frame, app, main_area),
-        Pages::LichessMenu | Pages::OngoingGames => {}
+        Pages::LichessMenu | Pages::OngoingGames | Pages::PgnViewer => {}
         Pages::GameModeMenu => render_game_mode_menu(frame, app),
-        Pages::PgnViewer => render_pgn_viewer(frame, app),
         Pages::SettingsMenu => render_settings_menu(frame, app),
         Pages::Home | Pages::Credit => render_menu_ui(frame, app, main_area),
     }

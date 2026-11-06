@@ -18,6 +18,7 @@ pub const SPEEDS: &[(f32, &str)] = &[
 ];
 pub const DEFAULT_SPEED_IDX: usize = 1; // 1x
 
+#[derive(Clone)]
 pub struct PgnViewer {
     /// positions[0] = starting position, positions[i] = position after moves[i-1]
     positions: Vec<Chess>,

@@ -169,3 +169,15 @@ pub trait OngoingGamesContext: AppContext {
     fn ongoing_game_request_resign(&mut self, index: usize);
     fn ongoing_games_back(&mut self);
 }
+
+/// PGN viewer context.
+pub trait PgnViewerContext: AppContext {
+    /// Mirror the page-owned viewer list into the shared compatibility fields.
+    fn pgn_mirror(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize);
+    /// Sync the current PGN ply into the board model.
+    fn pgn_sync_board(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize);
+    /// Render the shared game board and history panel.
+    fn pgn_render_board(&mut self, frame: &mut Frame<'_>, area: Rect);
+    /// Leave the viewer and reset the shared game state.
+    fn pgn_exit(&mut self);
+}

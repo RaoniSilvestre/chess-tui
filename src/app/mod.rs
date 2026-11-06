@@ -12,14 +12,15 @@ use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_app::GameModeState;
 use chess_tui_app::{
-    AppContext, GameModeContext, LichessMenuContext, OngoingGamesContext, Page, Router,
-    SettingsContext,
+    AppContext, GameModeContext, LichessMenuContext, OngoingGamesContext, Page, PgnViewerContext,
+    Router, SettingsContext,
 };
 use chess_tui_core::GameOutcome;
 use chess_tui_core::{Clock, ClockState};
 use chess_tui_game::GameKind;
 use chess_tui_pages::{
-    CreditsPage, GameModeMenuPage, HomePage, LichessMenuPage, OngoingGamesPage, SettingsPage,
+    CreditsPage, GameModeMenuPage, HomePage, LichessMenuPage, OngoingGamesPage, PgnViewerPage,
+    SettingsPage,
 };
 use chess_tui_theme::DisplayMode;
 use chess_tui_ui::graphics::KittyPieces;
@@ -205,6 +206,10 @@ impl AppContext for App {
             Pages::GameModeMenu => Box::new(GameModeMenuPage::new()),
             Pages::LichessMenu => Box::new(LichessMenuPage::new(self.game_mode_state.clock_cursor)),
             Pages::OngoingGames => Box::new(OngoingGamesPage::new()),
+            Pages::PgnViewer => Box::new(PgnViewerPage::new(
+                self.pgn_viewer_state.take().unwrap_or_default(),
+                self.pgn_viewer_game_idx,
+            )),
             _ => Box::new(LegacyPage),
         })
     }
@@ -490,6 +495,27 @@ impl OngoingGamesContext for App {
     }
 }
 
+impl PgnViewerContext for App {
+    fn pgn_mirror(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize) {
+        self.pgn_viewer_state = Some(games.to_vec());
+        self.pgn_viewer_game_idx = game_idx;
+    }
+
+    fn pgn_sync_board(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize) {
+        crate::ui::pgn_viewer_ui::sync_viewer_to_board(self, games, game_idx);
+    }
+
+    fn pgn_render_board(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
+        crate::ui::game_ui::render_game_ui(frame, self, area);
+    }
+
+    fn pgn_exit(&mut self) {
+        self.pgn_viewer_state = None;
+        self.pgn_viewer_game_idx = 0;
+        self.reset_home();
+    }
+}
+
 impl App {
     pub fn sync_page(&mut self) {
         if let Some(page) = self.take_page() {
@@ -516,12 +542,6 @@ impl App {
     /// Handles the tick event of the terminal.
     pub fn tick(&mut self) {
         self.dispatch_tick();
-        // Advance PGN viewer auto-play
-        if let Some(ref mut games) = self.pgn_viewer_state
-            && let Some(viewer) = games.get_mut(self.pgn_viewer_game_idx)
-        {
-            viewer.tick();
-        }
 
         // Update cursor blink state (used to flicker the cursor cell when a piece is selected)
         self.game.ui.update_cursor_blink();

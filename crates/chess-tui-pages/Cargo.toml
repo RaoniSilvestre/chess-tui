@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 chess-tui-app = { path = "../chess-tui-app" }
+chess-tui-core = { path = "../chess-tui-core" }
 chess-tui-lichess = { path = "../chess-tui-lichess" }
 chrono = "0.4.42"
 chess-tui-ui = { path = "../chess-tui-ui" }
