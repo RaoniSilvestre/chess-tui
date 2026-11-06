@@ -28,8 +28,8 @@
 
 ## Pages migration
 
-- [ ] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
+- [x] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
 - [ ] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages` with `GameRuntime` + `BoardViewState`.
 - [ ] Move page-local state out of `App`/`UIState` into page structs.
-- [ ] Remove the `AppContext` compatibility methods once pages own their services/state directly.
+- [ ] Remove the temporary per-page context traits (`SettingsContext`, `GameModeContext`, `LichessMenuContext`, `OngoingGamesContext`, `PgnViewerContext`) once pages own their services/state directly. They are scaffolding, not the target API.
 - [ ] Remove `LegacyPage`, `Pages`, and `Popups` dispatch.
