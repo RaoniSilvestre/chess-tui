@@ -37,8 +37,10 @@
 - [x] Add the `page` crate for `Page`, `PageAction`, `PageContext`, `Router`, and `PageFactory`.
 - [x] Remove the `pages` crate's dependency on `app`; pages now return actions instead of mutating `App`.
 - [x] Move page-local state into pages (Home, Settings, GameModeMenu, LichessMenu, OngoingGames, PgnViewer, GamePage).
-- [x] Give `GamePage` ownership of the game handle and board view state.
+- [x] Split the generic game page into `LocalGamePage`, `BotGamePage`, `MultiplayerGamePage`, and `LichessGamePage` with a shared `GameBoard` component.
+- [x] Give game pages ownership of the game handle and board view state.
 - [x] Split `App` into composition/dispatch, navigation, action reducer, and modal helper modules.
+- [x] Move all domain state out of `App` into a `Services` container; `App` now only owns router, page factory, services, lifecycle, and pending page.
 
 ## App phase 2 follow-ups
 

@@ -35,7 +35,7 @@ impl App {
 
     fn handle_events(&mut self, tui: &mut Tui) -> AppResult<()> {
         // Handle events fast loop during animations, blocking otherwise.
-        if self.animations.is_active() {
+        if self.services.animations.is_active() {
             match tui.events.try_next() {
                 Some(Event::Tick) => self.tick(),
                 Some(Event::Key(key_event)) => handle_key_events(key_event, self)?,
@@ -56,7 +56,7 @@ impl App {
     }
 
     fn handle_game_events(&mut self) {
-        for event in self.game_mut().runtime.take_events() {
+        for event in self.services.game_mut().runtime.take_events() {
             match event {
                 GameEvent::MovePlayed => play_move_sound(),
                 GameEvent::Error(message) => {

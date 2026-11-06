@@ -5,7 +5,7 @@
 //! game from a saved snapshot.
 
 use crate::App;
-use crate::GamePageKind;
+use crate::GameModeKind;
 use session::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
@@ -19,9 +19,9 @@ impl App {
     /// Multiplayer and Lichess games are not eligible — their state lives on
     /// the wire / on lichess.org.
     pub fn current_resume_mode(&self) -> Option<ResumeMode> {
-        match (self.current_game_kind(), self.game_mut().runtime.kind()) {
-            (Some(GamePageKind::Solo), ::game::GameKind::Local) => Some(ResumeMode::Local),
-            (Some(GamePageKind::Bot), ::game::GameKind::Bot) => Some(ResumeMode::Bot),
+        match (self.current_game_mode(), self.services.game_mut().runtime.kind()) {
+            (Some(GameModeKind::Local), ::game::GameKind::Local) => Some(ResumeMode::Local),
+            (Some(GameModeKind::Bot), ::game::GameKind::Bot) => Some(ResumeMode::Bot),
             _ => None,
         }
     }
@@ -40,8 +40,7 @@ impl App {
     /// just stares at the board.
     pub fn tick_resume_state(&mut self) {
         let now = std::time::Instant::now();
-        let recent = self
-            .last_resume_flush_at
+        let recent = self.services.last_resume_flush_at
             .is_some_and(|t| now.duration_since(t) < std::time::Duration::from_secs(1));
         if recent {
             // Allow the move-guarded write to slip through immediately; only
@@ -50,7 +49,7 @@ impl App {
             return;
         }
         self.write_resume_state(true);
-        self.last_resume_flush_at = Some(now);
+        self.services.last_resume_flush_at = Some(now);
     }
 
     /// Bypasses the move-count guard so the clock's current value is
@@ -59,7 +58,7 @@ impl App {
     /// updated later.
     pub fn flush_resume_state(&mut self) {
         self.write_resume_state(true);
-        self.last_resume_flush_at = Some(std::time::Instant::now());
+        self.services.last_resume_flush_at = Some(std::time::Instant::now());
     }
 
     fn write_resume_state(&mut self, force: bool) {
@@ -70,15 +69,15 @@ impl App {
         // Mid-promotion is a half-move — wait for the user to pick a piece.
         // Terminal states get cleared by `clear_resume_state_on_end`, so we
         // intentionally skip writing them here too.
-        if !self.game_mut().runtime.state().is_playing() {
+        if !self.services.game_mut().runtime.state().is_playing() {
             return;
         }
 
-        let count = self.game_mut().runtime.moves().len();
+        let count = self.services.game_mut().runtime.moves().len();
         if count == 0 {
             return;
         }
-        if !force && self.last_saved_move_count == Some(count) {
+        if !force && self.services.last_saved_move_count == Some(count) {
             return;
         }
 
@@ -88,7 +87,7 @@ impl App {
         };
         let clock = self.clock_state_for_save();
         let (fen, is_flipped, taken_pieces, moves_uci) = {
-            let game = self.game_mut();
+            let game = self.services.game_mut();
             (
                 game.runtime.fen(),
                 game.runtime.is_flipped(),
@@ -115,35 +114,35 @@ impl App {
         };
 
         save(mode, &saved);
-        self.last_saved_move_count = Some(count);
+        self.services.last_saved_move_count = Some(count);
     }
 
     fn clock_state_for_save(&self) -> Option<ClockState> {
-        let clock = self.game().runtime.clock().clone();
+        let clock = self.services.game().runtime.clock().clone();
         let now = Instant::now();
         let white = clock.get_time(Color::White, now);
         let black = clock.get_time(Color::Black, now);
         Some(ClockState {
             white_ms: white.as_millis() as u64,
             black_ms: black.as_millis() as u64,
-            clock_cursor: self.game_mode_state.clock_cursor,
-            custom_minutes: self.game_mode_state.custom_time_minutes,
+            clock_cursor: self.services.game_mode_state.clock_cursor,
+            custom_minutes: self.services.game_mode_state.custom_time_minutes,
         })
     }
 
     fn bot_config_for_save(&self) -> Option<BotConfig> {
-        let path = self.bot_state.chess_engine_path.clone()?;
-        let player_color = match self.game_mode_state.selected_color {
+        let path = self.services.bot_state.chess_engine_path.clone()?;
+        let player_color = match self.services.game_mode_state.selected_color {
             Some(Color::White) => "white",
             Some(Color::Black) => "black",
             None => "white",
         };
         Some(BotConfig {
             path,
-            depth: self.bot_state.bot_depth,
-            difficulty: self.bot_state.bot_difficulty,
+            depth: self.services.bot_state.bot_depth,
+            difficulty: self.services.bot_state.bot_difficulty,
             player_color: player_color.to_string(),
-            is_random_color: self.game_mode_state.is_random_color,
+            is_random_color: self.services.game_mode_state.is_random_color,
         })
     }
 
@@ -152,7 +151,7 @@ impl App {
     /// explicitly starts a fresh game in the same mode.
     pub fn clear_resume_state(&mut self, mode: ResumeMode) {
         delete(mode);
-        self.last_saved_move_count = None;
+        self.services.last_saved_move_count = None;
     }
 
     /// Convenience used by end-of-game hooks: clears the save for whichever
@@ -193,12 +192,12 @@ impl App {
         }
 
         // Reset to a fresh game and preserve theme like reset_home does.
-        let display_mode = self.game_mut().ui.display_mode;
-        let current_skin = self.game_mut().ui.skin.clone();
-        self.replace_game(Game::default());
-        self.game_mut().ui.display_mode = display_mode;
-        self.game_mut().ui.skin = current_skin;
-        self.game_mut().ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
+        let display_mode = self.services.game_mut().ui.display_mode;
+        let current_skin = self.services.game_mut().ui.skin.clone();
+        self.services.replace_game(Game::default());
+        self.services.game_mut().ui.display_mode = display_mode;
+        self.services.game_mut().ui.skin = current_skin;
+        self.services.game_mut().ui.available_piece_styles = self.services.theme_state.available_piece_styles.clone();
 
         if saved.moves_uci.is_empty() {
             // Old-format save (or zero-move snapshot): jump straight to the
@@ -215,7 +214,7 @@ impl App {
                     .filter_map(|r| r.to_piece())
                     .collect();
                 let load_result = {
-                    let mut game = self.game_mut();
+                    let mut game = self.services.game_mut();
                     game.runtime
                         .load_history(vec![position], vec![], taken_pieces, 0)
                 };
@@ -231,14 +230,14 @@ impl App {
             // `reconstruct_history` resets the board, applies each move, and
             // sanity-checks the final position against `expected_fen`.
             let moves_joined = saved.moves_uci.join(" ");
-            self.game_mut()
+            self.services.game_mut()
                 .runtime
                 .reconstruct_history(&moves_joined, Some(&saved.fen));
         }
 
-        self.game_mut().runtime.set_flipped(saved.is_flipped);
-        self.game_mut().runtime.sync_turn_with_position();
-        self.game_mut().runtime.start_playing();
+        self.services.game_mut().runtime.set_flipped(saved.is_flipped);
+        self.services.game_mut().runtime.sync_turn_with_position();
+        self.services.game_mut().runtime.start_playing();
 
         // Restore any saved clock + the form selection used to create it so a
         // follow-up "new game" presents the same time control by default.
@@ -250,11 +249,11 @@ impl App {
             // Game was mid-flight before the quit; start the side-to-move
             // clock immediately so resume feels continuous instead of frozen.
             clock.start(Instant::now());
-            self.game_mut().runtime.set_clock(clock);
-            self.game_mode_state.clock_cursor = cs.clock_cursor;
-            self.game_mode_state.custom_time_minutes = cs.custom_minutes;
+            self.services.game_mut().runtime.set_clock(clock);
+            self.services.game_mode_state.clock_cursor = cs.clock_cursor;
+            self.services.game_mode_state.custom_time_minutes = cs.custom_minutes;
         } else {
-            self.game_mut()
+            self.services.game_mut()
                 .runtime
                 .set_clock(Clock::new(TimeControl::NoClock));
         }
@@ -262,7 +261,7 @@ impl App {
         match mode {
             ResumeMode::Local => {
                 self.show_solo();
-                self.last_saved_move_count = Some(0);
+                self.services.last_saved_move_count = Some(0);
             }
             ResumeMode::Bot => {
                 let Some(bot_cfg) = saved.bot.as_ref() else {
@@ -273,18 +272,18 @@ impl App {
                     "black" => Color::Black,
                     _ => Color::White,
                 };
-                self.bot_state.chess_engine_path = Some(bot_cfg.path.clone());
-                self.bot_state.bot_depth = bot_cfg.depth;
-                self.bot_state.bot_difficulty = bot_cfg.difficulty;
-                self.game_mode_state.selected_color = Some(player_color);
-                self.game_mode_state.is_random_color = bot_cfg.is_random_color;
+                self.services.bot_state.chess_engine_path = Some(bot_cfg.path.clone());
+                self.services.bot_state.bot_depth = bot_cfg.depth;
+                self.services.bot_state.bot_difficulty = bot_cfg.difficulty;
+                self.services.game_mode_state.selected_color = Some(player_color);
+                self.services.game_mode_state.is_random_color = bot_cfg.is_random_color;
 
                 // Re-launch the engine. `Bot::new` matches the `bot_setup`
                 // call path so the resumed game behaves like a fresh one.
-                let is_bot_starting = self.game_mut().runtime.turn() != player_color
+                let is_bot_starting = self.services.game_mut().runtime.turn() != player_color
                     && player_color == Color::White
-                    || (player_color == Color::Black && self.game_mut().runtime.turn() == Color::White);
-                self.game_mut()
+                    || (player_color == Color::Black && self.services.game_mut().runtime.turn() == Color::White);
+                self.services.game_mut()
                     .runtime
                     .set_mode(Box::new(::game::BotMode::new(::game::Bot::new(
                         &bot_cfg.path,
@@ -294,7 +293,7 @@ impl App {
                     ))));
 
                 self.show_bot();
-                self.last_saved_move_count = Some(0);
+                self.services.last_saved_move_count = Some(0);
 
                 // BotMode::tick starts the engine if it is the bot's turn.
             }

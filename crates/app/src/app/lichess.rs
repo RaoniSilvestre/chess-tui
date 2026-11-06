@@ -22,10 +22,10 @@ impl App {
         match LichessClient::new(token.clone()).get_user_profile() {
             Ok(profile) => {
                 // Token is valid, save it
-                self.lichess_state.token = Some(token.clone());
-                self.lichess_state.client = Some(LichessClient::new(token));
+                self.services.lichess_state.token = Some(token.clone());
+                self.services.lichess_state.client = Some(LichessClient::new(token));
                 let username = profile.username.clone();
-                self.lichess_state.user_profile = Some(profile);
+                self.services.lichess_state.user_profile = Some(profile);
 
                 // Save to config file
                 self.update_config_from_app();
@@ -58,13 +58,13 @@ impl App {
     /// Clears the Lichess token and user profile, persists the change, and returns to the home page.
     pub fn disconnect_lichess(&mut self) {
         // Clear the token
-        self.lichess_state.token = None;
+        self.services.lichess_state.token = None;
 
         // Clear user profile
-        self.lichess_state.user_profile = None;
+        self.services.lichess_state.user_profile = None;
 
         // Clear ongoing games
-        self.lichess_state.ongoing_games.clear();
+        self.services.lichess_state.ongoing_games.clear();
 
         // Save to config file
         self.update_config_from_app();
@@ -80,17 +80,17 @@ impl App {
     /// Starts a background thread to seek a Lichess correspondence game and opens the seeking popup.
     /// The result is polled each tick via `check_lichess_seek`.
     pub fn create_lichess_opponent(&mut self, cursor: u8) {
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
         let client = client.clone();
 
         let (tx, rx) = channel();
-        self.lichess_state.receiver = Some(rx);
+        self.services.lichess_state.receiver = Some(rx);
 
         let cancellation_token = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.lichess_state.cancellation_token = Some(cancellation_token.clone());
+        self.services.lichess_state.cancellation_token = Some(cancellation_token.clone());
 
         // Lichess board seek only supports the two presets in
         // `LICHESS_TIME_CONTROLS` (cursor 3 or 4 in the shared time control
@@ -116,7 +116,7 @@ impl App {
     /// Joins an existing Lichess game by ID or full URL. Fetches the player color from the server
     /// and sends the result through the seek channel so `check_lichess_seek` can finalize setup.
     pub fn join_lichess_game_by_code(&mut self, game_code: String) {
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
@@ -124,7 +124,7 @@ impl App {
         let client = client.clone();
 
         let (tx, rx) = channel();
-        self.lichess_state.receiver = Some(rx);
+        self.services.lichess_state.receiver = Some(rx);
 
         self.show_seeking_lichess_game();
 
@@ -166,19 +166,19 @@ impl App {
 
     /// Polls the shared background channel once per tick and dispatches on message type.
     pub fn check_lichess_updates(&mut self) {
-        if let Some(rx) = &self.lichess_state.receiver
+        if let Some(rx) = &self.services.lichess_state.receiver
             && let Ok(update) = rx.try_recv()
         {
-            self.lichess_state.receiver = None;
+            self.services.lichess_state.receiver = None;
             self.close_modal();
 
             match update {
                 // We received an seek fetch
                 LichessUpdate::SeekResult(result) => {
-                    if let Some(cancellation_token) = &self.lichess_state.cancellation_token {
+                    if let Some(cancellation_token) = &self.services.lichess_state.cancellation_token {
                         cancellation_token.store(true, std::sync::atomic::Ordering::Relaxed);
                     }
-                    self.lichess_state.cancellation_token = None;
+                    self.services.lichess_state.cancellation_token = None;
 
                     match result {
                         Ok((game_id, color)) => {
@@ -195,8 +195,8 @@ impl App {
                 LichessUpdate::ProfileResult(result) => match result {
                     Ok(data) => {
                         let (profile, history) = *data;
-                        self.lichess_state.user_profile = Some(profile);
-                        self.lichess_state.rating_history = Some(history);
+                        self.services.lichess_state.user_profile = Some(profile);
+                        self.services.lichess_state.rating_history = Some(history);
                     }
                     Err(e) => {
                         log::error!("Failed to fetch user profile: {}", e);
@@ -208,7 +208,7 @@ impl App {
                 },
                 LichessUpdate::OngoingGamesResult(result) => match result {
                     Ok(games) => {
-                        self.lichess_state.ongoing_games = games;
+                        self.services.lichess_state.ongoing_games = games;
                         self.close_modal();
                     }
                     Err(e) => {
@@ -234,8 +234,7 @@ impl App {
 
         // If not provided, try to get FEN from ongoing games if available
         if fen.is_none() {
-            fen = self
-                .lichess_state
+            fen = self.services.lichess_state
                 .ongoing_games
                 .iter()
                 .find(|g| g.game_id == game_id)
@@ -244,7 +243,7 @@ impl App {
 
         // If still not found, try fetching ongoing games to get FEN
         if fen.is_none() {
-            let Ok(client) = self.lichess_state.require_client() else {
+            let Ok(client) = self.services.lichess_state.require_client() else {
                 self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return false;
             };
@@ -266,7 +265,7 @@ impl App {
             let mut initial_move_count = 0;
             let mut last_move_to_add: Option<String> = None;
 
-            let Ok(client) = self.lichess_state.require_client() else {
+            let Ok(client) = self.services.lichess_state.require_client() else {
                 self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return false;
             };
@@ -296,7 +295,7 @@ impl App {
                     {
                         Ok(position) => {
                             let load_result = {
-                                let mut game = self.game_mut();
+                                let mut game = self.services.game_mut();
                                 let halfmove_clock = game.runtime.halfmove_clock();
                                 game.runtime.load_history(
                                     vec![position],
@@ -310,7 +309,7 @@ impl App {
                                 self.show_error(format!("Failed to load position: {e}"));
                                 return false;
                             }
-                            self.game_mut().runtime.sync_turn_with_position();
+                            self.services.game_mut().runtime.sync_turn_with_position();
                             // Send last move immediately if we have it, so it shows in green right away
                             self.setup_lichess_game(
                                 game_id,
@@ -352,15 +351,15 @@ impl App {
         immediate_last_move: Option<String>,
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
-        self.game_mut().runtime.start_playing();
+        self.services.game_mut().runtime.start_playing();
         self.close_modal();
 
         // Best-effort initial clock; the first game event resyncs with the server.
-        self.game_mut()
+        self.services.game_mut()
             .runtime
-            .set_clock(Clock::new(self.game_mode_state.get_time_control()));
+            .set_clock(Clock::new(self.services.game_mode_state.get_time_control()));
 
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
@@ -378,17 +377,17 @@ impl App {
                 return;
             }
         };
-        self.game_mut().runtime.set_mode(Box::new(mode));
+        self.services.game_mut().runtime.set_mode(Box::new(mode));
 
-        self.game_mode_state.selected_color = Some(color);
-        self.game_mode_state.is_random_color = false;
+        self.services.game_mode_state.selected_color = Some(color);
+        self.services.game_mode_state.is_random_color = false;
 
         if color == Color::Black {
-            self.game_mut().runtime.flip();
+            self.services.game_mut().runtime.flip();
         }
         // Ensure skin is preserved
-        if let Some(skin) = &self.theme_state.loaded_skin {
-            self.game_mut().ui.skin = skin.clone();
+        if let Some(skin) = &self.services.theme_state.loaded_skin {
+            self.services.game_mut().ui.skin = skin.clone();
         }
 
         // Switch to Lichess page to show the game board
@@ -397,14 +396,14 @@ impl App {
 
     /// Fetches the list of ongoing Lichess games and stores them in `lichess_state`.
     pub fn fetch_ongoing_games(&mut self) {
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
         let client = client.clone();
         let (tx, rx) = channel();
-        self.lichess_state.receiver = Some(rx);
+        self.services.lichess_state.receiver = Some(rx);
 
         std::thread::spawn(move || match client.get_ongoing_games() {
             Ok(games) => {
@@ -418,15 +417,14 @@ impl App {
 
     /// Resigns the currently selected game in a background thread and shows a success popup.
     pub fn confirm_resign_game(&mut self, index: usize) {
-        if let Some(game) = self
-            .lichess_state
+        if let Some(game) = self.services.lichess_state
             .ongoing_games
             .get(index)
         {
             let game_id = game.game_id.clone();
             let opponent_name = game.opponent.username.clone();
 
-            let Ok(client) = self.lichess_state.require_client() else {
+            let Ok(client) = self.services.lichess_state.require_client() else {
                 self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
                 return;
             };
@@ -483,14 +481,14 @@ impl App {
     /// Spawns a background thread to fetch the user profile and rating history.
     /// The result is polled each tick via `check_lichess_profile_loaded`.
     pub fn fetch_lichess_user_profile(&mut self) {
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
 
         let client = client.clone();
         let (tx, rx) = channel();
-        self.lichess_state.receiver = Some(rx);
+        self.services.lichess_state.receiver = Some(rx);
 
         std::thread::spawn(move || {
             const MAX_ATTEMPTS: u32 = 3;
@@ -529,7 +527,7 @@ impl App {
     pub fn select_ongoing_game(&mut self, index: usize) {
         log::debug!("select_ongoing_game called, index: {}", index);
 
-        if let Some(game) = self.lichess_state.ongoing_games.get(index) {
+        if let Some(game) = self.services.lichess_state.ongoing_games.get(index) {
             let game_id = game.game_id.clone();
             let color_str = game.color.clone();
             let fen = game.fen.clone();
@@ -557,22 +555,22 @@ impl App {
     pub fn start_puzzle_mode(&mut self) {
         // Clear any existing popups and error messages when starting a new puzzle
         self.close_modal();
-        self.lichess_state.puzzle_game = None;
+        self.services.lichess_state.puzzle_game = None;
 
         // Puzzles use a local board with Lichess-provided moves.
-        self.game_mut().runtime.set_mode(Box::new(::game::LocalMode));
-        self.game_mode_state.selected_color = None;
-        self.game_mode_state.is_random_color = false;
+        self.services.game_mut().runtime.set_mode(Box::new(::game::LocalMode));
+        self.services.game_mode_state.selected_color = None;
+        self.services.game_mode_state.is_random_color = false;
 
         // Reset game state to Playing (in case it was Checkmate/Draw from previous puzzle)
         // This must be done early to prevent check_and_show_game_end from re-showing the popup
-        self.game_mut().runtime.start_playing();
+        self.services.game_mut().runtime.start_playing();
 
         // Fetch fresh user profile to get the latest puzzle rating
         // This ensures we use the correct baseline rating after any previous puzzle's Elo change
         self.fetch_lichess_user_profile();
 
-        let Ok(client) = self.lichess_state.require_client() else {
+        let Ok(client) = self.services.lichess_state.require_client() else {
             self.show_error(Self::LICHESS_CLIENT_NOT_INITIALIZED_MSG.to_string());
             return;
         };
@@ -580,7 +578,7 @@ impl App {
 
         // Get rating before
         let mut rating_before = None;
-        if let Some(profile) = &self.lichess_state.user_profile
+        if let Some(profile) = &self.services.lichess_state.user_profile
             && let Some(perfs) = &profile.perfs
             && let Some(puzzle_perf) = &perfs.puzzle
         {
@@ -589,7 +587,7 @@ impl App {
 
         // Initialize PuzzleGame
         let load_result = {
-            let mut game = self.game_mut();
+            let mut game = self.services.game_mut();
             PuzzleGame::load(&client, game.runtime.session_mut().board_mut())
         };
         let puzzle = match load_result {
@@ -601,13 +599,13 @@ impl App {
         };
 
         // Sync the player turn with the position's turn
-        self.game_mut().runtime.sync_turn_with_position();
+        self.services.game_mut().runtime.sync_turn_with_position();
 
-        self.lichess_state.puzzle_game = Some(PuzzleGame::new(puzzle, rating_before));
+        self.services.lichess_state.puzzle_game = Some(PuzzleGame::new(puzzle, rating_before));
 
         // Ensure board stays unflipped in puzzle mode
-        if self.lichess_state.puzzle_game.is_some() {
-            self.game_mut().runtime.set_flipped(false);
+        if self.services.lichess_state.puzzle_game.is_some() {
+            self.services.game_mut().runtime.set_flipped(false);
         }
         // Switch to Solo page to show the board
         self.show_solo();
@@ -621,7 +619,7 @@ impl App {
         to: shakmaty::Square,
     ) -> bool {
         // Check if we're in puzzle mode
-        if self.lichess_state.puzzle_game.is_none() {
+        if self.services.lichess_state.puzzle_game.is_none() {
             return true;
         }
 
@@ -633,15 +631,15 @@ impl App {
     /// Returns `true` if correct or if not in puzzle mode.
     pub fn validate_puzzle_move_uci(&mut self, move_uci: String) -> bool {
         // We need to temporarily take puzzle_game out to avoid borrowing issues
-        if let Some(mut puzzle_game) = self.lichess_state.puzzle_game.take() {
+        if let Some(mut puzzle_game) = self.services.lichess_state.puzzle_game.take() {
             let (is_correct, message) = puzzle_game.validate_move(
                 move_uci,
-                &mut self.game_mut(),
-                self.lichess_state.token.clone(),
+                &mut self.services.game_mut(),
+                self.services.lichess_state.token.clone(),
             );
 
             // Put it back
-            self.lichess_state.puzzle_game = Some(puzzle_game);
+            self.services.lichess_state.puzzle_game = Some(puzzle_game);
 
             if let Some(msg) = message {
                 if is_correct {

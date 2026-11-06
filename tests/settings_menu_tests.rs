@@ -40,13 +40,13 @@ fn toggle_sound() -> AppResult<()> {
     let mut app = open_settings_menu()?;
     assert!(app.is_page::<pages::SettingsPage>());
 
-    let original_sound_status = app.sound_enabled;
+    let original_sound_status = app.services.sound_enabled;
     send(&mut app, &[KeyCode::Down, KeyCode::Enter])?;
-    let new_sound_status = app.sound_enabled;
+    let new_sound_status = app.services.sound_enabled;
     assert_ne!(new_sound_status, original_sound_status);
 
     send(&mut app, &[KeyCode::Enter])?;
-    assert_eq!(original_sound_status, app.sound_enabled);
+    assert_eq!(original_sound_status, app.services.sound_enabled);
 
     Ok(())
 }
@@ -56,7 +56,7 @@ fn toggle_animations() -> AppResult<()> {
     let mut app = open_settings_menu()?;
     assert!(app.is_page::<pages::SettingsPage>());
 
-    let original_anim_status = app.animations_enabled;
+    let original_anim_status = app.services.animations_enabled;
     send(
         &mut app,
         &[
@@ -66,11 +66,11 @@ fn toggle_animations() -> AppResult<()> {
             KeyCode::Enter,
         ],
     )?;
-    let new_anim_status = app.animations_enabled;
+    let new_anim_status = app.services.animations_enabled;
     assert_ne!(new_anim_status, original_anim_status);
 
     send(&mut app, &[KeyCode::Enter])?;
-    assert_eq!(original_anim_status, app.animations_enabled);
+    assert_eq!(original_anim_status, app.services.animations_enabled);
 
     Ok(())
 }
@@ -104,7 +104,7 @@ fn change_bot_difficulty() -> AppResult<()> {
     let mut app = open_settings_menu()?;
     assert!(app.is_page::<pages::SettingsPage>());
 
-    let original_difficulty = app.bot_state.bot_difficulty;
+    let original_difficulty = app.services.bot_state.bot_difficulty;
     send(
         &mut app,
         &[
@@ -117,19 +117,19 @@ fn change_bot_difficulty() -> AppResult<()> {
             KeyCode::Right,
         ],
     )?;
-    let next_difficulty = app.bot_state.bot_difficulty;
+    let next_difficulty = app.services.bot_state.bot_difficulty;
     assert_ne!(next_difficulty, original_difficulty);
 
     send(&mut app, &[KeyCode::Left])?;
-    assert_eq!(app.bot_state.bot_difficulty, original_difficulty);
+    assert_eq!(app.services.bot_state.bot_difficulty, original_difficulty);
 
     send(&mut app, &[KeyCode::Left])?;
-    let prev_difficulty = app.bot_state.bot_difficulty;
+    let prev_difficulty = app.services.bot_state.bot_difficulty;
     assert_ne!(prev_difficulty, original_difficulty);
     assert_ne!(prev_difficulty, next_difficulty);
 
     send(&mut app, &[KeyCode::Right])?;
-    assert_eq!(app.bot_state.bot_difficulty, original_difficulty);
+    assert_eq!(app.services.bot_state.bot_difficulty, original_difficulty);
 
     Ok(())
 }
@@ -141,7 +141,7 @@ fn kitty_graphics_hidden_outside_kitty() -> AppResult<()> {
 
     // Up from the first item wraps to the last visible one, which must not be Kitty Graphics.
     send(&mut app, &[KeyCode::Up, KeyCode::Enter])?;
-    assert!(app.kitty_graphics_enabled);
+    assert!(app.services.kitty_graphics_enabled);
 
     Ok(())
 }

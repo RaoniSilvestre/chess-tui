@@ -21,15 +21,15 @@ impl App {
             Err(_) => Config::default(),
         };
 
-        config.display_mode = Some(self.game_mut().ui.display_mode.to_string());
-        config.log_level = Some(self.log_level.to_string());
-        config.bot_depth = Some(self.bot_state.bot_depth);
-        config.bot_difficulty = self.bot_state.bot_difficulty;
-        config.selected_skin_name = Some(self.theme_state.selected_skin_name.clone());
-        config.lichess_token = self.lichess_state.token.clone();
-        config.sound_enabled = Some(self.sound_enabled);
-        config.animations_enabled = Some(self.animations_enabled);
-        config.kitty_graphics_enabled = Some(self.kitty_graphics_enabled);
+        config.display_mode = Some(self.services.game_mut().ui.display_mode.to_string());
+        config.log_level = Some(self.services.log_level.to_string());
+        config.bot_depth = Some(self.services.bot_state.bot_depth);
+        config.bot_difficulty = self.services.bot_state.bot_difficulty;
+        config.selected_skin_name = Some(self.services.theme_state.selected_skin_name.clone());
+        config.lichess_token = self.services.lichess_state.token.clone();
+        config.sound_enabled = Some(self.services.sound_enabled);
+        config.animations_enabled = Some(self.services.animations_enabled);
+        config.kitty_graphics_enabled = Some(self.services.kitty_graphics_enabled);
 
         // Try to write the config file, but don't fail if it's read-only
         // This allows the application to work with read-only config files (e.g., from NixOS/home-manager)

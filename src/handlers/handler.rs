@@ -19,16 +19,16 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
     // Reset cursor position after mouse interaction when keyboard is used
     // This ensures the cursor is in a valid position for keyboard navigation
-    if app.game_mut().ui.mouse_used {
-        app.game_mut().ui.mouse_used = false;
-        if let Some(selected_square) = app.game_mut().ui.selected_square {
+    if app.services.game_mut().ui.mouse_used {
+        app.services.game_mut().ui.mouse_used = false;
+        if let Some(selected_square) = app.services.game_mut().ui.selected_square {
             // If a piece was selected via mouse, move cursor to that square
-            app.game_mut().ui.cursor_coordinates =
+            app.services.game_mut().ui.cursor_coordinates =
                 // Board flipping is already accounted for when selecting the square
                 get_coord_from_square(selected_square, false);
-            app.game_mut().ui.selected_square = None;
+            app.services.game_mut().ui.selected_square = None;
         } else {
-            app.game_mut().ui.cursor_coordinates = Coord::default();
+            app.services.game_mut().ui.cursor_coordinates = Coord::default();
             // Otherwise, reset cursor to center of board (e4/e5)
         }
     }

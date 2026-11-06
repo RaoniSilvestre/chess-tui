@@ -38,8 +38,8 @@ pub fn setup_app(args: &Args) -> AppResult<App> {
     apply_skin(&mut app, &config, args);
 
     setup_animations(&mut app, &config);
-    setup_bot(&mut app.bot_state, &config, args);
-    setup_lichess(&mut app.lichess_state, &config, args);
+    setup_bot(&mut app.services.bot_state, &config, args);
+    setup_lichess(&mut app.services.lichess_state, &config, args);
     setup_pgn(&mut app, args)?;
     setup_kitty(&mut app, &config);
 
@@ -72,27 +72,27 @@ fn setup_sound(app: &mut App, config: &Config, args: &Args) {
     let audio_available = sound::check_audio_availability();
     if !audio_available {
         // Automatically disable sound if audio is not available
-        app.sound_enabled = false;
+        app.services.sound_enabled = false;
     }
     // Initialize global sound state from app default
-    sound::set_sound_enabled(app.sound_enabled);
+    sound::set_sound_enabled(app.services.sound_enabled);
 
     // Add sound enabled handling
     if let Some(sound_enabled) = config.sound_enabled {
-        app.sound_enabled = sound_enabled;
+        app.services.sound_enabled = sound_enabled;
         sound::set_sound_enabled(sound_enabled);
     }
 
     // Command line no-sound flag takes precedence over configuration file
     if args.no_sound {
-        app.sound_enabled = false;
+        app.services.sound_enabled = false;
         sound::set_sound_enabled(false);
     }
 }
 
 fn setup_display_mode(app: &mut App, config: &Config) {
     if let Some(ref display_mode) = config.display_mode {
-        app.game_mut().ui.display_mode = match display_mode.as_str() {
+        app.services.game_mut().ui.display_mode = match display_mode.as_str() {
             "ASCII" => DisplayMode::ASCII,
             "CUSTOM" => DisplayMode::CUSTOM,
             _ => DisplayMode::DEFAULT,
@@ -102,10 +102,10 @@ fn setup_display_mode(app: &mut App, config: &Config) {
 
 fn setup_logging(app: &mut App, config: &Config, folder_path: &Path) {
     if let Some(ref log_level) = config.log_level {
-        app.log_level = log_level.parse().unwrap_or(LevelFilter::Off);
+        app.services.log_level = log_level.parse().unwrap_or(LevelFilter::Off);
     }
 
-    if let Err(e) = logging::setup_logging(folder_path, &app.log_level) {
+    if let Err(e) = logging::setup_logging(folder_path, &app.services.log_level) {
         eprintln!("Failed to initialize logging: {}", e);
     }
 }
@@ -150,7 +150,7 @@ fn setup_bot(bot_state: &mut BotState, config: &Config, args: &Args) {
 
 fn setup_animations(app: &mut App, config: &Config) {
     if let Some(animations_enabled) = config.animations_enabled {
-        app.animations_enabled = animations_enabled;
+        app.services.animations_enabled = animations_enabled;
     }
 }
 
@@ -241,8 +241,8 @@ fn get_piece_styles(skins_path: &PathBuf) -> AppResult<Vec<PieceStyle>> {
 
 fn setup_skin_and_piece_styles(app: &mut App, config_dir: &Path) {
     // Always start with Default and ASCII display modes at the beginning
-    app.theme_state.available_skins.push(Skin::default());
-    app.theme_state
+    app.services.theme_state.available_skins.push(Skin::default());
+    app.services.theme_state
         .available_skins
         .push(Skin::ascii_display_mode());
 
@@ -257,70 +257,70 @@ fn setup_skin_and_piece_styles(app: &mut App, config_dir: &Path) {
 
     match get_skins(&skins_path) {
         Ok(skins) => {
-            app.theme_state.available_skins.extend(skins);
+            app.services.theme_state.available_skins.extend(skins);
         }
         Err(e) => log::error!("Error retrieving skins from file: {e}"),
     }
 
     match get_piece_styles(&skins_path) {
         Ok(piece_styles) => {
-            app.theme_state.available_piece_styles.extend(piece_styles);
+            app.services.theme_state.available_piece_styles.extend(piece_styles);
         }
         Err(e) => log::error!("Error retrieving the piece styles from file: {e}"),
     }
 
     // Sync loaded piece styles to the game UI so rendering can use them
-    app.game_mut().ui.available_piece_styles = app.theme_state.available_piece_styles.clone();
+    app.services.game_mut().ui.available_piece_styles = app.services.theme_state.available_piece_styles.clone();
 }
 
 fn apply_skin(app: &mut App, config: &Config, args: &Args) {
     if let Some(ref selected_skin_name) = config.selected_skin_name {
-        app.theme_state.selected_skin_name = selected_skin_name.clone();
+        app.services.theme_state.selected_skin_name = selected_skin_name.clone();
     }
 
     // Apply selected skin
     if let Some(skin) = Skin::get_skin_by_name(
-        &app.theme_state.available_skins,
-        &app.theme_state.selected_skin_name,
+        &app.services.theme_state.available_skins,
+        &app.services.theme_state.selected_skin_name,
     ) {
-        app.theme_state.loaded_skin = Some(skin.clone());
-        app.game_mut().ui.skin = skin.clone();
+        app.services.theme_state.loaded_skin = Some(skin.clone());
+        app.services.game_mut().ui.skin = skin.clone();
         // Set display mode based on skin name
-        match app.theme_state.selected_skin_name.as_str() {
-            SKIN_NAME_DEFAULT => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
-            SKIN_NAME_ASCII => app.game_mut().ui.display_mode = DisplayMode::ASCII,
+        match app.services.theme_state.selected_skin_name.as_str() {
+            SKIN_NAME_DEFAULT => app.services.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+            SKIN_NAME_ASCII => app.services.game_mut().ui.display_mode = DisplayMode::ASCII,
             _ => {
                 // For custom skins, set to CUSTOM if not already set
-                if app.game_mut().ui.display_mode == DisplayMode::DEFAULT {
-                    app.game_mut().ui.display_mode = DisplayMode::CUSTOM;
+                if app.services.game_mut().ui.display_mode == DisplayMode::DEFAULT {
+                    app.services.game_mut().ui.display_mode = DisplayMode::CUSTOM;
                 }
             }
         }
     } else {
         // Fallback: use the first available skin if selected skin not found
-        if let Some(first_skin) = app.theme_state.available_skins.first() {
-            app.theme_state.selected_skin_name = first_skin.name.clone();
-            app.theme_state.loaded_skin = Some(first_skin.clone());
-            app.game_mut().ui.skin = first_skin.clone();
+        if let Some(first_skin) = app.services.theme_state.available_skins.first() {
+            app.services.theme_state.selected_skin_name = first_skin.name.clone();
+            app.services.theme_state.loaded_skin = Some(first_skin.clone());
+            app.services.game_mut().ui.skin = first_skin.clone();
             // Set display mode based on skin name
-            match app.theme_state.selected_skin_name.as_str() {
-                "Default" => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
-                "ASCII" => app.game_mut().ui.display_mode = DisplayMode::ASCII,
-                _ => app.game_mut().ui.display_mode = DisplayMode::CUSTOM,
+            match app.services.theme_state.selected_skin_name.as_str() {
+                "Default" => app.services.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+                "ASCII" => app.services.game_mut().ui.display_mode = DisplayMode::ASCII,
+                _ => app.services.game_mut().ui.display_mode = DisplayMode::CUSTOM,
             }
         }
     }
 
     // Command line skin takes precedence over configuration file (reproducible theme)
     if let Some(ref skin_name) = args.skin {
-        app.theme_state.selected_skin_name = skin_name.clone();
-        if let Some(skin) = Skin::get_skin_by_name(&app.theme_state.available_skins, skin_name) {
-            app.theme_state.loaded_skin = Some(skin.clone());
-            app.game_mut().ui.skin = skin.clone();
+        app.services.theme_state.selected_skin_name = skin_name.clone();
+        if let Some(skin) = Skin::get_skin_by_name(&app.services.theme_state.available_skins, skin_name) {
+            app.services.theme_state.loaded_skin = Some(skin.clone());
+            app.services.game_mut().ui.skin = skin.clone();
             match skin_name.as_str() {
-                "Default" => app.game_mut().ui.display_mode = DisplayMode::DEFAULT,
-                "ASCII" => app.game_mut().ui.display_mode = DisplayMode::ASCII,
-                _ => app.game_mut().ui.display_mode = DisplayMode::CUSTOM,
+                "Default" => app.services.game_mut().ui.display_mode = DisplayMode::DEFAULT,
+                "ASCII" => app.services.game_mut().ui.display_mode = DisplayMode::ASCII,
+                _ => app.services.game_mut().ui.display_mode = DisplayMode::CUSTOM,
             }
         }
     }
@@ -328,8 +328,8 @@ fn apply_skin(app: &mut App, config: &Config, args: &Args) {
 
 fn setup_kitty(app: &mut App, config: &Config) {
     if let Some(kitty_graphics_enabled) = config.kitty_graphics_enabled {
-        app.kitty_graphics_enabled = kitty_graphics_enabled;
+        app.services.kitty_graphics_enabled = kitty_graphics_enabled;
     }
 
-    app.kitty_pieces = graphics::KittyPieces::detect();
+    app.services.kitty_pieces = graphics::KittyPieces::detect();
 }

@@ -168,16 +168,16 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
     assert!(app.resume_from_saved(ResumeMode::Local));
 
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
-    assert_eq!(app.game_mut().runtime.state(), GameState::Playing);
+    assert_eq!(app.services.game_mut().runtime.state(), GameState::Playing);
     assert_eq!(
-        app.game_mut().runtime.turn(),
+        app.services.game_mut().runtime.turn(),
         shakmaty::Color::White,
         "Saved FEN says it is White to move",
     );
-    let fen_now = app.game_mut().runtime.fen();
+    let fen_now = app.services.game_mut().runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed FEN should match the save: {}",
@@ -215,7 +215,7 @@ fn reaching_game_end_clears_save() -> AppResult<()> {
     // by going through the path it shares with the main loop. To keep the
     // test simple, call the deletion helper directly: that is what the
     // end-of-game hook does.
-    app.game_mut().runtime.finish(GameOutcome::Checkmate {
+    app.services.game_mut().runtime.finish(GameOutcome::Checkmate {
         winner: shakmaty::Color::White,
     });
     app.clear_resume_state_for_current_mode();
@@ -258,8 +258,8 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
         "Confirming a new game from the Local form should wipe the old save",
     );
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
     assert!(!app.has_any_modal());
     Ok(())
@@ -305,11 +305,11 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
     assert!(!app.has_any_modal());
-    assert_eq!(app.game_mut().runtime.moves().len(), 2);
+    assert_eq!(app.services.game_mut().runtime.moves().len(), 2);
     assert!(has_save(ResumeMode::Local));
     Ok(())
 }
@@ -327,11 +327,11 @@ fn restart_mid_game_asks_first() -> AppResult<()> {
     send(&mut app, &[KeyCode::Char('r')])?;
     assert!(app.has_modal::<app::modal::NewGameConfirmationModal>());
     send(&mut app, &[KeyCode::Char('n')])?;
-    assert_eq!(app.game_mut().runtime.moves().len(), 1, "n keeps the game");
+    assert_eq!(app.services.game_mut().runtime.moves().len(), 1, "n keeps the game");
     assert!(has_save(ResumeMode::Local));
 
     send(&mut app, &[KeyCode::Char('r'), KeyCode::Char('y')])?;
-    assert_eq!(app.game_mut().runtime.moves().len(), 0);
+    assert_eq!(app.services.game_mut().runtime.moves().len(), 0);
     assert!(!has_save(ResumeMode::Local));
     Ok(())
 }
@@ -376,14 +376,14 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
     send(&mut app, &[KeyCode::Char('r')])?;
 
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
     assert!(
         app.form_active() != Some(true),
         "Form should close on resume"
     );
-    let fen_now = app.game_mut().runtime.fen();
+    let fen_now = app.services.game_mut().runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed position should match save: {}",
@@ -417,7 +417,7 @@ fn resume_restores_saved_clock_state() -> AppResult<()> {
 
     let instant = Instant::now();
 
-    let clock = app.game().runtime.clock().clone();
+    let clock = app.services.game().runtime.clock().clone();
     // White to move (FEN said so), so the white clock is now ticking down.
     // The black side is paused at the exact saved value.
     let white_remaining = clock.get_time(shakmaty::Color::White, instant).as_millis() as u64;
@@ -431,8 +431,8 @@ fn resume_restores_saved_clock_state() -> AppResult<()> {
     );
     // assert!(clock.is_running, "clock must resume in the running state");
     // assert_eq!(clock.active_color, Some(shakmaty::Color::White));
-    assert_eq!(app.game_mode_state.clock_cursor, 4);
-    assert_eq!(app.game_mode_state.custom_time_minutes, 7);
+    assert_eq!(app.services.game_mode_state.clock_cursor, 4);
+    assert_eq!(app.services.game_mode_state.custom_time_minutes, 7);
     Ok(())
 }
 
@@ -447,7 +447,7 @@ fn flush_captures_clock_between_moves() -> AppResult<()> {
     start_local_game(&mut app)?;
     // Attach a clock that the game would normally get from the time-control
     // form. After the first move the clock starts for whoever is to move.
-    app.game_mut()
+    app.services.game_mut()
         .runtime
         .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
@@ -488,12 +488,12 @@ fn resume_rebuilds_full_move_history() -> AppResult<()> {
     assert!(fresh.resume_from_saved(ResumeMode::Local));
 
     assert_eq!(
-        fresh.game().runtime.moves().len(),
+        fresh.services.game().runtime.moves().len(),
         1,
         "history must come back with the move we played"
     );
     assert_eq!(
-        fresh.game().runtime.positions().len(),
+        fresh.services.game().runtime.positions().len(),
         2,
         "position_history must include the initial position plus one after e4",
     );
@@ -524,10 +524,10 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
     send(&mut app, &[KeyCode::Char('r')])?;
 
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
-    let fen_now = app.game_mut().runtime.fen();
+    let fen_now = app.services.game_mut().runtime.fen();
     assert!(
         fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"),
         "Resumed position should match save: {}",
@@ -588,11 +588,11 @@ fn resume_restores_flip_and_taken_pieces() -> AppResult<()> {
     let mut app = chess_tui::runtime::new_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.game_mut().runtime.is_flipped(),
+        app.services.game_mut().runtime.is_flipped(),
         "Board orientation should be restored"
     );
     assert_eq!(
-        app.game_mut().runtime.taken_pieces().len(),
+        app.services.game_mut().runtime.taken_pieces().len(),
         2,
         "Captured pieces should be restored when moves_uci is empty (legacy path)"
     );
@@ -618,10 +618,10 @@ fn legacy_save_without_moves_uses_fen_directly() -> AppResult<()> {
     let mut app = chess_tui::runtime::new_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.game_mut().runtime.moves().is_empty(),
+        app.services.game_mut().runtime.moves().is_empty(),
         "Legacy saves can't rebuild history; that's the accepted trade-off",
     );
-    let fen_now = app.game_mut().runtime.fen();
+    let fen_now = app.services.game_mut().runtime.fen();
     assert!(fen_now.starts_with("rnbqkbnr/pppp1ppp/8/4p3/4P3/"));
     Ok(())
 }
@@ -690,7 +690,7 @@ fn quit_flushes_clock_state() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = chess_tui::runtime::new_app();
     start_local_game(&mut app)?;
-    app.game_mut()
+    app.services.game_mut()
         .runtime
         .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
@@ -726,7 +726,7 @@ fn reset_home_flushes_then_preserves_save() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = chess_tui::runtime::new_app();
     start_local_game(&mut app)?;
-    app.game_mut()
+    app.services.game_mut()
         .runtime
         .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
@@ -765,7 +765,7 @@ fn tick_throttles_clock_only_writes() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     let mut app = chess_tui::runtime::new_app();
     start_local_game(&mut app)?;
-    app.game_mut()
+    app.services.game_mut()
         .runtime
         .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
@@ -812,7 +812,7 @@ fn player_checkmate_via_check_game_end_status_clears_save() -> AppResult<()> {
     app.check_game_end_status();
 
     assert!(matches!(
-        app.game_mut().runtime.state(),
+        app.services.game_mut().runtime.state(),
         GameState::Finished(GameOutcome::Checkmate { .. })
     ));
     assert!(
@@ -852,7 +852,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     start_local_game(&mut app)?;
     // A 0-second clock reports time-up immediately, which the tick handler
     // uses to declare the other side the winner.
-    app.game_mut()
+    app.services.game_mut()
         .runtime
         .set_clock(model::Clock::new(TimeControl::Custom(0)));
     play_e2e4(&mut app)?;
@@ -862,7 +862,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     app.tick();
 
     assert!(matches!(
-        app.game_mut().runtime.state(),
+        app.services.game_mut().runtime.state(),
         GameState::Finished(GameOutcome::Timeout { .. })
     ));
     assert!(

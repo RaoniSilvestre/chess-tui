@@ -2,7 +2,7 @@
 
 pub mod render;
 
-use crate::{App, GamePageKind, Modal, ModalResult};
+use crate::{App, GameModeKind, Modal, ModalResult};
 use model::square_utils::normalize_lowercase_to_san;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{Frame, layout::Rect};
@@ -142,7 +142,7 @@ impl PromptModal {
 
     fn submit(&self, app: &mut App) -> ModalResult {
         if self.action == PromptAction::MoveInput {
-            let raw = app.game_mut().ui.prompt.input.trim().to_string();
+            let raw = app.services.game_mut().ui.prompt.input.trim().to_string();
             if raw.is_empty() {
                 return ModalResult::Close;
             }
@@ -150,30 +150,30 @@ impl PromptModal {
             let san = match San::from_ascii(player_move.as_bytes()) {
                 Ok(san) => san,
                 Err(_) => {
-                    app.game_mut().ui.prompt.error = Some("Invalid notation".into());
+                    app.services.game_mut().ui.prompt.error = Some("Invalid notation".into());
                     return ModalResult::None;
                 }
             };
-            let position = app.game_mut().runtime.current_position().clone();
+            let position = app.services.game_mut().runtime.current_position().clone();
             let Ok(chess_move) = san.to_move(&position) else {
-                app.game_mut().ui.prompt.error = Some("Illegal move".into());
+                app.services.game_mut().ui.prompt.error = Some("Illegal move".into());
                 return ModalResult::None;
             };
             if app.submit_move_to_page(&chess_move) {
-                app.game_mut().ui.prompt.reset();
+                app.services.game_mut().ui.prompt.reset();
                 return ModalResult::None;
             }
-            app.game_mut().ui.prompt.error = Some("Illegal move".into());
+            app.services.game_mut().ui.prompt.error = Some("Illegal move".into());
             return ModalResult::None;
         }
 
-        app.game_mut().ui.prompt.submit_message();
-        let message = app.game_mut().ui.prompt.message.clone();
+        app.services.game_mut().ui.prompt.submit_message();
+        let message = app.services.game_mut().ui.prompt.message.clone();
 
         match self.action {
             PromptAction::EnterHostIp => {
-                if app.current_game_kind() == Some(GamePageKind::Multiplayer) {
-                    app.multiplayer_state.host_ip = Some(message);
+                if app.current_game_mode() == Some(GameModeKind::Multiplayer) {
+                    app.services.multiplayer_state.host_ip = Some(message);
                 }
                 ModalResult::Close
             }
@@ -204,7 +204,7 @@ impl PromptModal {
                         ModalResult::Close
                     }
                     Err(e) => {
-                        app.game_mut().ui.prompt.reset();
+                        app.services.game_mut().ui.prompt.reset();
                         ModalResult::Replace(Box::new(MessageModal::error(format!(
                             "Failed to load PGN:\n{e}"
                         ))))
@@ -213,7 +213,7 @@ impl PromptModal {
             }
             PromptAction::EnterEnginePath => {
                 let path = message.trim().trim_matches(&['\'', '"'][..]).to_string();
-                app.bot_state.chess_engine_path = Some(path);
+                app.services.bot_state.chess_engine_path = Some(path);
                 app.update_config_from_app();
                 ModalResult::Close
             }
@@ -227,26 +227,26 @@ impl Modal for PromptModal {
         match key.code {
             KeyCode::Enter => self.submit(app),
             KeyCode::Esc => {
-                app.game_mut().ui.prompt.reset();
+                app.services.game_mut().ui.prompt.reset();
                 if self.action == PromptAction::EnterGameCode {
                     app.show_lichess_menu();
                 }
                 ModalResult::Close
             }
             KeyCode::Char(to_insert) => {
-                app.game_mut().ui.prompt.enter_char(to_insert);
+                app.services.game_mut().ui.prompt.enter_char(to_insert);
                 ModalResult::None
             }
             KeyCode::Backspace => {
-                app.game_mut().ui.prompt.delete_char();
+                app.services.game_mut().ui.prompt.delete_char();
                 ModalResult::None
             }
             KeyCode::Left => {
-                app.game_mut().ui.prompt.move_cursor_left();
+                app.services.game_mut().ui.prompt.move_cursor_left();
                 ModalResult::None
             }
             KeyCode::Right => {
-                app.game_mut().ui.prompt.move_cursor_right();
+                app.services.game_mut().ui.prompt.move_cursor_right();
                 ModalResult::None
             }
             _ => ModalResult::None,
@@ -254,7 +254,7 @@ impl Modal for PromptModal {
     }
 
     fn render(&mut self, frame: &mut Frame<'_>, _area: Rect, app: &App) {
-        let game = app.game();
+        let game = app.services.game();
         let prompt = &game.ui.prompt;
         match self.action {
             PromptAction::EnterHostIp => {
@@ -280,11 +280,11 @@ pub struct SeekingLichessModal;
 impl Modal for SeekingLichessModal {
     fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> ModalResult {
         if key.code == KeyCode::Esc {
-            if let Some(token) = &app.lichess_state.cancellation_token {
+            if let Some(token) = &app.services.lichess_state.cancellation_token {
                 token.store(true, std::sync::atomic::Ordering::Relaxed);
             }
-            app.lichess_state.receiver = None;
-            app.lichess_state.cancellation_token = None;
+            app.services.lichess_state.receiver = None;
+            app.services.lichess_state.cancellation_token = None;
             app.show_home();
             return ModalResult::Close;
         }
@@ -341,8 +341,7 @@ impl Modal for ResignConfirmationModal {
     }
 
     fn render(&mut self, frame: &mut Frame<'_>, _area: Rect, app: &App) {
-        let opponent = app
-            .lichess_state
+        let opponent = app.services.lichess_state
             .ongoing_games
             .get(self.index)
             .map(|game| game.opponent.username.as_str());
@@ -373,7 +372,7 @@ impl Modal for NewGameConfirmationModal {
             }
             KeyCode::Char('r' | 'R') => {
                 if let NewGame::Start(page) = self.pending {
-                    let mode = if page == GamePageKind::Bot {
+                    let mode = if page == GameModeKind::Bot {
                         crate::state::resume::ResumeMode::Bot
                     } else {
                         crate::state::resume::ResumeMode::Local
@@ -420,7 +419,7 @@ impl Modal for PuzzleEndModal {
     }
 
     fn render(&mut self, frame: &mut Frame<'_>, _area: Rect, app: &App) {
-        let (elo_change, is_calculating) = if let Some(puzzle_game) = &app.lichess_state.puzzle_game
+        let (elo_change, is_calculating) = if let Some(puzzle_game) = &app.services.lichess_state.puzzle_game
         {
             (
                 puzzle_game.elo_change,

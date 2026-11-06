@@ -1,17 +1,17 @@
-use crate::{App, GamePageKind, Modal, ModalResult, PageAction};
+use crate::{App, GameModeKind, Modal, ModalResult, PageAction};
 
 impl App {
     pub fn open_modal(&mut self, modal: Box<dyn Modal>) {
-        self.modal = Some(modal);
+        self.services.modal = Some(modal);
     }
     pub fn close_modal(&mut self) {
-        self.modal = None;
+        self.services.modal = None;
     }
     pub fn has_any_modal(&self) -> bool {
-        self.modal.is_some()
+        self.services.modal.is_some()
     }
     pub fn has_modal<T: Modal + 'static>(&self) -> bool {
-        self.modal
+        self.services.modal
             .as_ref()
             .is_some_and(|modal| modal.as_any().type_id() == std::any::TypeId::of::<T>())
     }
@@ -35,33 +35,33 @@ impl App {
         self.open_modal(Box::new(crate::modal::MessageModal::loading(message)));
     }
     pub fn show_enter_host_ip(&mut self) {
-        self.game_mut().ui.prompt.reset();
+        self.services.game_mut().ui.prompt.reset();
         self.open_modal(Box::new(crate::modal::PromptModal::enter_host_ip()));
     }
     pub fn show_enter_game_code(&mut self) {
-        self.game_mut().ui.prompt.reset();
+        self.services.game_mut().ui.prompt.reset();
         self.open_modal(Box::new(crate::modal::PromptModal::enter_game_code()));
     }
     pub fn show_enter_lichess_token(&mut self) {
-        self.game_mut().ui.prompt.reset();
-        self.game_mut().ui.prompt.message = "Enter your Lichess API token:".to_string();
+        self.services.game_mut().ui.prompt.reset();
+        self.services.game_mut().ui.prompt.message = "Enter your Lichess API token:".to_string();
         self.open_modal(Box::new(crate::modal::PromptModal::enter_lichess_token()));
     }
     pub fn show_load_pgn_path(&mut self) {
-        self.game_mut().ui.prompt.reset();
+        self.services.game_mut().ui.prompt.reset();
         self.open_modal(Box::new(crate::modal::PromptModal::load_pgn_path()));
     }
     pub fn show_enter_engine_path(&mut self) {
         {
-            let mut game = self.game_mut();
+            let mut game = self.services.game_mut();
             game.ui.prompt.input =
-                self.bot_state.chess_engine_path.clone().unwrap_or_default();
+                self.services.bot_state.chess_engine_path.clone().unwrap_or_default();
             game.ui.prompt.character_index = game.ui.prompt.input.chars().count();
         }
         self.open_modal(Box::new(crate::modal::PromptModal::enter_engine_path()));
     }
     pub fn show_move_input(&mut self) {
-        self.game_mut().ui.prompt.reset();
+        self.services.game_mut().ui.prompt.reset();
         self.open_modal(Box::new(crate::modal::PromptModal::move_input()));
     }
     pub fn show_seeking_lichess_game(&mut self) {
@@ -82,7 +82,7 @@ impl App {
         self.open_modal(Box::new(crate::modal::PuzzleEndModal::new(message)));
     }
     pub fn after_error_popup(&mut self) {
-        if self.current_game_kind() == Some(GamePageKind::Lichess)
+        if self.current_game_mode() == Some(GameModeKind::Lichess)
             || self
                 .router
                 .as_ref()
@@ -90,14 +90,14 @@ impl App {
         {
             self.show_lichess_menu();
         } else if matches!(
-            self.current_game_kind(),
-            Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+            self.current_game_mode(),
+            Some(GameModeKind::Multiplayer | GameModeKind::Bot)
         ) {
             self.show_home();
         }
     }
     pub fn after_success_popup(&mut self) {
-        if self.current_game_kind() == Some(GamePageKind::Lichess) {
+        if self.current_game_mode() == Some(GameModeKind::Lichess) {
             self.show_lichess_menu();
         } else if self
             .router
@@ -107,27 +107,27 @@ impl App {
             self.fetch_ongoing_games();
             self.show_ongoing_games();
         } else if matches!(
-            self.current_game_kind(),
-            Some(GamePageKind::Multiplayer | GamePageKind::Bot)
+            self.current_game_mode(),
+            Some(GameModeKind::Multiplayer | GameModeKind::Bot)
         ) {
             self.show_home();
         }
     }
     pub fn render_modal(&mut self, frame: &mut ratatui::Frame<'_>, area: ratatui::layout::Rect) {
-        if let Some(mut modal) = self.modal.take() {
+        if let Some(mut modal) = self.services.modal.take() {
             modal.render(frame, area, self);
-            self.modal = Some(modal);
+            self.services.modal = Some(modal);
         }
     }
     pub fn handle_modal_key(&mut self, key: ratatui::crossterm::event::KeyEvent) -> bool {
-        let Some(mut modal) = self.modal.take() else {
+        let Some(mut modal) = self.services.modal.take() else {
             return false;
         };
         let result = modal.handle_key(key, self);
         match result {
-            ModalResult::None => self.modal = Some(modal),
+            ModalResult::None => self.services.modal = Some(modal),
             ModalResult::Close => {}
-            ModalResult::Replace(next) => self.modal = Some(next),
+            ModalResult::Replace(next) => self.services.modal = Some(next),
         }
         true
     }

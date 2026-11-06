@@ -20,7 +20,7 @@ pub fn run(app: &mut App) -> AppResult<()> {
 }
 
 fn handle_events(app: &mut App, tui: &mut Tui) -> AppResult<()> {
-    if app.animations.is_active() {
+    if app.services.animations.is_active() {
         match tui.events.try_next() {
             Some(Event::Tick) => app.tick(),
             Some(Event::Key(key_event)) => handle_key_events(key_event, app)?,
@@ -40,7 +40,7 @@ fn handle_events(app: &mut App, tui: &mut Tui) -> AppResult<()> {
 }
 
 fn handle_game_events(app: &mut App) {
-    let events = app.game_mut().runtime.take_events();
+    let events = app.services.game_mut().runtime.take_events();
     for event in events {
         match event {
             GameEvent::MovePlayed => play_move_sound(),

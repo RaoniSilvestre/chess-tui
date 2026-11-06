@@ -1,7 +1,7 @@
 //! Game end detection and restart.
 
 use crate::App;
-use crate::GamePageKind;
+use crate::GameModeKind;
 use session::Game;
 use ::game::{Bot, BotMode, GameKind};
 use model::Clock;
@@ -10,7 +10,7 @@ use shakmaty::Color;
 impl App {
     /// Shows the end screen popup. Uses the puzzle variant if a puzzle is active.
     pub fn show_end_screen(&mut self) {
-        if self.lichess_state.puzzle_game.is_some() {
+        if self.services.lichess_state.puzzle_game.is_some() {
             self.show_puzzle_end(String::new());
         }
     }
@@ -25,9 +25,9 @@ impl App {
             return;
         }
 
-        let previous_state = self.game_mut().runtime.state();
-        self.game_mut().runtime.update_game_state();
-        let new_state = self.game_mut().runtime.state();
+        let previous_state = self.services.game_mut().runtime.state();
+        self.services.game_mut().runtime.update_game_state();
+        let new_state = self.services.game_mut().runtime.state();
 
         if previous_state != new_state && new_state.is_finished() {
             // Game over: drop the resume save. End-screen visibility is owned
@@ -59,54 +59,54 @@ impl App {
         self.clear_resume_state_for_current_mode();
 
         // Clear puzzle state when restarting (for normal games)
-        self.lichess_state.puzzle_game = None;
-        let mode_kind = self.game_mut().runtime.kind();
+        self.services.lichess_state.puzzle_game = None;
+        let mode_kind = self.services.game_mut().runtime.kind();
         // Preserve skin and display mode
-        let current_skin = self.game_mut().ui.skin.clone();
-        let display_mode = self.game_mut().ui.display_mode;
+        let current_skin = self.services.game_mut().ui.skin.clone();
+        let display_mode = self.services.game_mut().ui.display_mode;
         // Check if we're in a local game or bot game to preserve clock
         let is_local_game =
-            self.current_game_kind() == Some(GamePageKind::Solo) && mode_kind == GameKind::Local;
+            self.current_game_mode() == Some(GameModeKind::Local) && mode_kind == GameKind::Local;
         let is_bot_game = mode_kind == GameKind::Bot;
 
-        if is_bot_game && self.game_mode_state.is_random_color {
-            self.game_mode_state.selected_color = Some(if rand::random::<bool>() {
+        if is_bot_game && self.services.game_mode_state.is_random_color {
+            self.services.game_mode_state.selected_color = Some(if rand::random::<bool>() {
                 Color::White
             } else {
                 Color::Black
             });
         }
 
-        self.replace_game(Game::default());
+        self.services.replace_game(Game::default());
 
         if is_bot_game {
             let bot_starting =
-                self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
-            let path = self.bot_state.chess_engine_path.as_deref().unwrap_or("");
+                self.services.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
+            let path = self.services.bot_state.chess_engine_path.as_deref().unwrap_or("");
             let bot = Bot::new(
                 path,
                 bot_starting,
-                self.bot_state.bot_depth,
-                self.bot_state.bot_difficulty,
+                self.services.bot_state.bot_depth,
+                self.services.bot_state.bot_difficulty,
             );
-            self.game_mut().runtime.set_mode(Box::new(BotMode::new(bot)));
+            self.services.game_mut().runtime.set_mode(Box::new(BotMode::new(bot)));
             if bot_starting {
                 // Flip the board once so Black player sees from their perspective.
-                self.game_mut().runtime.flip();
+                self.services.game_mut().runtime.flip();
             }
         }
 
         // Restore skin, display mode and piece styles
-        self.game_mut().ui.skin = current_skin;
-        self.game_mut().ui.display_mode = display_mode;
-        self.game_mut().ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
+        self.services.game_mut().ui.skin = current_skin;
+        self.services.game_mut().ui.display_mode = display_mode;
+        self.services.game_mut().ui.available_piece_styles = self.services.theme_state.available_piece_styles.clone();
         self.close_modal();
 
         // Re-initialize clock for local games and bot games
         if is_local_game || is_bot_game {
-            self.game_mut()
+            self.services.game_mut()
                 .runtime
-                .set_clock(Clock::new(self.game_mode_state.get_time_control()));
+                .set_clock(Clock::new(self.services.game_mode_state.get_time_control()));
         }
     }
 
@@ -114,9 +114,9 @@ impl App {
     /// This consolidates the repeated game end checking logic.
     pub fn check_and_show_game_end(&mut self) {
         // Update game state first (this will stop the clock if game ended)
-        self.game_mut().runtime.update_game_state();
+        self.services.game_mut().runtime.update_game_state();
 
-        if self.game_mut().runtime.state().is_finished() {
+        if self.services.game_mut().runtime.state().is_finished() {
             // Drop any resume save: the game is over, there is nothing left to continue.
             self.clear_resume_state_for_current_mode();
         } else {
@@ -128,8 +128,7 @@ impl App {
 impl App {
     /// Prepare the bot page and report whether the board should be rendered.
     pub fn prepare_bot_page(&mut self) -> bool {
-        if self
-            .bot_state
+        if self.services.bot_state
             .chess_engine_path
             .as_ref()
             .is_none_or(|p| p.is_empty())
@@ -148,7 +147,7 @@ impl App {
             return false;
         }
 
-        if let Some(engine_path) = &self.bot_state.chess_engine_path {
+        if let Some(engine_path) = &self.services.bot_state.chess_engine_path {
             let command_path = engine_path.split_whitespace().next().unwrap_or(engine_path);
             if !std::path::Path::new(command_path).exists()
                 || !std::path::Path::new(command_path).is_file()
@@ -170,8 +169,8 @@ impl App {
             }
         }
 
-        self.game_mode_state.resolve_selected_color();
-        if self.game_mut().runtime.kind() != ::game::GameKind::Bot {
+        self.services.game_mode_state.resolve_selected_color();
+        if self.services.game_mut().runtime.kind() != ::game::GameKind::Bot {
             self.bot_setup();
             false
         } else {
@@ -181,16 +180,16 @@ impl App {
 
     /// Prepare the multiplayer page and report whether the board should be rendered.
     pub fn prepare_multiplayer_page(&mut self) -> bool {
-        self.game_mode_state.resolve_selected_color();
+        self.services.game_mode_state.resolve_selected_color();
         if self.has_modal::<crate::modal::MessageModal>() {
             return false;
         }
-        if self.game_mut().runtime.kind() != ::game::GameKind::Tcp {
-            if self.multiplayer_state.host_ip.is_none() {
-                if self.multiplayer_state.hosting == Some(true) {
-                    if let Some(color) = self.game_mode_state.selected_color {
+        if self.services.game_mut().runtime.kind() != ::game::GameKind::Tcp {
+            if self.services.multiplayer_state.host_ip.is_none() {
+                if self.services.multiplayer_state.hosting == Some(true) {
+                    if let Some(color) = self.services.game_mode_state.selected_color {
                         net::setup_game_server(color);
-                        self.multiplayer_state.host_ip = Some("127.0.0.1".to_string());
+                        self.services.multiplayer_state.host_ip = Some("127.0.0.1".to_string());
                     }
                 } else {
                     self.show_enter_host_ip();
@@ -200,7 +199,7 @@ impl App {
             }
             false
         } else {
-            self.game_mut().runtime.is_ready()
+            self.services.game_mut().runtime.is_ready()
         }
     }
 }

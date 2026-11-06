@@ -161,15 +161,15 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     assert!(app.pgn_viewer().is_none());
     // The critical checks - nothing from the viewer leaks into a fresh game.
     assert!(
-        !app.game_mut().ui.hide_cursor,
+        !app.services.game_mut().ui.hide_cursor,
         "cursor must be visible after exit"
     );
     assert_eq!(
-        app.game_mut().runtime.positions().len(),
+        app.services.game_mut().runtime.positions().len(),
         1,
         "new game must start with just the initial position"
     );
-    assert!(app.game_mut().runtime.moves().is_empty());
+    assert!(app.services.game_mut().runtime.moves().is_empty());
     Ok(())
 }
 
@@ -183,9 +183,9 @@ fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
     // Home → Play Game → Local → start game
     send(&mut app, &[KeyCode::Enter, KeyCode::Enter, KeyCode::Enter])?;
     assert!(matches!(
-        app.current_game_kind(),
-        Some(app::GamePageKind::Solo)
+        app.current_game_mode(),
+        Some(app::GameModeKind::Local)
     ));
-    assert!(!app.game_mut().ui.hide_cursor);
+    assert!(!app.services.game_mut().ui.hide_cursor);
     Ok(())
 }

@@ -8,13 +8,14 @@ pub mod game_mode;
 pub mod game_mode_menu;
 pub mod modal;
 pub mod puzzle;
+pub mod services;
 pub mod state;
 
 pub use app::{App, AppResult};
 pub use game_mode::GameModeState;
 
 pub use page::{
-    AsAny, AvailableGameMode, GameAction, GameModeAction, GameModeView, GamePageKind, GameView,
+    AsAny, AvailableGameMode, GameAction, GameModeAction, GameModeView, GameModeKind, GameView,
     LichessAction, LichessView, OngoingAction, Page, PageAction, PageContext, PageFactory,
     PgnAction, PgnViewerAccess, Router, SettingsAction, SettingsView,
 };

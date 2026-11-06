@@ -1,12 +1,12 @@
 //! Default page factory used by the application bootstrap.
 
-use page::{GamePageKind, Page, PageFactory};
+use page::{Page, PageFactory};
 use session::GameHandle;
 use model::PgnViewer;
 
 use crate::{
-    CreditsPage, GameModeMenuPage, GamePage, HomePage, LichessMenuPage, OngoingGamesPage,
-    PgnViewerPage, SettingsPage,
+    BotGamePage, CreditsPage, GameModeMenuPage, HomePage, LichessGamePage, LichessMenuPage,
+    LocalGamePage, MultiplayerGamePage, OngoingGamesPage, PgnViewerPage, SettingsPage,
 };
 
 /// Builds the concrete pages shipped with chess-tui.
@@ -18,19 +18,19 @@ impl PageFactory for DefaultPageFactory {
     }
 
     fn solo(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Solo, game))
+        Box::new(LocalGamePage::new(game))
     }
 
     fn bot(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Bot, game))
+        Box::new(BotGamePage::new(game))
     }
 
     fn multiplayer(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Multiplayer, game))
+        Box::new(MultiplayerGamePage::new(game))
     }
 
     fn lichess(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(GamePage::new(GamePageKind::Lichess, game))
+        Box::new(LichessGamePage::new(game))
     }
 
     fn lichess_menu(&self) -> Box<dyn Page> {

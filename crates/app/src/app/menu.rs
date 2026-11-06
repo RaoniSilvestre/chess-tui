@@ -10,15 +10,15 @@ impl App {
     /// Cycles to the next or previous skin and updates the display mode to match.
     /// Pass `true` to advance forward, `false` to go back.
     pub fn cycle_skin(&mut self, next: bool) {
-        let future_skin = self.theme_state.get_skin(next);
+        let future_skin = self.services.theme_state.get_skin(next);
         let future_skin_name = future_skin.clone().name;
 
         play_menu_nav_sound(); // move
 
         // Update selected skin name and apply it
-        self.theme_state.loaded_skin = Some(future_skin.clone());
-        self.theme_state.selected_skin_name = future_skin_name.clone();
-        self.game_mut().ui.skin = future_skin;
+        self.services.theme_state.loaded_skin = Some(future_skin.clone());
+        self.services.theme_state.selected_skin_name = future_skin_name.clone();
+        self.services.game_mut().ui.skin = future_skin;
 
         // Set display mode based on skin name
         let display_mode = match future_skin_name.as_str() {
@@ -27,7 +27,7 @@ impl App {
             _ => DisplayMode::CUSTOM,
         };
 
-        self.game_mut().ui.display_mode = display_mode;
+        self.services.game_mut().ui.display_mode = display_mode;
     }
 
     /// Cycles to the next or previous bot difficulty level.
@@ -52,36 +52,36 @@ impl App {
         self.flush_resume_state();
 
         // Preserve display mode and skin preference
-        let display_mode = self.game_mut().ui.display_mode;
-        let current_skin = self.game_mut().ui.skin.clone();
+        let display_mode = self.services.game_mut().ui.display_mode;
+        let current_skin = self.services.game_mut().ui.skin.clone();
 
         // Cancel any active Lichess seek before resetting
-        if let Some(cancellation_token) = &self.lichess_state.cancellation_token {
+        if let Some(cancellation_token) = &self.services.lichess_state.cancellation_token {
             cancellation_token.store(true, std::sync::atomic::Ordering::Relaxed);
             log::info!("Cancelling Lichess seek before returning to home");
         }
-        self.lichess_state.cancellation_token = None;
-        self.lichess_state.receiver = None;
+        self.services.lichess_state.cancellation_token = None;
+        self.services.lichess_state.receiver = None;
 
         // Reset game-related state
-        self.game_mode_state.selected_color = None;
-        self.game_mode_state.is_random_color = false;
+        self.services.game_mode_state.selected_color = None;
+        self.services.game_mode_state.is_random_color = false;
 
         // Clean up any active network mode.
-        self.game_mut().runtime.disconnect();
-        self.multiplayer_state.hosting = None;
-        self.multiplayer_state.host_ip = None;
+        self.services.game_mut().runtime.disconnect();
+        self.services.multiplayer_state.hosting = None;
+        self.services.multiplayer_state.host_ip = None;
 
         // Clear puzzle state
-        self.lichess_state.puzzle_game = None;
+        self.services.lichess_state.puzzle_game = None;
 
         // Reset game completely but preserve display mode, skin and piece styles
-        self.replace_game(Game::default());
-        self.game_mut().ui.display_mode = display_mode;
-        self.game_mut().ui.skin = current_skin;
-        self.game_mut().ui.available_piece_styles = self.theme_state.available_piece_styles.clone();
-        self.game_mode_state.clock_cursor = 3; // Reset to default (Rapid)
-        self.game_mode_state.custom_time_minutes = 10; // Reset custom time
+        self.services.replace_game(Game::default());
+        self.services.game_mut().ui.display_mode = display_mode;
+        self.services.game_mut().ui.skin = current_skin;
+        self.services.game_mut().ui.available_piece_styles = self.services.theme_state.available_piece_styles.clone();
+        self.services.game_mode_state.clock_cursor = 3; // Reset to default (Rapid)
+        self.services.game_mode_state.custom_time_minutes = 10; // Reset custom time
         let page = self.pages.home();
         self.set_page(page);
         self.close_modal();
@@ -91,8 +91,8 @@ impl App {
     /// Used by popups that should return to home when closed.
     pub fn close_popup_and_go_home(&mut self) {
         self.close_modal();
-        self.game_mode_state.clock_cursor = DEFAULT_TIME_CONTROL_SELECTED; // Reset to default (Rapid)
-        self.game_mode_state.custom_time_minutes = DEFAULT_CUSTOM_TIME_VALUE; // Reset custom time
+        self.services.game_mode_state.clock_cursor = DEFAULT_TIME_CONTROL_SELECTED; // Reset to default (Rapid)
+        self.services.game_mode_state.custom_time_minutes = DEFAULT_CUSTOM_TIME_VALUE; // Reset custom time
         let page = self.pages.home();
         self.set_page(page);
     }

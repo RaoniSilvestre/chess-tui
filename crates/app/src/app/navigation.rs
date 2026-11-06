@@ -1,16 +1,16 @@
-use crate::{App, GamePageKind, Page, PgnViewerAccess, Router};
+use crate::{App, GameModeKind, Page, PgnViewerAccess, Router};
 
 impl App {
     pub fn show_solo(&mut self) {
-        let page = self.pages.solo(self.game.clone());
+        let page = self.pages.solo(self.services.game.clone());
         self.set_page(page);
     }
     pub fn show_bot(&mut self) {
-        let page = self.pages.bot(self.game.clone());
+        let page = self.pages.bot(self.services.game.clone());
         self.set_page(page);
     }
     pub fn show_multiplayer(&mut self) {
-        let page = self.pages.multiplayer(self.game.clone());
+        let page = self.pages.multiplayer(self.services.game.clone());
         self.set_page(page);
     }
     pub fn show_pgn_viewer(&mut self, games: Vec<model::PgnViewer>, game_idx: usize) {
@@ -18,7 +18,7 @@ impl App {
         self.set_page(page);
     }
     pub fn show_lichess(&mut self) {
-        let page = self.pages.lichess(self.game.clone());
+        let page = self.pages.lichess(self.services.game.clone());
         self.set_page(page);
     }
     pub fn set_page(&mut self, page: Box<dyn Page>) {
@@ -41,8 +41,8 @@ impl App {
             .as_ref()
             .is_some_and(|router| router.page().as_any().is::<T>())
     }
-    pub fn current_game_kind(&self) -> Option<GamePageKind> {
-        self.router.as_ref().and_then(|router| router.page().game_kind())
+    pub fn current_game_mode(&self) -> Option<GameModeKind> {
+        self.router.as_ref().and_then(|router| router.page().game_mode())
     }
     pub fn current_page_type_id(&self) -> Option<std::any::TypeId> {
         self.router
@@ -90,7 +90,7 @@ impl App {
             return;
         }
         self.show_lichess_menu();
-        if self.lichess_state.user_profile.is_none() {
+        if self.services.lichess_state.user_profile.is_none() {
             self.show_loading("Loading your lichess account ...".to_string());
         }
         self.fetch_lichess_user_profile();

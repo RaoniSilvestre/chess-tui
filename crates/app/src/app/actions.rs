@@ -1,5 +1,5 @@
 use crate::{
-    App, AvailableGameMode, GameAction, GameModeAction, GameModeView, GamePageKind, GameView, LichessAction,
+    App, AvailableGameMode, GameAction, GameModeAction, GameModeView, GameModeKind, GameView, LichessAction,
     LichessView, OngoingAction, PageAction, PageContext, PgnAction, SettingsAction,
     SettingsView,
 };
@@ -13,7 +13,7 @@ impl App {
         let has_local_resume = self.has_resume_save(ResumeMode::Local);
         let has_bot_resume = self.has_resume_save(ResumeMode::Bot);
         let skin_name = {
-            let game = self.game();
+            let game = self.services.game();
             match game.ui.display_mode {
                 DisplayMode::DEFAULT => "Default".to_string(),
                 DisplayMode::ASCII => "ASCII".to_string(),
@@ -21,43 +21,43 @@ impl App {
             }
         };
         let is_lichess = {
-            let game = self.game();
+            let game = self.services.game();
             game.runtime.kind() == GameKind::Lichess
         };
         let settings = SettingsView {
             has_sound: cfg!(feature = "sound"),
-            kitty_available: self.kitty_pieces.is_some(),
+            kitty_available: self.services.kitty_pieces.is_some(),
             skin_name,
-            sound_enabled: self.sound_enabled,
-            animations_enabled: self.animations_enabled,
-            bot_depth: self.bot_state.bot_depth,
-            bot_difficulty: self.bot_state.bot_difficulty,
-            kitty_graphics_enabled: self.kitty_graphics_enabled,
+            sound_enabled: self.services.sound_enabled,
+            animations_enabled: self.services.animations_enabled,
+            bot_depth: self.services.bot_state.bot_depth,
+            bot_difficulty: self.services.bot_state.bot_difficulty,
+            kitty_graphics_enabled: self.services.kitty_graphics_enabled,
         };
         let game_mode = GameModeView {
-            bot_depth: self.bot_state.bot_depth,
-            bot_difficulty: self.bot_state.bot_difficulty,
-            engine_path: self.bot_state.chess_engine_path.clone(),
-            hosting: self.multiplayer_state.hosting,
+            bot_depth: self.services.bot_state.bot_depth,
+            bot_difficulty: self.services.bot_state.bot_difficulty,
+            engine_path: self.services.bot_state.chess_engine_path.clone(),
+            hosting: self.services.multiplayer_state.hosting,
             has_local_resume,
             has_bot_resume,
         };
         let game = GameView {
-            is_puzzle: self.lichess_state.puzzle_game.is_some(),
-            selected_color: self.game_mode_state.selected_color,
+            is_puzzle: self.services.lichess_state.puzzle_game.is_some(),
+            selected_color: self.services.game_mode_state.selected_color,
             is_lichess,
         };
         let has_token = self.lichess_has_token();
         let kitty = if include_kitty {
-            self.kitty_pieces.as_mut()
+            self.services.kitty_pieces.as_mut()
         } else {
             None
         };
         let lichess = LichessView {
             has_token,
-            profile: self.lichess_state.user_profile.as_ref(),
-            rating_history: self.lichess_state.rating_history.as_deref(),
-            ongoing_games: &self.lichess_state.ongoing_games,
+            profile: self.services.lichess_state.user_profile.as_ref(),
+            rating_history: self.services.lichess_state.rating_history.as_deref(),
+            ongoing_games: &self.services.lichess_state.ongoing_games,
         };
         PageContext {
             settings,
@@ -65,7 +65,7 @@ impl App {
             game,
             lichess,
             kitty,
-            kitty_enabled: self.kitty_graphics_enabled,
+            kitty_enabled: self.services.kitty_graphics_enabled,
         }
     }
     pub(crate) fn apply_page_action(&mut self, action: PageAction) {
@@ -107,20 +107,20 @@ impl App {
                 random_color,
                 hosting,
             } => {
-                self.game_mode_state.selected_color = color;
-                self.game_mode_state.is_random_color = random_color;
-                self.multiplayer_state.hosting = hosting;
-                self.game_mut().runtime.set_clock(Clock::new(time_control));
+                self.services.game_mode_state.selected_color = color;
+                self.services.game_mode_state.is_random_color = random_color;
+                self.services.multiplayer_state.hosting = hosting;
+                self.services.game_mut().runtime.set_clock(Clock::new(time_control));
                 match mode {
                     AvailableGameMode::Local => crate::game_mode_menu::finish_form(
                         self,
-                        GamePageKind::Solo,
+                        GameModeKind::Local,
                     ),
                     AvailableGameMode::Bot => {
-                        crate::game_mode_menu::finish_form(self, GamePageKind::Bot)
+                        crate::game_mode_menu::finish_form(self, GameModeKind::Bot)
                     }
                     AvailableGameMode::Multiplayer => {
-                        crate::game_mode_menu::finish_form(self, GamePageKind::Multiplayer)
+                        crate::game_mode_menu::finish_form(self, GameModeKind::Multiplayer)
                     }
                     AvailableGameMode::PGNLoader => self.show_load_pgn_path(),
                 }
@@ -162,8 +162,8 @@ impl App {
             GameAction::OpenHelp => self.show_help(),
             GameAction::Quit => self.quit(),
             GameAction::PuzzleHint => {
-                if let Some(puzzle_game) = &self.lichess_state.puzzle_game {
-                    let mut game = self.game_mut();
+                if let Some(puzzle_game) = &self.services.lichess_state.puzzle_game {
+                    let mut game = self.services.game_mut();
                     puzzle_game.show_hint(&mut game);
                 }
             }

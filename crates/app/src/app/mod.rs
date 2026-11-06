@@ -1,20 +1,12 @@
 //! Top-level application state and services.
 
-use crate::animations::AnimationState;
-use crate::game_mode::GameModeState;
-use session::{Game, GameHandle, game_handle};
-use crate::state::bot_state::BotState;
-use crate::state::lichess_state::LichessState;
-use crate::state::multiplayer_state::MultiplayerState;
-use crate::state::theme_state::ThemeState;
-use crate::{Modal, Page, PageFactory, Router};
+use crate::services::Services;
+use crate::{Page, PageFactory, Router};
 use ::game::GameKind;
-use log::LevelFilter;
-use model::GameOutcome;
-use model::ClockState;
+use model::{ClockState, GameOutcome};
+use session::Game;
 use std::error;
 use std::time::Instant;
-use ui::graphics::KittyPieces;
 
 pub mod actions;
 pub mod bot;
@@ -32,121 +24,34 @@ pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 /// Top-level application context that owns all runtime state.
 pub struct App {
-    pub kitty_pieces: Option<KittyPieces>,
     pub running: bool,
-    pub game: GameHandle,
-    pub log_level: LevelFilter,
-    pub sound_enabled: bool,
-    pub animations_enabled: bool,
-    pub kitty_graphics_enabled: bool,
-    pub theme_state: ThemeState,
-    pub bot_state: BotState,
-    pub multiplayer_state: MultiplayerState,
-    pub game_mode_state: GameModeState,
-    pub lichess_state: LichessState,
-    pub animations: AnimationState,
-    pub last_saved_move_count: Option<usize>,
-    pub last_resume_flush_at: Option<Instant>,
     pub router: Option<Router>,
     pub pages: Box<dyn PageFactory>,
+    pub services: Services,
     pending_page: Option<Box<dyn Page>>,
-    modal: Option<Box<dyn Modal>>,
 }
 
 impl App {
     pub fn new(pages: Box<dyn PageFactory>) -> Self {
         let router = Router::new(pages.home());
         Self {
-            kitty_pieces: None,
             running: true,
-            game: game_handle(Game::default()),
-            log_level: LevelFilter::Off,
-            theme_state: ThemeState::default(),
-            bot_state: BotState::default(),
-            multiplayer_state: MultiplayerState::default(),
-            game_mode_state: GameModeState::default(),
-            lichess_state: LichessState::default(),
-            sound_enabled: true,
-            animations_enabled: false,
-            kitty_graphics_enabled: true,
-            animations: AnimationState::default(),
-            last_saved_move_count: None,
-            last_resume_flush_at: None,
             router: Some(router),
             pages,
+            services: Services::default(),
             pending_page: None,
-            modal: None,
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     pub fn game(&self) -> std::cell::Ref<'_, Game> {
-        self.game.borrow()
+        self.services.game.borrow()
     }
 
     pub fn game_mut(&self) -> std::cell::RefMut<'_, Game> {
-        self.game.borrow_mut()
+        self.services.game.borrow_mut()
     }
 
     pub fn replace_game(&mut self, game: Game) {
-        *self.game.borrow_mut() = game;
+        *self.services.game.borrow_mut() = game;
     }
 
 
@@ -203,7 +108,7 @@ impl App {
     }
 
     pub fn dispatch_mouse(&mut self, mouse: ratatui::crossterm::event::MouseEvent) {
-        if self.modal.is_some() {
+        if self.services.modal.is_some() {
             return;
         }
         self.sync_page();
@@ -264,14 +169,14 @@ impl App {
     pub fn settings_toggle_sound(&mut self) {
         #[cfg(feature = "sound")]
         {
-            self.sound_enabled = !self.sound_enabled;
-            ui::sound::set_sound_enabled(self.sound_enabled);
+            self.services.sound_enabled = !self.services.sound_enabled;
+            ui::sound::set_sound_enabled(self.services.sound_enabled);
             self.update_config_from_app();
         }
     }
 
     pub fn settings_toggle_animations(&mut self) {
-        self.animations_enabled = !self.animations_enabled;
+        self.services.animations_enabled = !self.services.animations_enabled;
         self.update_config_from_app();
     }
 
@@ -280,15 +185,15 @@ impl App {
     }
 
     pub fn settings_bot_depth_down(&mut self) {
-        if self.bot_state.bot_depth > 1 {
-            self.bot_state.bot_depth -= 1;
+        if self.services.bot_state.bot_depth > 1 {
+            self.services.bot_state.bot_depth -= 1;
             self.update_config_from_app();
         }
     }
 
     pub fn settings_bot_depth_up(&mut self) {
-        if self.bot_state.bot_depth < 20 {
-            self.bot_state.bot_depth += 1;
+        if self.services.bot_state.bot_depth < 20 {
+            self.services.bot_state.bot_depth += 1;
             self.update_config_from_app();
         }
     }
@@ -298,12 +203,12 @@ impl App {
     }
 
     pub fn settings_toggle_kitty(&mut self) {
-        self.kitty_graphics_enabled = !self.kitty_graphics_enabled;
+        self.services.kitty_graphics_enabled = !self.services.kitty_graphics_enabled;
         self.update_config_from_app();
     }
 
     pub fn lichess_has_token(&self) -> bool {
-        self.lichess_state
+        self.services.lichess_state
             .token
             .as_ref()
             .map(|token| !token.is_empty())
@@ -317,7 +222,7 @@ impl App {
     }
 
     pub fn lichess_seek(&mut self, cursor: u8) {
-        let page = self.pages.lichess(self.game.clone());
+        let page = self.pages.lichess(self.services.game.clone());
         self.set_page(page);
         self.create_lichess_opponent(cursor.clamp(3, 4));
     }
@@ -327,7 +232,7 @@ impl App {
     }
 
     pub fn lichess_open_ongoing_games(&mut self) {
-        if self.lichess_state.ongoing_games.is_empty() {
+        if self.services.lichess_state.ongoing_games.is_empty() {
             self.show_loading("Loading your ongoing games ...".to_string());
         }
         self.fetch_ongoing_games();
@@ -359,7 +264,7 @@ impl App {
 
     pub fn quit(&mut self) {
         self.flush_resume_state();
-        if let Some(cancellation_token) = &self.lichess_state.cancellation_token {
+        if let Some(cancellation_token) = &self.services.lichess_state.cancellation_token {
             cancellation_token.store(true, std::sync::atomic::Ordering::Relaxed);
             log::info!("Cancelling Lichess seek before quit");
         }
@@ -370,9 +275,9 @@ impl App {
         self.dispatch_tick();
         self.game_mut().ui.update_cursor_blink();
 
-        if let Some(mut puzzle_game) = self.lichess_state.puzzle_game.take() {
+        if let Some(mut puzzle_game) = self.services.lichess_state.puzzle_game.take() {
             puzzle_game.check_elo_update();
-            let token = self.lichess_state.token.clone();
+            let token = self.services.lichess_state.token.clone();
             let pending = {
                 let mut game = self.game_mut();
                 puzzle_game.check_pending_move(&mut game, token)
@@ -380,11 +285,11 @@ impl App {
             if let Some(success_message) = pending {
                 self.show_puzzle_end(success_message);
             }
-            self.lichess_state.puzzle_game = Some(puzzle_game);
+            self.services.lichess_state.puzzle_game = Some(puzzle_game);
         }
 
         let (is_lichess, clock, clock_state) = {
-            let game = self.game();
+            let game = self.services.game();
             (
                 game.runtime.kind() == GameKind::Lichess,
                 game.runtime.clock().clone(),
@@ -398,10 +303,10 @@ impl App {
             self.game_mut().runtime.force_time_up(active_color);
         }
 
-        let clock_state = self.game().runtime.clock().state();
+        let clock_state = self.services.game().runtime.clock().state();
         if let ClockState::TimeUp { loser_color } = clock_state {
             let winner = loser_color.other();
-            let finished = self.game().runtime.state().is_finished();
+            let finished = self.services.game().runtime.state().is_finished();
             if !finished {
                 self.game_mut().runtime.finish(GameOutcome::Timeout { winner });
             }

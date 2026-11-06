@@ -27,8 +27,8 @@ impl<T: 'static> AsAny for T {
 
 /// The concrete game page kind.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GamePageKind {
-    Solo,
+pub enum GameModeKind {
+    Local,
     Bot,
     Multiplayer,
     Lichess,
@@ -196,7 +196,7 @@ pub trait Page: AsAny {
 
     fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>);
 
-    fn game_kind(&self) -> Option<GamePageKind> {
+    fn game_mode(&self) -> Option<GameModeKind> {
         None
     }
 

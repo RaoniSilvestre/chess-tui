@@ -11,29 +11,29 @@ impl App {
     /// engine when it is the bot's turn.
     pub fn bot_setup(&mut self) {
         let is_bot_starting =
-            self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
-        let path = self.bot_state.chess_engine_path.as_deref().unwrap_or("");
+            self.services.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black;
+        let path = self.services.bot_state.chess_engine_path.as_deref().unwrap_or("");
         let bot = Bot::new(
             path,
             is_bot_starting,
-            self.bot_state.bot_depth,
-            self.bot_state.bot_difficulty,
+            self.services.bot_state.bot_depth,
+            self.services.bot_state.bot_difficulty,
         );
-        self.game_mut().runtime.set_mode(Box::new(BotMode::new(bot)));
+        self.services.game_mut().runtime.set_mode(Box::new(BotMode::new(bot)));
 
         // Initialize clock for bot games.
-        self.game_mut()
+        self.services.game_mut()
             .runtime
-            .set_clock(Clock::new(self.game_mode_state.get_time_control()));
+            .set_clock(Clock::new(self.services.game_mode_state.get_time_control()));
 
-        if self.game_mode_state.selected_color == Some(Color::Black) {
+        if self.services.game_mode_state.selected_color == Some(Color::Black) {
             // Flip the board once so Black player sees from their perspective.
-            self.game_mut().runtime.flip();
+            self.services.game_mut().runtime.flip();
         }
 
         // Ensure skin is preserved when setting up bot
-        if let Some(skin) = &self.theme_state.loaded_skin {
-            self.game_mut().ui.skin = skin.clone();
+        if let Some(skin) = &self.services.theme_state.loaded_skin {
+            self.services.game_mut().ui.skin = skin.clone();
         }
 
         self.update_config_from_app();

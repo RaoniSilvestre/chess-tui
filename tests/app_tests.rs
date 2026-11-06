@@ -56,13 +56,13 @@ mod local_game_tests {
         // Select the e2 pawn
         send_keys(&mut app, &[KeyCode::Enter])?;
         assert_eq!(
-            app.game_mut().ui.selected_square,
+            app.services.game_mut().ui.selected_square,
             Some(Square::E2),
             "The e2 pawn should be selected"
         );
 
         // Should not change the cursor position when select a new piece.
-        assert_eq!(app.game_mut().ui.cursor_coordinates, Coord::new(6, 4));
+        assert_eq!(app.services.game_mut().ui.cursor_coordinates, Coord::new(6, 4));
 
         // Navigate from e2 to e4 (2 steps up)
         send_keys(&mut app, &[KeyCode::Up, KeyCode::Up])?;
@@ -72,16 +72,16 @@ mod local_game_tests {
 
         // Verify the game state successfully updated
         assert!(
-            app.game_mut().ui.selected_square.is_none(),
+            app.services.game_mut().ui.selected_square.is_none(),
             "Selection should clear after making a valid move"
         );
         assert_eq!(
-            app.game_mut().runtime.moves().len(),
+            app.services.game_mut().runtime.moves().len(),
             1,
             "One move should be recorded in the history"
         );
         assert_eq!(
-            app.game_mut().runtime.turn(),
+            app.services.game_mut().runtime.turn(),
             Color::Black,
             "The turn should have swapped to Black"
         );
@@ -100,7 +100,7 @@ mod local_game_tests {
         // Select the pawn
         send_keys(&mut app, &[KeyCode::Enter])?;
         assert!(
-            app.game_mut().ui.selected_square.is_some(),
+            app.services.game_mut().ui.selected_square.is_some(),
             "The e2 pawn should be selected"
         );
 
@@ -110,12 +110,12 @@ mod local_game_tests {
 
         // Verify the move was rejected and state remains untouched
         assert_eq!(
-            app.game_mut().runtime.moves().len(),
+            app.services.game_mut().runtime.moves().len(),
             0,
             "No move should be recorded for an illegal destination"
         );
         assert_eq!(
-            app.game_mut().runtime.turn(),
+            app.services.game_mut().runtime.turn(),
             Color::White,
             "It should still be White's turn"
         );
@@ -140,10 +140,10 @@ mod local_game_tests {
         );
 
         // Cursor navigation must still work after closing the popup.
-        let before = app.game_mut().ui.cursor_coordinates;
+        let before = app.services.game_mut().ui.cursor_coordinates;
         send_keys(&mut app, &[KeyCode::Down])?;
         assert_ne!(
-            app.game_mut().ui.cursor_coordinates, before,
+            app.services.game_mut().ui.cursor_coordinates, before,
             "Cursor should move normally after the popup is dismissed"
         );
 
@@ -169,21 +169,21 @@ mod local_game_tests {
             "Popup should stay open after a successful move"
         );
         assert_eq!(
-            app.game_mut().ui.prompt.input, "",
+            app.services.game_mut().ui.prompt.input, "",
             "Input should be cleared after a successful move"
         );
         assert_eq!(
-            app.game_mut().runtime.turn(),
+            app.services.game_mut().runtime.turn(),
             Color::Black,
             "Turn should swap to Black"
         );
         assert_eq!(
-            app.game_mut().runtime.get_role_at_square(&Square::E4),
+            app.services.game_mut().runtime.get_role_at_square(&Square::E4),
             Some(Role::Pawn),
             "A pawn should now sit on e4"
         );
         assert!(
-            app.game_mut().ui.prompt.error.is_none(),
+            app.services.game_mut().ui.prompt.error.is_none(),
             "No error should be set on success"
         );
 
@@ -210,15 +210,15 @@ mod local_game_tests {
             "Invalid SAN should not close the popup"
         );
         assert!(
-            app.game_mut().ui.prompt.error.is_some(),
+            app.services.game_mut().ui.prompt.error.is_some(),
             "Invalid SAN should set an error"
         );
         assert_eq!(
-            app.game_mut().ui.prompt.input, "zzz",
+            app.services.game_mut().ui.prompt.input, "zzz",
             "Input must be preserved so the user can edit it"
         );
         assert_eq!(
-            app.game_mut().runtime.moves().len(),
+            app.services.game_mut().runtime.moves().len(),
             0,
             "No move should be applied"
         );
@@ -246,16 +246,16 @@ mod local_game_tests {
             "Illegal SAN should not close the popup"
         );
         assert!(
-            app.game_mut().ui.prompt.error.is_some(),
+            app.services.game_mut().ui.prompt.error.is_some(),
             "Illegal SAN should set an error"
         );
         assert_eq!(
-            app.game_mut().runtime.turn(),
+            app.services.game_mut().runtime.turn(),
             Color::White,
             "Turn should not change on illegal input"
         );
         assert!(
-            app.game_mut().runtime.get_role_at_square(&Square::E5).is_none(),
+            app.services.game_mut().runtime.get_role_at_square(&Square::E5).is_none(),
             "e5 must remain empty"
         );
 
@@ -276,11 +276,11 @@ mod local_game_tests {
                 KeyCode::Enter,
             ],
         )?;
-        assert!(app.game_mut().ui.prompt.error.is_some());
+        assert!(app.services.game_mut().ui.prompt.error.is_some());
 
         send_keys(&mut app, &[KeyCode::Backspace])?;
         assert!(
-            app.game_mut().ui.prompt.error.is_none(),
+            app.services.game_mut().ui.prompt.error.is_none(),
             "Backspace should clear the stale error"
         );
 
@@ -323,16 +323,16 @@ mod local_game_tests {
         send_keys(&mut app, &nav_to_e2)?;
         send_keys(&mut app, &[KeyCode::Enter])?;
 
-        assert!(app.game_mut().ui.selected_square.is_some());
+        assert!(app.services.game_mut().ui.selected_square.is_some());
 
         // Press Enter again on the exact same square to deselect
         send_keys(&mut app, &[KeyCode::Enter])?;
 
         assert!(
-            app.game_mut().ui.selected_square.is_none(),
+            app.services.game_mut().ui.selected_square.is_none(),
             "Pressing enter on the currently selected piece should deselect it"
         );
-        assert_eq!(app.game_mut().runtime.moves().len(), 0);
+        assert_eq!(app.services.game_mut().runtime.moves().len(), 0);
 
         Ok(())
     }

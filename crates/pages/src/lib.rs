@@ -12,7 +12,9 @@ pub mod settings;
 pub use credits::CreditsPage;
 pub use factory::DefaultPageFactory;
 pub use game_mode::GameModeMenuPage;
-pub use game_page::GamePage;
+pub use game_page::{
+    BotGamePage, LichessGamePage, LocalGamePage, MultiplayerGamePage,
+};
 pub use home::HomePage;
 pub use lichess_pages::{LichessMenuPage, OngoingGamesPage};
 pub use pgn::PgnViewerPage;
