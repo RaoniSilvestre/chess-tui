@@ -1,9 +1,6 @@
 //! Tracks the active page, current popup overlay, menu cursor position, and transient UI flags.
 
-use crate::{
-    constants::{Pages, Popups},
-    sound::play_menu_nav_sound,
-};
+use crate::constants::{Pages, Popups};
 
 /// Navigation and overlay state held by [`crate::app::App`].
 ///
@@ -85,42 +82,5 @@ impl UIState {
     pub fn show_message_popup(&mut self, message: String, popup_type: Popups) {
         self.popup_message = Some(message);
         self.current_popup = Some(popup_type);
-    }
-
-    /// Moves the menu cursor up by one, wrapping to the last item at the top.
-    pub fn menu_cursor_up(&mut self, l: u8) {
-        if self.menu_cursor > 0 {
-            self.menu_cursor -= 1;
-        } else {
-            self.menu_cursor = l - 1;
-        }
-        play_menu_nav_sound();
-    }
-    /// Moves the menu cursor right by one, wrapping to the first item at the end.
-    pub fn menu_cursor_right(&mut self, l: u8) {
-        if self.menu_cursor < l - 1 {
-            self.menu_cursor += 1;
-        } else {
-            self.menu_cursor = 0;
-        }
-        play_menu_nav_sound();
-    }
-    /// Moves the menu cursor left by one, wrapping to the last item at the start.
-    pub fn menu_cursor_left(&mut self, l: u8) {
-        if self.menu_cursor > 0 {
-            self.menu_cursor -= 1;
-        } else {
-            self.menu_cursor = l - 1;
-        }
-        play_menu_nav_sound();
-    }
-    /// Moves the menu cursor down by one, wrapping to the first item at the end.
-    pub fn menu_cursor_down(&mut self, l: u8) {
-        if self.menu_cursor < l - 1 {
-            self.menu_cursor += 1;
-        } else {
-            self.menu_cursor = 0;
-        }
-        play_menu_nav_sound();
     }
 }

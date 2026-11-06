@@ -28,10 +28,6 @@ pub enum Nav<C: AppContext> {
 /// Pages own their local state and call these methods for navigation and
 /// shared services. The concrete application implements this trait.
 pub trait AppContext {
-    fn home_cursor(&self) -> u8;
-    fn home_cursor_up(&mut self);
-    fn home_cursor_down(&mut self);
-
     fn open_game_mode_menu(&mut self);
     fn open_lichess_menu(&mut self);
     fn open_settings(&mut self);

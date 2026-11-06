@@ -19,11 +19,13 @@ pub const TITLE: &str = r"
  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝      ╚═╝    ╚═════╝ ╚═╝
 ";
 
-pub struct HomePage;
+pub struct HomePage {
+    cursor: u8,
+}
 
 impl HomePage {
     pub fn new() -> Self {
-        Self
+        Self { cursor: 0 }
     }
 }
 
@@ -36,9 +38,13 @@ impl Default for HomePage {
 impl<C: AppContext> Page<C> for HomePage {
     fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => ctx.home_cursor_up(),
-            KeyCode::Down | KeyCode::Char('j') => ctx.home_cursor_down(),
-            KeyCode::Char(' ') | KeyCode::Enter => match ctx.home_cursor() {
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.cursor = (self.cursor + 1) % 5;
+            }
+            KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
                 0 => ctx.open_game_mode_menu(),
                 1 => ctx.open_lichess_menu(),
                 2 => ctx.open_settings(),
@@ -53,8 +59,8 @@ impl<C: AppContext> Page<C> for HomePage {
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
-        render_home(frame, area, ctx.home_cursor());
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut C) {
+        render_home(frame, area, self.cursor);
     }
 }
 

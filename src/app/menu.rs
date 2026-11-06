@@ -2,84 +2,11 @@
 
 use crate::app::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
-use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
 use crate::handlers::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
 use crate::sound::play_menu_nav_sound;
-use chess_tui_app::AvailableGameMode;
 use chess_tui_theme::DisplayMode;
-/// Typed representation of the main-menu entries, indexed by `menu_cursor`.
-pub enum MainMenuItems {
-    GameModeMenu,
-    LichessMenu,
-    SettingsMenu,
-    Help,
-    Credit,
-}
-
-impl From<u8> for MainMenuItems {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => MainMenuItems::GameModeMenu,
-            1 => MainMenuItems::LichessMenu,
-            2 => MainMenuItems::SettingsMenu,
-            3 => MainMenuItems::Help,
-            4 => MainMenuItems::Credit,
-            _ => MainMenuItems::GameModeMenu,
-        }
-    }
-}
 impl App {
-    /// Handles a selection on the main menu. Navigates to the chosen section or toggles a setting.
-    pub fn menu_select(&mut self) {
-        let field: MainMenuItems = MainMenuItems::from(self.ui_state.menu_cursor);
-        match field {
-            MainMenuItems::GameModeMenu => {
-                // Play Game -> GameModeMenu
-                // Reset everything to ensure cursor starts at first item
-                self.ui_state.menu_cursor = 0;
-                self.game_mode_state.selection = Some(AvailableGameMode::Local);
-                self.game_mode_state.form_cursor = 0;
-                self.game_mode_state.form_active = false;
-                self.ui_state.current_page = Pages::GameModeMenu;
-            }
-            MainMenuItems::LichessMenu => {
-                // Lichess Online
-                // Check if Lichess token is configured
-                if self.lichess_state.token.is_none()
-                    || self
-                        .lichess_state
-                        .token
-                        .as_ref()
-                        .map(|t: &String| t.is_empty())
-                        .unwrap_or(true)
-                {
-                    // Open interactive token entry popup
-                    self.ui_state.current_popup = Some(Popups::EnterLichessToken);
-                    self.game.ui.prompt.reset();
-                    self.game.ui.prompt.message = "Enter your Lichess API token:".to_string();
-                    return;
-                }
-                self.ui_state.menu_cursor = 0;
-                self.ui_state.current_page = Pages::LichessMenu;
-                if self.lichess_state.user_profile.is_none() {
-                    self.ui_state.popup_message =
-                        Some("Loading your lichess account ...".to_string());
-                    self.ui_state.show_popup(Popups::Loading);
-                }
-                self.fetch_lichess_user_profile();
-            }
-            MainMenuItems::SettingsMenu => {
-                // Settings Menu
-                // Reset everything to ensure cursor starts at first item
-                self.ui_state.menu_cursor = 0;
-                self.ui_state.current_page = Pages::SettingsMenu;
-            }
-            MainMenuItems::Help => self.ui_state.toggle_help_popup(),
-            MainMenuItems::Credit => self.ui_state.current_page = Pages::Credit,
-        }
-    }
-
     /// Cycles to the next or previous skin and updates the display mode to match.
     /// Pass `true` to advance forward, `false` to go back.
     pub fn cycle_skin(&mut self, next: bool) {

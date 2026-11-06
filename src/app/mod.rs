@@ -115,41 +115,39 @@ impl Default for App {
 }
 
 impl AppContext for App {
-    fn home_cursor(&self) -> u8 {
-        self.ui_state.menu_cursor
-    }
-
-    fn home_cursor_up(&mut self) {
-        self.ui_state.menu_cursor_up(5);
-    }
-
-    fn home_cursor_down(&mut self) {
-        self.ui_state.menu_cursor_down(5);
-    }
-
     fn open_game_mode_menu(&mut self) {
         self.ui_state.menu_cursor = 0;
-        self.menu_select();
+        self.game_mode_state.selection = Some(chess_tui_app::AvailableGameMode::Local);
+        self.game_mode_state.form_cursor = 0;
+        self.game_mode_state.form_active = false;
+        self.ui_state.current_page = Pages::GameModeMenu;
     }
 
     fn open_lichess_menu(&mut self) {
-        self.ui_state.menu_cursor = 1;
-        self.menu_select();
+        if !self.lichess_has_token() {
+            self.lichess_open_token_prompt();
+            return;
+        }
+        self.ui_state.menu_cursor = 0;
+        self.ui_state.current_page = Pages::LichessMenu;
+        if self.lichess_state.user_profile.is_none() {
+            self.ui_state.popup_message = Some("Loading your lichess account ...".to_string());
+            self.ui_state.show_popup(Popups::Loading);
+        }
+        self.fetch_lichess_user_profile();
     }
 
     fn open_settings(&mut self) {
-        self.ui_state.menu_cursor = 2;
-        self.menu_select();
+        self.ui_state.menu_cursor = 0;
+        self.ui_state.current_page = Pages::SettingsMenu;
     }
 
     fn open_help(&mut self) {
-        self.ui_state.menu_cursor = 3;
-        self.menu_select();
+        self.ui_state.toggle_help_popup();
     }
 
     fn open_credits(&mut self) {
-        self.ui_state.menu_cursor = 4;
-        self.menu_select();
+        self.ui_state.current_page = Pages::Credit;
     }
 
     fn go_home(&mut self) {
