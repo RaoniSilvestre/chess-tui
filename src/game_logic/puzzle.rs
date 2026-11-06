@@ -1,6 +1,6 @@
 //! Lichess puzzle state and move validation.
 
-use crate::game_logic::game::Game;
+use chess_tui_app::game::Game;
 use chess_tui_core::Board;
 use chess_tui_core::square_utils::get_coord_from_square;
 use chess_tui_lichess::{LichessClient, Puzzle};

@@ -2,9 +2,9 @@
 
 use crate::app::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
-use crate::game_logic::game::Game;
 use crate::handlers::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
 use crate::sound::play_menu_nav_sound;
+use chess_tui_app::game::Game;
 use chess_tui_theme::DisplayMode;
 impl App {
     /// Cycles to the next or previous skin and updates the display mode to match.

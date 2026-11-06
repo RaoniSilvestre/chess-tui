@@ -6,10 +6,10 @@
 
 use crate::app::App;
 use crate::constants::{Pages, Popups};
-use crate::game_logic::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
+use chess_tui_app::game::Game;
 use chess_tui_core::{Clock, TimeControl};
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};

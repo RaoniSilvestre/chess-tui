@@ -2,7 +2,6 @@
 
 use crate::animations::AnimationState;
 use crate::constants::{Pages, Popups};
-use crate::game_logic::game::Game;
 use crate::state::bot_state::BotState;
 use crate::state::lichess_state::LichessState;
 use crate::state::multiplayer_state::MultiplayerState;
@@ -10,6 +9,7 @@ use crate::state::resume::ResumeMode;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_app::GameModeState;
+use chess_tui_app::game::Game;
 use chess_tui_app::{
     AppContext, GameModeContext, GamePageContext, GamePageKind, LichessMenuContext,
     OngoingGamesContext, Page, PgnViewerContext, Router, SettingsContext,
