@@ -7,7 +7,6 @@ use crate::game_logic::puzzle::PuzzleGame;
 use crate::lichess::models::LichessClient;
 use crate::state::lichess_state::LichessUpdate;
 use chess_tui_core::Clock;
-use chess_tui_core::GameState;
 use shakmaty::Color;
 use std::sync::mpsc::channel;
 
@@ -375,7 +374,7 @@ impl App {
         immediate_last_move: Option<String>,
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
-        self.game.logic.set_state(GameState::Playing);
+        self.game.logic.start_playing();
         self.ui_state.close_popup();
         self.ui_state.end_screen_dismissed = false;
 
@@ -653,7 +652,7 @@ impl App {
 
         // Reset game state to Playing (in case it was Checkmate/Draw from previous puzzle)
         // This must be done early to prevent check_and_show_game_end from re-showing the popup
-        self.game.logic.set_state(GameState::Playing);
+        self.game.logic.start_playing();
 
         // Fetch fresh user profile to get the latest puzzle rating
         // This ensures we use the correct baseline rating after any previous puzzle's Elo change

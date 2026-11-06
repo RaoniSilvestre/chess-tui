@@ -10,5 +10,5 @@ pub mod square_utils;
 pub use clock::{Clock, ClockState, TimeControl};
 pub use coord::{Coord, MoveDirection};
 pub use game_board::{GameBoard, HistoryError};
-pub use game_state::GameState;
+pub use game_state::{GameOutcome, GameState, PendingPromotion};
 pub use pgn::{DEFAULT_SPEED_IDX, PgnViewer, SPEEDS};

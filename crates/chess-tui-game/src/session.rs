@@ -1,11 +1,11 @@
 //! Game session state and move application.
 
-use chess_tui_core::{Clock, GameBoard, GameState};
-use shakmaty::{Color, Position, Square};
+use chess_tui_core::{Clock, GameBoard, GameOutcome, GameState, PendingPromotion};
+use shakmaty::{Color, Position};
 use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
-/// The mutable state of one chess game: board, clock, turn, and game state.
+/// The mutable state of one chess game: board, clock, turn, and phase/outcome.
 ///
 /// The board is exposed through `Deref` for convenience while the application
 /// is migrated to explicit session methods. Prefer [`GameSession::board`] in
@@ -16,8 +16,6 @@ pub struct GameSession {
     clock: Clock,
     turn: Color,
     state: GameState,
-    pending_promotion: Option<(Square, Square)>,
-    ended_by_time: bool,
 }
 
 impl Default for GameSession {
@@ -27,8 +25,6 @@ impl Default for GameSession {
             clock: Clock::default(),
             turn: Color::White,
             state: GameState::Playing,
-            pending_promotion: None,
-            ended_by_time: false,
         }
     }
 }
@@ -70,36 +66,32 @@ impl GameSession {
         self.state
     }
 
-    pub fn set_state(&mut self, state: GameState) {
-        self.state = state;
+    pub fn promotion(&self) -> Option<PendingPromotion> {
+        self.state.promotion()
     }
 
-    pub fn pending_promotion(&self) -> Option<(Square, Square)> {
-        self.pending_promotion
+    /// Reset the game phase to playing.
+    pub fn start_playing(&mut self) {
+        self.state = GameState::Playing;
     }
 
-    pub fn set_pending_promotion(&mut self, pending: Option<(Square, Square)>) {
-        self.pending_promotion = pending;
+    /// Enter the promotion phase for `promotion`.
+    pub fn request_promotion(&mut self, promotion: PendingPromotion) {
+        self.state = GameState::Promotion(promotion);
     }
 
-    pub fn take_pending_promotion(&mut self) -> Option<(Square, Square)> {
-        self.pending_promotion.take()
-    }
-
-    pub fn ended_by_time(&self) -> bool {
-        self.ended_by_time
-    }
-
-    pub fn set_ended_by_time(&mut self, ended_by_time: bool) {
-        self.ended_by_time = ended_by_time;
+    /// Finish the game with a specific outcome.
+    pub fn finish(&mut self, outcome: GameOutcome) {
+        self.state = GameState::Finished(outcome);
+        self.clock.pause(Instant::now());
     }
 
     pub fn is_game_over(&self) -> bool {
-        matches!(self.state, GameState::Checkmate | GameState::Draw)
+        self.state.is_finished()
     }
 
     pub fn is_promotion(&self) -> bool {
-        self.state == GameState::Promotion
+        self.state.is_promotion()
     }
 
     /// Switch the side to move and the active clock.
@@ -110,12 +102,18 @@ impl GameSession {
 
     /// Recompute the terminal/promotion state from the board.
     pub fn update_game_state(&mut self) {
+        if self.state.is_finished() {
+            return;
+        }
+
         let new_state = if self.board.is_checkmate() {
-            GameState::Checkmate
+            GameState::Finished(GameOutcome::Checkmate {
+                winner: self.turn.other(),
+            })
         } else if self.board.is_draw() {
-            GameState::Draw
-        } else if self.board.is_latest_move_promotion() {
-            GameState::Promotion
+            GameState::Finished(GameOutcome::Draw)
+        } else if let Some(promotion) = self.pending_promotion_from_board() {
+            GameState::Promotion(promotion)
         } else {
             self.clock.resume(Instant::now());
             return;
@@ -123,6 +121,15 @@ impl GameSession {
 
         self.state = new_state;
         self.clock.pause(Instant::now());
+    }
+
+    fn pending_promotion_from_board(&self) -> Option<PendingPromotion> {
+        if !self.board.is_latest_move_promotion() {
+            return None;
+        }
+        let last_move = self.board.moves().last()?;
+        let from = last_move.from()?;
+        Some(PendingPromotion::new(from, last_move.to()))
     }
 
     /// Start the clock for the side to move if it has not started yet.

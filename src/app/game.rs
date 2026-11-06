@@ -4,7 +4,6 @@ use crate::app::App;
 use crate::constants::{Pages, Popups};
 use crate::game_logic::game::Game;
 use chess_tui_core::Clock;
-use chess_tui_core::GameState;
 use shakmaty::Color;
 
 impl App {
@@ -31,9 +30,7 @@ impl App {
         self.game.logic.update_game_state();
         let new_state = self.game.logic.state();
 
-        if previous_state != new_state
-            && (new_state == GameState::Checkmate || new_state == GameState::Draw)
-        {
+        if previous_state != new_state && new_state.is_finished() {
             self.show_end_screen();
             // Player-induced terminal states reach this branch (bot-induced
             // ones go through `check_and_show_game_end`). Either way the
@@ -68,7 +65,6 @@ impl App {
         // Clear puzzle state when restarting (for normal games)
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
-        self.game.logic.set_ended_by_time(false);
         let bot = self.game.logic.bot.clone();
         let opponent = self.game.logic.opponent.clone();
         // Preserve skin and display mode
@@ -136,9 +132,7 @@ impl App {
         // Update game state first (this will stop the clock if game ended)
         self.game.logic.update_game_state();
 
-        if self.game.logic.state() == GameState::Checkmate
-            || self.game.logic.state() == GameState::Draw
-        {
+        if self.game.logic.state().is_finished() {
             // Game ended - only show end screen if it's not already shown and not dismissed
             if self.ui_state.current_popup != Some(Popups::EndScreen)
                 && self.ui_state.current_popup != Some(Popups::PuzzleEndScreen)

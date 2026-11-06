@@ -14,3 +14,8 @@
 
 - [ ] Remove `GameSession`'s `Deref`/`DerefMut` to `GameBoard` once call sites use `board()` and session methods directly.
 - [ ] Remove `GameLogic`'s `Deref`/`DerefMut` to `GameSession` once bot/opponent orchestration moves into `GameMode`.
+
+## Game-state follow-ups
+
+- [ ] Parse the Lichess `winner` field for resignation events and populate `GameOutcome::Resignation { winner: Some(...) }`.
+- [ ] Add a `DrawReason` if the UI needs to distinguish stalemate, fifty-move, repetition, insufficient material, and agreement.

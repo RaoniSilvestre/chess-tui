@@ -3,7 +3,6 @@
 use crate::app::App;
 use crate::constants::{Pages, Popups};
 use chess_tui_core::Coord;
-use chess_tui_core::GameState;
 use chess_tui_core::square_utils::flip_square_if_needed;
 use shakmaty::CastlingMode;
 
@@ -34,12 +33,14 @@ impl App {
         // Handle promotion directly (like mouse handler does)
         // Note: Promotion state should always allow input, even if turn has switched
         // because the player needs to select the promotion piece after making the move
-        if self.game.logic.state() == GameState::Promotion {
+        if self.game.logic.state().is_promotion() {
             // Track if the move was correct (for puzzle mode)
             let mut move_was_correct = true;
 
             // If we have a pending promotion move, validate it now with the selected promotion piece
-            if let Some((from, to)) = self.game.logic.take_pending_promotion() {
+            if let Some(pending) = self.game.logic.promotion() {
+                let from = pending.from();
+                let to = pending.to();
                 // Get the promotion piece from the cursor
                 let promotion_char = match self.game.ui.promotion_cursor {
                     0 => 'q', // Queen
@@ -75,9 +76,8 @@ impl App {
                     }
                 }
             }
-            // Note: For non-puzzle games (like Lichess), pending_promotion_move may be None,
-            // but we still need to handle the promotion based on the cursor selection.
-            // The move is already in the history, we just need to update it with the selected promotion piece.
+            // The promotion state carries the move squares. The move is already in
+            // history and only needs to be replayed with the selected piece.
 
             // Only handle promotion if the move was correct (or not in puzzle mode)
             // If incorrect, reset_last_move already removed the move and reset the state
@@ -90,8 +90,8 @@ impl App {
             } else {
                 // Move was incorrect in puzzle mode - ensure game state is reset
                 // reset_last_move should have already handled this, but make sure
-                if self.game.logic.state() == GameState::Promotion {
-                    self.game.logic.set_state(GameState::Playing);
+                if self.game.logic.state().is_promotion() {
+                    self.game.logic.start_playing();
                 }
             }
 
@@ -151,17 +151,12 @@ impl App {
             self.game
                 .handle_cell_click(self.game_mode_state.selected_color);
 
-            // Check if the move resulted in a promotion state
-            if self.game.logic.state() == GameState::Promotion {
-                // Store the move info for later validation after promotion piece is selected
-                if let Some(move_info) = puzzle_move_info {
-                    self.game.logic.set_pending_promotion(Some(move_info));
-                }
-            } else {
-                // Validate puzzle move after execution (non-promotion moves)
-                if let Some((from, to)) = puzzle_move_info {
-                    self.validate_puzzle_move_after_execution(from, to);
-                }
+            // Validate puzzle moves after execution. Promotion validation happens
+            // when the player chooses the piece.
+            if !self.game.logic.state().is_promotion()
+                && let Some((from, to)) = puzzle_move_info
+            {
+                self.validate_puzzle_move_after_execution(from, to);
             }
 
             // Ensure board stays unflipped in puzzle mode

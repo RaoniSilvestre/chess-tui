@@ -11,7 +11,7 @@ use crate::state::multiplayer_state::MultiplayerState;
 use crate::state::theme_state::ThemeState;
 use crate::state::ui_state::UIState;
 use chess_tui_core::ClockState;
-use chess_tui_core::GameState;
+use chess_tui_core::GameOutcome;
 use log::LevelFilter;
 use std::error;
 use std::time::Instant;
@@ -142,13 +142,10 @@ impl App {
 
         // Check clock for time up (for local games and bot games with clock)
         if let ClockState::TimeUp { loser_color } = self.game.logic.clock().state() {
-            // Time is up - end the game
             let winner = loser_color.other();
-            self.game.logic.set_state(GameState::Checkmate);
-            // Set player_turn to the winner so check_and_show_game_end shows correct winner
-            self.game.logic.set_turn(winner);
-            // Mark that the game ended due to time
-            self.game.logic.set_ended_by_time(true);
+            if !self.game.logic.state().is_finished() {
+                self.game.logic.finish(GameOutcome::Timeout { winner });
+            }
             self.check_and_show_game_end();
         }
 

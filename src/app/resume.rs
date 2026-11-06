@@ -11,7 +11,6 @@ use crate::game_logic::game::Game;
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
-use chess_tui_core::GameState;
 use chess_tui_core::{Clock, TimeControl};
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};
@@ -75,7 +74,7 @@ impl App {
         // Mid-promotion is a half-move — wait for the user to pick a piece.
         // Terminal states get cleared by `clear_resume_state_on_end`, so we
         // intentionally skip writing them here too.
-        if self.game.logic.state() != GameState::Playing {
+        if !self.game.logic.state().is_playing() {
             return;
         }
 
@@ -243,7 +242,7 @@ impl App {
 
         self.game.logic.set_flipped(saved.is_flipped);
         self.game.logic.sync_player_turn_with_position();
-        self.game.logic.set_state(GameState::Playing);
+        self.game.logic.start_playing();
 
         // Restore any saved clock + the form selection used to create it so a
         // follow-up "new game" presents the same time control by default.

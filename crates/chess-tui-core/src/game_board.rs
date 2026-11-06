@@ -29,7 +29,7 @@ pub struct GameBoard {
     /// Historic of the past gameboards states.
     /// The last position is the current position.
     positions: Vec<Chess>,
-    // The number of consecutive non pawn or capture moves
+    /// The number of consecutive non pawn or capture moves
     halfmove_clock: i32,
     /// Stores the captured pieces
     taken_pieces: Vec<Piece>,

@@ -2,7 +2,7 @@
 
 use super::{bot::Bot, opponent::Opponent, ui::UI};
 use chess_tui_core::{
-    ClockState, Coord, GameBoard, GameState, square_utils::flip_square_if_needed,
+    ClockState, Coord, GameBoard, GameOutcome, GameState, square_utils::flip_square_if_needed,
 };
 use chess_tui_game::GameSession;
 use shakmaty::{Color, Move, Position, Role, Square};
@@ -108,7 +108,7 @@ impl Game {
         }
 
         match self.logic.state() {
-            GameState::Promotion => {
+            GameState::Promotion(_) => {
                 // Default to flipping in solo mode (no bot, no opponent)
                 let should_flip = self.logic.opponent.is_none() && self.logic.bot.is_none();
                 self.handle_promotion(should_flip);
@@ -186,8 +186,8 @@ impl Game {
             self.logic.update_game_state();
 
             // Trigger bot move if game is still in progress
-            if self.logic.state() != GameState::Promotion
-                && self.logic.state() != GameState::Checkmate
+            if !self.logic.state().is_promotion()
+                && !self.logic.state().is_finished()
                 && let Some(bot) = self.logic.bot.as_mut()
             {
                 bot.request_move();
@@ -201,19 +201,19 @@ impl Game {
             return;
         }
 
-        if self.logic.is_latest_move_promotion() {
-            self.logic.set_state(GameState::Promotion);
-            return;
-        }
-
         self.logic.update_game_state();
 
         let state = self.logic.state();
+        if state.is_promotion() {
+            // Wait for the player to choose a promotion piece before sending.
+            return;
+        }
+
         let last_move = self.logic.moves().last().cloned();
 
         // Signal opponent to move and send move if game is still in progress.
         if let Some(opponent) = self.logic.opponent.as_mut() {
-            if state != GameState::Checkmate {
+            if !state.is_finished() {
                 opponent.opponent_will_move = true;
             }
 
@@ -291,7 +291,7 @@ impl Game {
 
         self.logic.update_game_state();
 
-        if self.logic.state() != GameState::Promotion {
+        if !self.logic.state().is_promotion() {
             self.logic.start_clock_if_needed();
             self.logic.switch_player_turn();
         } else {
@@ -352,7 +352,7 @@ impl Game {
 
         self.logic.update_game_state();
 
-        if self.logic.state() != GameState::Promotion {
+        if !self.logic.state().is_promotion() {
             self.logic.start_clock_if_needed();
             self.logic.switch_player_turn();
         } else {
@@ -483,7 +483,7 @@ impl GameLogic {
                 });
         }
 
-        self.session.set_state(GameState::Playing);
+        self.session.start_playing();
         if should_flip
             && !self.session.is_draw()
             && !self.session.is_checkmate()
@@ -867,20 +867,21 @@ impl GameLogic {
                 match status_str {
                     "checkmate" => {
                         log::info!("Game ended by checkmate - updating game state");
-                        session.set_state(GameState::Checkmate);
+                        session.finish(GameOutcome::Checkmate {
+                            winner: session.turn().other(),
+                        });
                     }
                     "draw" | "stalemate" | "repetition" | "insufficient" | "fifty" => {
                         log::info!("Game ended by draw ({}) - updating game state", status_str);
-                        session.set_state(GameState::Draw);
+                        session.finish(GameOutcome::Draw);
                     }
                     "resign" => {
                         log::info!("Game ended by resignation - updating game state");
-                        // Resignation is treated as checkmate for the winner
-                        session.set_state(GameState::Checkmate);
+                        session.finish(GameOutcome::Resignation { winner: None });
                     }
                     "aborted" => {
                         log::info!("Game was aborted - updating game state");
-                        session.set_state(GameState::Draw);
+                        session.finish(GameOutcome::Aborted);
                     }
                     _ => {
                         log::warn!("Unknown game status: {}", status_str);

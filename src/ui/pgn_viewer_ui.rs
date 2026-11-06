@@ -2,7 +2,6 @@
 
 use crate::ui::components::centered_rect::centered_rect;
 use crate::{app::App, ui::game_ui::render_game_ui};
-use chess_tui_core::GameState;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -35,7 +34,7 @@ pub fn sync_pgn_to_board(app: &mut App) {
         return;
     }
     app.game.ui.selected_square = None;
-    app.game.logic.set_state(GameState::Playing);
+    app.game.logic.start_playing();
     // Hide the square cursor - viewer is read-only, nothing to select.
     app.game.ui.hide_cursor = true;
     // Set player_turn so history panel colouring is correct

@@ -13,8 +13,8 @@ use chess_tui::{
     handlers::handler::handle_key_events,
     state::resume::{ClockState, ResumeMode, SavedGame, has_save, save, save_path},
 };
-use chess_tui_core::GameState;
 use chess_tui_core::TimeControl::{self};
+use chess_tui_core::{GameOutcome, GameState};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tempfile::TempDir;
 
@@ -216,7 +216,9 @@ fn reaching_game_end_clears_save() -> AppResult<()> {
     // by going through the path it shares with the main loop. To keep the
     // test simple, call the deletion helper directly: that is what the
     // end-of-game hook does.
-    app.game.logic.set_state(GameState::Checkmate);
+    app.game.logic.finish(GameOutcome::Checkmate {
+        winner: shakmaty::Color::White,
+    });
     app.clear_resume_state_for_current_mode();
 
     assert!(
@@ -806,7 +808,10 @@ fn player_checkmate_via_check_game_end_status_clears_save() -> AppResult<()> {
 
     app.check_game_end_status();
 
-    assert_eq!(app.game.logic.state(), GameState::Checkmate);
+    assert!(matches!(
+        app.game.logic.state(),
+        GameState::Finished(GameOutcome::Checkmate { .. })
+    ));
     assert!(
         !has_save(ResumeMode::Local),
         "check_game_end_status must clear the save on a fresh terminal state",
@@ -853,7 +858,10 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
 
     app.tick();
 
-    assert_eq!(app.game.logic.state(), GameState::Checkmate);
+    assert!(matches!(
+        app.game.logic.state(),
+        GameState::Finished(GameOutcome::Timeout { .. })
+    ));
     assert!(
         !has_save(ResumeMode::Local),
         "Clock-runout path must also clear the resume save",

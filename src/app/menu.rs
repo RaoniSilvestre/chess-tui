@@ -128,7 +128,6 @@ impl App {
         let display_mode = self.game.ui.display_mode;
         let current_skin = self.game.ui.skin.clone();
         self.ui_state.end_screen_dismissed = false;
-        self.game.logic.set_ended_by_time(false);
 
         // Cancel any active Lichess seek before resetting
         if let Some(cancellation_token) = &self.lichess_state.cancellation_token {
