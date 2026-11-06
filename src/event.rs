@@ -1,6 +1,6 @@
 //! Terminal event polling.
 
-use crate::app::AppResult;
+use crate::runtime::AppResult;
 use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use std::sync::mpsc;
 use std::thread;

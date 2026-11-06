@@ -3,25 +3,26 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use chess_tui_core::PgnViewer;
-use chess_tui_lichess::LichessClient;
-use chess_tui_theme::{DisplayMode, PieceStyle, Skin};
-use chess_tui_ui::graphics;
 use dirs::config_dir;
+use lichess::LichessClient;
 use log::LevelFilter;
+use model::PgnViewer;
+use theme::{DisplayMode, PieceStyle, Skin};
+use ui::graphics;
 
 use crate::{
-    app::{App, AppResult},
     config::{Args, Config},
     constants::{SKIN_NAME_ASCII, SKIN_NAME_DEFAULT},
-    logging, sound,
+    logging,
+    runtime::{App, AppResult},
+    sound,
     state::{bot_state::BotState, lichess_state::LichessState},
 };
 
 pub fn setup_app(args: &Args) -> AppResult<App> {
     setup_panic();
 
-    let mut app = crate::app::test_app();
+    let mut app = crate::runtime::test_app();
 
     let config_dir = config_dir().ok_or("Error retrieving config directory.")?;
     let folder_path = config_dir.join("chess-tui");

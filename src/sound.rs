@@ -1,3 +1,3 @@
-//! Sound helpers, re-exported from `chess-tui-ui`.
+//! Sound helpers, re-exported from `ui`.
 
-pub use chess_tui_ui::sound::*;
+pub use ui::sound::*;

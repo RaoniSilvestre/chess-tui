@@ -117,6 +117,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "app"
+version = "2.8.0"
+dependencies = [
+ "clap",
+ "dirs",
+ "game",
+ "lichess",
+ "log",
+ "model",
+ "net",
+ "rand 0.10.3",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "shakmaty",
+ "tachyonfx",
+ "theme",
+ "throbber-widgets-tui",
+ "toml",
+ "ui",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,20 +403,18 @@ dependencies = [
 name = "chess-tui"
 version = "2.8.0"
 dependencies = [
- "chess-tui-app",
- "chess-tui-core",
- "chess-tui-engine",
- "chess-tui-game",
- "chess-tui-lichess",
- "chess-tui-net",
- "chess-tui-pages",
- "chess-tui-theme",
- "chess-tui-ui",
+ "app",
  "chrono",
  "clap",
  "dirs",
+ "engine",
+ "game",
  "image",
+ "lichess",
  "log",
+ "model",
+ "net",
+ "pages",
  "rand 0.10.3",
  "ratatui",
  "ratatui-image",
@@ -406,117 +427,10 @@ dependencies = [
  "simplelog",
  "tachyonfx",
  "tempfile",
+ "theme",
  "throbber-widgets-tui",
  "toml",
-]
-
-[[package]]
-name = "chess-tui-app"
-version = "2.8.0"
-dependencies = [
- "chess-tui-core",
- "chess-tui-game",
- "chess-tui-lichess",
- "chess-tui-net",
- "chess-tui-theme",
- "chess-tui-ui",
- "clap",
- "dirs",
- "log",
- "rand 0.10.3",
- "ratatui",
- "serde",
- "serde_json",
- "shakmaty",
- "tachyonfx",
- "throbber-widgets-tui",
- "toml",
-]
-
-[[package]]
-name = "chess-tui-core"
-version = "2.8.0"
-dependencies = [
- "log",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-engine"
-version = "2.8.0"
-dependencies = [
- "ruci",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-game"
-version = "2.8.0"
-dependencies = [
- "chess-tui-core",
- "chess-tui-engine",
- "chess-tui-lichess",
- "chess-tui-net",
- "log",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-lichess"
-version = "2.8.0"
-dependencies = [
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-net"
-version = "2.8.0"
-dependencies = [
- "log",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-pages"
-version = "2.8.0"
-dependencies = [
- "chess-tui-app",
- "chess-tui-core",
- "chess-tui-game",
- "chess-tui-lichess",
- "chess-tui-ui",
- "chrono",
- "ratatui",
- "shakmaty",
-]
-
-[[package]]
-name = "chess-tui-theme"
-version = "2.8.0"
-dependencies = [
- "chrono",
- "dirs",
- "ratatui",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "chess-tui-ui"
-version = "2.8.0"
-dependencies = [
- "chess-tui-core",
- "chess-tui-game",
- "chess-tui-theme",
- "image",
- "ratatui",
- "ratatui-image",
- "rodio",
- "shakmaty",
+ "ui",
 ]
 
 [[package]]
@@ -1002,6 +916,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine"
+version = "2.8.0"
+dependencies = [
+ "ruci",
+ "shakmaty",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1189,6 +1111,18 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "game"
+version = "2.8.0"
+dependencies = [
+ "engine",
+ "lichess",
+ "log",
+ "model",
+ "net",
+ "shakmaty",
 ]
 
 [[package]]
@@ -1768,6 +1702,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lichess"
+version = "2.8.0"
+dependencies = [
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shakmaty",
+]
+
+[[package]]
 name = "line-clipping"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1918,6 +1863,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "model"
+version = "2.8.0"
+dependencies = [
+ "log",
+ "shakmaty",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1954,6 +1907,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "net"
+version = "2.8.0"
+dependencies = [
+ "log",
+ "shakmaty",
 ]
 
 [[package]]
@@ -2216,6 +2177,20 @@ name = "outref"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
+
+[[package]]
+name = "pages"
+version = "2.8.0"
+dependencies = [
+ "app",
+ "chrono",
+ "game",
+ "lichess",
+ "model",
+ "ratatui",
+ "shakmaty",
+ "ui",
+]
 
 [[package]]
 name = "palette"
@@ -3738,6 +3713,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "theme"
+version = "2.8.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "ratatui",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4013,6 +3999,20 @@ name = "ucd-trie"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2896d95c02a80c6d6a5d6e953d479f5ddf2dfdb6a244441010e373ac0fb88971"
+
+[[package]]
+name = "ui"
+version = "2.8.0"
+dependencies = [
+ "game",
+ "image",
+ "model",
+ "ratatui",
+ "ratatui-image",
+ "rodio",
+ "shakmaty",
+ "theme",
+]
 
 [[package]]
 name = "unicode-ident"

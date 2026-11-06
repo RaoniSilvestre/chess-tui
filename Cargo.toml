@@ -28,15 +28,15 @@ default-members = [".", "crates/*"]
 resolver = "2"
 
 [dependencies]
-chess-tui-core = { path = "crates/chess-tui-core" }
-chess-tui-engine = { path = "crates/chess-tui-engine" }
-chess-tui-game = { path = "crates/chess-tui-game" }
-chess-tui-lichess = { path = "crates/chess-tui-lichess" }
-chess-tui-net = { path = "crates/chess-tui-net" }
-chess-tui-theme = { path = "crates/chess-tui-theme" }
-chess-tui-ui = { path = "crates/chess-tui-ui" }
-chess-tui-app = { path = "crates/chess-tui-app" }
-chess-tui-pages = { path = "crates/chess-tui-pages" }
+model = { path = "crates/model" }
+engine = { path = "crates/engine" }
+game = { path = "crates/game" }
+lichess = { path = "crates/lichess" }
+net = { path = "crates/net" }
+theme = { path = "crates/theme" }
+ui = { path = "crates/ui" }
+app = { path = "crates/app" }
+pages = { path = "crates/pages" }
 clap = { version = "4.6.1", features = ["derive"] }
 dirs = "7.0.0"
 ratatui = { version = "0.30.0", features = ["serde"] }
@@ -60,7 +60,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 tempfile = "3.8"
 
 [features]
-sound = ["rodio", "chess-tui-ui/sound", "chess-tui-app/sound"]
+sound = ["rodio", "ui/sound", "app/sound"]
 default = ["sound"]
 
 [profile.release]

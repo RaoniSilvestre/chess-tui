@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use chess_tui_app::game::Game;
-    use chess_tui_core::GameState;
+    use app::game_state::Game;
+    use model::GameState;
 
     use shakmaty::{Color, Position, Square};
 
@@ -10,7 +10,7 @@ mod tests {
         let game = Game::default();
         assert_eq!(game.runtime.turn(), Color::White);
         assert_eq!(game.runtime.state(), GameState::Playing);
-        assert_eq!(game.runtime.kind(), chess_tui_game::GameKind::Local);
+        assert_eq!(game.runtime.kind(), game::GameKind::Local);
     }
 
     #[test]

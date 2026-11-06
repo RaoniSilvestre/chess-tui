@@ -1,3 +1,3 @@
-//! Configuration and CLI args, re-exported from `chess-tui-app`.
+//! Configuration and CLI args, re-exported from `app`.
 
-pub use chess_tui_app::config::*;
+pub use app::config::*;

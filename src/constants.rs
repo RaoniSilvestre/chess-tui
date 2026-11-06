@@ -1,3 +1,3 @@
-//! Shared constants, re-exported from `chess-tui-app`.
+//! Shared constants, re-exported from `app`.
 
-pub use chess_tui_app::constants::*;
+pub use app::constants::*;

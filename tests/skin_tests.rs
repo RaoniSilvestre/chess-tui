@@ -1,7 +1,7 @@
-use chess_tui_theme::Skin;
 use ratatui::style::Color;
 use std::io::Write;
 use tempfile::NamedTempFile;
+use theme::Skin;
 
 #[test]
 fn test_default_skin() {

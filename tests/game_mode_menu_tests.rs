@@ -2,8 +2,8 @@
 //! closing the "Load PGN" popup with a single Esc must return control to the menu.
 
 use chess_tui::{
-    app::{App, AppResult},
     handlers::handler::handle_key_events,
+    runtime::{App, AppResult},
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -26,7 +26,7 @@ fn send(app: &mut App, keys: &[KeyCode]) -> AppResult<()> {
 /// Navigates Home -> GameModeMenu and selects the PGN loader, which opens the
 /// `LoadPgnPath` popup. `PGNLoader` is the 4th entry (index 3, COUNT = 4).
 fn open_pgn_loader_popup() -> AppResult<App> {
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     send(&mut app, &[KeyCode::Enter])?; // Home "Play Game" -> GameModeMenu
     send(&mut app, &[KeyCode::Down, KeyCode::Down, KeyCode::Down])?; // -> PGNLoader
     send(&mut app, &[KeyCode::Enter])?; // open LoadPgnPath popup
@@ -36,8 +36,8 @@ fn open_pgn_loader_popup() -> AppResult<App> {
 #[test]
 fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
-    assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>());
-    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
+    assert!(app.is_page::<pages::GameModeMenuPage>());
+    assert!(app.has_modal::<app::modal::PromptModal>());
     assert_eq!(app.ui_state.menu_cursor, 3);
 
     // A single Esc must close the popup *and* hand control back to the menu.
@@ -59,7 +59,7 @@ fn esc_closes_pgn_popup_and_returns_control_to_menu() -> AppResult<()> {
 #[test]
 fn esc_with_empty_path_closes_popup_and_returns_control_to_menu() -> AppResult<()> {
     let mut app = open_pgn_loader_popup()?;
-    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
+    assert!(app.has_modal::<app::modal::PromptModal>());
 
     // Submitting an empty path also closes the popup; the menu must stay usable.
     send(&mut app, &[KeyCode::Enter])?;

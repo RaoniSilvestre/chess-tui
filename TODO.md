@@ -22,15 +22,15 @@
 
 ## UI migration follow-ups
 
-- [x] Moved board rendering into `chess-tui-ui` behind the `BoardView` view model.
-- [x] Removed the temporary `src/ui` re-exports of `chess-tui-ui`.
-- [x] Moved game rendering and all page-specific popups into `chess-tui-pages`.
+- [x] Moved board rendering into `ui` behind the `BoardView` view model.
+- [x] Removed the temporary `src/ui` re-exports of `ui`.
+- [x] Moved game rendering and all page-specific popups into `pages`.
 
 ## Pages migration
 
 - [x] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
-- [x] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages`.
-- [x] Move page-local state into page structs and the concrete `App` into `chess-tui-app`.
+- [x] Move game pages (Solo, Bot, Multiplayer, Lichess) into `pages`.
+- [x] Move page-local state into page structs and the concrete `App` into `app`.
 - [x] Remove `LegacyPage`, the `Pages` routing enum, and the central page dispatch.
 - [x] Replace the `Popups` enum with modal objects owned by the application.
 - [x] Remove the temporary per-page context traits; pages receive `&mut App` directly.

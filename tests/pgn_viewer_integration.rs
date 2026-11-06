@@ -6,10 +6,10 @@
 mod common;
 
 use chess_tui::{
-    app::{App, AppResult},
     handlers::handler::handle_key_events,
+    runtime::{App, AppResult},
 };
-use chess_tui_core::PgnViewer;
+use model::PgnViewer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 fn key(code: KeyCode) -> KeyEvent {
@@ -32,7 +32,7 @@ fn load_sample_viewer() -> App {
     let games =
         PgnViewer::from_file("examples/sample.pgn").expect("examples/sample.pgn should parse");
     common::isolate_resume_saves();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     app.show_pgn_viewer(games, 0);
     app
 }
@@ -41,7 +41,7 @@ fn load_sample_viewer() -> App {
 fn help_popup_opens_in_pgn_mode() -> AppResult<()> {
     let mut app = load_sample_viewer();
     send(&mut app, &[KeyCode::Char('?')])?;
-    assert!(app.has_modal::<chess_tui_app::modal::HelpModal>());
+    assert!(app.has_modal::<app::modal::HelpModal>());
     send(&mut app, &[KeyCode::Char('?')])?;
     assert!(!app.has_any_modal());
     Ok(())
@@ -157,7 +157,7 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
     let mut app = load_sample_viewer();
 
     // Inject the state that a real render pass would install.
-    use chess_tui::ui::pgn_viewer_ui::sync_pgn_to_board;
+    use chess_tui::presentation::pgn_viewer_ui::sync_pgn_to_board;
     sync_pgn_to_board(&mut app);
     assert!(app.game.ui.hide_cursor, "precondition: viewer hides cursor");
     assert!(!app.game.runtime.positions().is_empty());
@@ -184,7 +184,7 @@ fn esc_returns_home_and_does_not_leave_stale_state() -> AppResult<()> {
 #[test]
 fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
     let mut app = load_sample_viewer();
-    use chess_tui::ui::pgn_viewer_ui::sync_pgn_to_board;
+    use chess_tui::presentation::pgn_viewer_ui::sync_pgn_to_board;
     sync_pgn_to_board(&mut app);
 
     // Exit PGN viewer.
@@ -195,7 +195,7 @@ fn can_start_new_local_game_after_viewing_pgn() -> AppResult<()> {
     send(&mut app, &[KeyCode::Enter, KeyCode::Enter, KeyCode::Enter])?;
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     assert!(!app.game.ui.hide_cursor);
     Ok(())

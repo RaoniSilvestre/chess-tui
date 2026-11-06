@@ -3,10 +3,10 @@ mod common;
 #[cfg(test)]
 mod local_game_tests {
     use chess_tui::{
-        app::{App, AppResult},
         handlers::handler::handle_key_events,
+        runtime::{App, AppResult},
     };
-    use chess_tui_core::Coord;
+    use model::Coord;
     use ratatui::{
         Terminal,
         backend::TestBackend,
@@ -32,7 +32,7 @@ mod local_game_tests {
 
     fn setup_local_game_start() -> AppResult<App> {
         crate::common::isolate_resume_saves();
-        let mut app = chess_tui::app::test_app();
+        let mut app = chess_tui::runtime::test_app();
 
         send_keys(
             &mut app,
@@ -131,7 +131,7 @@ mod local_game_tests {
 
         send_keys(&mut app, &[KeyCode::Char('m')])?;
         assert!(
-            app.has_modal::<chess_tui_app::modal::PromptModal>(),
+            app.has_modal::<app::modal::PromptModal>(),
             "'m' should open the move-input popup"
         );
 
@@ -167,7 +167,7 @@ mod local_game_tests {
         )?;
 
         assert!(
-            app.has_modal::<chess_tui_app::modal::PromptModal>(),
+            app.has_modal::<app::modal::PromptModal>(),
             "Popup should stay open after a successful move"
         );
         assert_eq!(
@@ -208,7 +208,7 @@ mod local_game_tests {
         )?;
 
         assert!(
-            app.has_modal::<chess_tui_app::modal::PromptModal>(),
+            app.has_modal::<app::modal::PromptModal>(),
             "Invalid SAN should not close the popup"
         );
         assert!(
@@ -244,7 +244,7 @@ mod local_game_tests {
         )?;
 
         assert!(
-            app.has_modal::<chess_tui_app::modal::PromptModal>(),
+            app.has_modal::<app::modal::PromptModal>(),
             "Illegal SAN should not close the popup"
         );
         assert!(
@@ -297,8 +297,7 @@ mod local_game_tests {
         // wrapping. Give it ample room so the 'm' line is in the buffer.
         let backend = TestBackend::new(120, 80);
         let mut terminal = Terminal::new(backend)?;
-        terminal
-            .draw(|frame| chess_tui_app::modal::render::help::render_help_popup(frame, &app))?;
+        terminal.draw(|frame| app::modal::render::help::render_help_popup(frame, &app))?;
 
         let buffer = terminal.backend().buffer().clone();
         let mut rendered = String::new();

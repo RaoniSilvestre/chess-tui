@@ -1,6 +1,6 @@
 use chess_tui::{
-    app::{App, AppResult},
     handlers::handler::handle_key_events,
+    runtime::{App, AppResult},
 };
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -21,7 +21,7 @@ fn send(app: &mut App, keys: &[KeyCode]) -> AppResult<()> {
 }
 
 fn open_settings_menu() -> AppResult<App> {
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     send(&mut app, &[KeyCode::Down, KeyCode::Down, KeyCode::Enter])?;
     Ok(app)
 }
@@ -29,7 +29,7 @@ fn open_settings_menu() -> AppResult<App> {
 #[test]
 fn open_close_settings_menu() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     send(&mut app, &[KeyCode::Esc])?;
     assert!(app.is_home());
@@ -40,7 +40,7 @@ fn open_close_settings_menu() -> AppResult<()> {
 #[cfg(feature = "sound")]
 fn toggle_sound() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     let original_sound_status = app.sound_enabled;
     send(&mut app, &[KeyCode::Down, KeyCode::Enter])?;
@@ -56,7 +56,7 @@ fn toggle_sound() -> AppResult<()> {
 #[test]
 fn toggle_animations() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     let original_anim_status = app.animations_enabled;
     send(
@@ -80,7 +80,7 @@ fn toggle_animations() -> AppResult<()> {
 #[test]
 fn open_close_chess_engine_path_popup() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     send(
         &mut app,
@@ -92,11 +92,11 @@ fn open_close_chess_engine_path_popup() -> AppResult<()> {
             KeyCode::Enter,
         ],
     )?;
-    assert!(app.has_modal::<chess_tui_app::modal::PromptModal>());
+    assert!(app.has_modal::<app::modal::PromptModal>());
 
     send(&mut app, &[KeyCode::Esc])?;
     assert!(!app.has_any_modal());
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     Ok(())
 }
@@ -104,7 +104,7 @@ fn open_close_chess_engine_path_popup() -> AppResult<()> {
 #[test]
 fn change_bot_difficulty() -> AppResult<()> {
     let mut app = open_settings_menu()?;
-    assert!(app.is_page::<chess_tui_pages::SettingsPage>());
+    assert!(app.is_page::<pages::SettingsPage>());
 
     let original_difficulty = app.bot_state.bot_difficulty;
     send(
@@ -138,7 +138,7 @@ fn change_bot_difficulty() -> AppResult<()> {
 
 #[test]
 fn kitty_graphics_hidden_outside_kitty() -> AppResult<()> {
-    // chess_tui::app::test_app() has no Kitty pieces loaded, as in a non-Kitty terminal.
+    // chess_tui::runtime::test_app() has no Kitty pieces loaded, as in a non-Kitty terminal.
     let mut app = open_settings_menu()?;
 
     // Up from the first item wraps to the last visible one, which must not be Kitty Graphics.

@@ -1,3 +1,3 @@
-//! Color helpers, re-exported from `chess-tui-ui`.
+//! Color helpers, re-exported from `ui`.
 
-pub use chess_tui_ui::color::*;
+pub use ui::color::*;

@@ -1,7 +1,7 @@
-use chess_tui::app::AppResult;
 use chess_tui::config::Args;
-use chess_tui_theme::Skin;
+use chess_tui::runtime::AppResult;
 use clap::Parser;
+use theme::Skin;
 
 fn main() -> AppResult<()> {
     // Parse the cli arguments first (this will handle --version and exit early if needed)
@@ -14,7 +14,7 @@ fn main() -> AppResult<()> {
 
     let mut app = chess_tui::setup::setup_app(&args)?;
 
-    let result = chess_tui::app::run(&mut app);
+    let result = chess_tui::runtime::run(&mut app);
 
     // Exit the user interface.
     ratatui::try_restore()?;

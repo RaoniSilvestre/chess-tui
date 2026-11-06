@@ -8,12 +8,12 @@ use std::sync::Mutex;
 use std::{path::PathBuf, time::Instant};
 
 use chess_tui::{
-    app::{App, AppResult},
     handlers::handler::handle_key_events,
+    runtime::{App, AppResult},
     state::resume::{ClockState, ResumeMode, SavedGame, has_save, save, save_path},
 };
-use chess_tui_core::TimeControl::{self};
-use chess_tui_core::{GameOutcome, GameState};
+use model::TimeControl::{self};
+use model::{GameOutcome, GameState};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tempfile::TempDir;
 
@@ -110,7 +110,7 @@ fn resolved_save_path(mode: ResumeMode) -> PathBuf {
 fn autosave_writes_after_first_move() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
 
     assert!(
@@ -139,7 +139,7 @@ fn autosave_writes_after_first_move() -> AppResult<()> {
 fn autosave_is_skipped_before_any_move() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     app.autosave_resume_state();
 
@@ -166,12 +166,12 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
 
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     assert_eq!(app.game.runtime.state(), GameState::Playing);
     assert_eq!(
@@ -191,11 +191,11 @@ fn resume_from_saved_rebuilds_position() -> AppResult<()> {
 #[test]
 fn resume_from_missing_save_shows_error() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
 
     assert!(!app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.has_modal::<chess_tui_app::modal::MessageModal>(),
+        app.has_modal::<app::modal::MessageModal>(),
         "An error popup should explain the missing save"
     );
     Ok(())
@@ -205,7 +205,7 @@ fn resume_from_missing_save_shows_error() -> AppResult<()> {
 fn reaching_game_end_clears_save() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -246,9 +246,9 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
     save(ResumeMode::Local, &saved);
     assert!(has_save(ResumeMode::Local));
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
-    assert!(app.has_modal::<chess_tui_app::modal::NewGameConfirmationModal>());
+    assert!(app.has_modal::<app::modal::NewGameConfirmationModal>());
     assert!(
         has_save(ResumeMode::Local),
         "Nothing is wiped before the user confirms"
@@ -261,7 +261,7 @@ fn starting_new_game_clears_existing_save() -> AppResult<()> {
     );
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     assert!(!app.has_any_modal());
     Ok(())
@@ -286,14 +286,14 @@ fn new_game_over_a_save_can_be_cancelled() -> AppResult<()> {
     existing_local_save();
 
     for cancel in [KeyCode::Char('n'), KeyCode::Esc, KeyCode::Enter] {
-        let mut app = chess_tui::app::test_app();
+        let mut app = chess_tui::runtime::test_app();
         start_local_game(&mut app)?;
         send(&mut app, &[cancel])?;
         assert!(
             has_save(ResumeMode::Local),
             "{cancel:?} must not discard the save"
         );
-        assert!(app.is_page::<chess_tui_pages::GameModeMenuPage>());
+        assert!(app.is_page::<pages::GameModeMenuPage>());
     }
     Ok(())
 }
@@ -303,12 +303,12 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
     existing_local_save();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     assert!(!app.has_any_modal());
     assert_eq!(app.game.runtime.moves().len(), 2);
@@ -320,14 +320,14 @@ fn new_game_popup_r_resumes_the_save() -> AppResult<()> {
 fn restart_mid_game_asks_first() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     play_e2e4(&mut app)?;
     app.autosave_resume_state(); // the main loop's tick
     assert!(has_save(ResumeMode::Local));
 
     send(&mut app, &[KeyCode::Char('r')])?;
-    assert!(app.has_modal::<chess_tui_app::modal::NewGameConfirmationModal>());
+    assert!(app.has_modal::<app::modal::NewGameConfirmationModal>());
     send(&mut app, &[KeyCode::Char('n')])?;
     assert_eq!(app.game.runtime.moves().len(), 1, "n keeps the game");
     assert!(has_save(ResumeMode::Local));
@@ -342,7 +342,7 @@ fn restart_mid_game_asks_first() -> AppResult<()> {
 fn restart_before_any_move_does_not_ask() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     send(&mut app, &[KeyCode::Char('r')])?;
     assert!(!app.has_any_modal());
@@ -364,7 +364,7 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     // Drive into the Local form (one Enter past the Local menu entry).
     send(
         &mut app,
@@ -379,7 +379,7 @@ fn pressing_r_in_local_form_resumes() -> AppResult<()> {
 
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     assert!(
         !app.game_mode_state.form_active,
@@ -414,7 +414,7 @@ fn resume_restores_saved_clock_state() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
 
     let instant = Instant::now();
@@ -445,13 +445,13 @@ fn flush_captures_clock_between_moves() -> AppResult<()> {
     // persist the ticked-down value rather than freezing at the last move.
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     // Attach a clock that the game would normally get from the time-control
     // form. After the first move the clock starts for whoever is to move.
     app.game
         .runtime
-        .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
+        .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     let after_move: SavedGame = serde_json::from_str(&std::fs::read_to_string(
@@ -480,13 +480,13 @@ fn resume_rebuilds_full_move_history() -> AppResult<()> {
     // position, so P/N navigation and the move log survive a resume.
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
 
     // Build a brand-new app to simulate quitting and relaunching.
-    let mut fresh = chess_tui::app::test_app();
+    let mut fresh = chess_tui::runtime::test_app();
     assert!(fresh.resume_from_saved(ResumeMode::Local));
 
     assert_eq!(
@@ -519,7 +519,7 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     send(&mut app, &[KeyCode::Enter])?; // Home -> GameModeMenu, cursor on Local
     assert!(!app.game_mode_state.form_active);
 
@@ -527,7 +527,7 @@ fn pressing_r_in_menu_navigation_resumes() -> AppResult<()> {
 
     assert!(matches!(
         app.current_game_kind(),
-        Some(chess_tui_app::GamePageKind::Solo)
+        Some(app::GamePageKind::Solo)
     ));
     let fen_now = app.game.runtime.fen();
     assert!(
@@ -543,7 +543,7 @@ fn move_count_guard_prevents_duplicate_writes() -> AppResult<()> {
     // Calling autosave twice without a move in between must not rewrite the
     // file. Otherwise the per-tick path would churn the disk for no reason.
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     play_e2e4(&mut app)?;
 
@@ -587,7 +587,7 @@ fn resume_restores_flip_and_taken_pieces() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
         app.game.runtime.is_flipped(),
@@ -617,7 +617,7 @@ fn legacy_save_without_moves_uses_fen_directly() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
     assert!(
         app.game.runtime.moves().is_empty(),
@@ -643,10 +643,10 @@ fn corrupt_fen_in_save_deletes_file_and_errors() -> AppResult<()> {
     save(ResumeMode::Local, &bad);
     assert!(has_save(ResumeMode::Local));
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(!app.resume_from_saved(ResumeMode::Local));
     assert!(
-        app.has_modal::<chess_tui_app::modal::MessageModal>(),
+        app.has_modal::<app::modal::MessageModal>(),
         "User should be told the save is corrupt"
     );
     assert!(
@@ -661,7 +661,7 @@ fn home_page_does_not_persist() -> AppResult<()> {
     // The autosave hook fires every tick; it must be a no-op when not in a
     // resumable mode. Otherwise navigating menus would create stray files.
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     app.tick_resume_state();
     app.autosave_resume_state();
     app.flush_resume_state();
@@ -676,12 +676,12 @@ fn home_page_does_not_persist() -> AppResult<()> {
 fn r_with_no_save_is_inert() -> AppResult<()> {
     // Pressing R on a mode without a save must NOT advance into the game.
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     send(&mut app, &[KeyCode::Enter])?; // Home -> GameModeMenu, Local highlighted
     send(&mut app, &[KeyCode::Char('r')])?;
 
     assert!(
-        app.is_page::<chess_tui_pages::GameModeMenuPage>(),
+        app.is_page::<pages::GameModeMenuPage>(),
         "R without a save must stay on the menu"
     );
     Ok(())
@@ -690,11 +690,11 @@ fn r_with_no_save_is_inert() -> AppResult<()> {
 #[test]
 fn quit_flushes_clock_state() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     app.game
         .runtime
-        .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
+        .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     // Assert on the persisted clock value rather than the file mtime: on
@@ -726,11 +726,11 @@ fn reset_home_flushes_then_preserves_save() -> AppResult<()> {
     // Going back to home via `b` must persist the latest clock value AND
     // leave the file intact so the user can resume later.
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     app.game
         .runtime
-        .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
+        .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     // Content-based assertion, not file mtime — see `quit_flushes_clock_state`
@@ -765,11 +765,11 @@ fn tick_throttles_clock_only_writes() -> AppResult<()> {
     // suppressed by the 1 Hz throttle, and it has no move-count delta to
     // bypass it.
     let _guard = ResumeDirGuard::new();
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     app.game
         .runtime
-        .set_clock(chess_tui_core::Clock::new(TimeControl::Blitz));
+        .set_clock(model::Clock::new(TimeControl::Blitz));
     play_e2e4(&mut app)?;
 
     app.tick_resume_state();
@@ -805,7 +805,7 @@ fn player_checkmate_via_check_game_end_status_clears_save() -> AppResult<()> {
     };
     save(ResumeMode::Local, &saved);
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(app.resume_from_saved(ResumeMode::Local));
     // Save came back when the user landed on the resumed position. The act
     // of recognising checkmate is what should wipe it.
@@ -828,7 +828,7 @@ fn player_checkmate_via_check_game_end_status_clears_save() -> AppResult<()> {
 fn restart_clears_save_so_old_state_does_not_shadow_new_game() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
@@ -850,13 +850,13 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
     // — crucially — drop the save.
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     start_local_game(&mut app)?;
     // A 0-second clock reports time-up immediately, which the tick handler
     // uses to declare the other side the winner.
     app.game
         .runtime
-        .set_clock(chess_tui_core::Clock::new(TimeControl::Custom(0)));
+        .set_clock(model::Clock::new(TimeControl::Custom(0)));
     play_e2e4(&mut app)?;
     app.autosave_resume_state();
     assert!(has_save(ResumeMode::Local));
@@ -878,7 +878,7 @@ fn clock_runout_clears_save_via_tick() -> AppResult<()> {
 fn current_resume_mode_identifies_local_game() -> AppResult<()> {
     let _guard = ResumeDirGuard::new();
 
-    let mut app = chess_tui::app::test_app();
+    let mut app = chess_tui::runtime::test_app();
     assert!(
         app.current_resume_mode().is_none(),
         "Home page is not a resumable mode"
