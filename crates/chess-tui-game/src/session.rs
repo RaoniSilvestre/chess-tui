@@ -282,10 +282,6 @@ impl GameSession {
         self.board.reconstruct_history(moves, expected_fen);
     }
 
-    pub fn record_recovery_move(&mut self, mv: Move) {
-        self.board.record_recovery_move(mv);
-    }
-
     pub fn is_draw(&self) -> bool {
         self.board.is_draw()
     }

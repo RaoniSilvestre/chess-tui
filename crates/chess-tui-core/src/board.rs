@@ -188,17 +188,6 @@ impl Board {
         }
     }
 
-    /// Record a move recovered from an already-applied remote position.
-    ///
-    /// This is a legacy recovery path for Lichess historical moves. Prefer
-    /// [`Self::play_and_record`] for normal moves.
-    #[doc(hidden)]
-    pub fn record_recovery_move(&mut self, mv: Move) {
-        self.moves.push(mv);
-        self.history_position = None;
-        self.flip_before_history = None;
-    }
-
     /// The position currently being viewed.
     pub fn current_position(&self) -> &Chess {
         let index = self

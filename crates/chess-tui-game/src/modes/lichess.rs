@@ -229,17 +229,8 @@ impl LichessMode {
             }
         });
 
-        if executed.is_none()
-            && piece_type_from.is_none()
-            && let Some(piece_type) = session.get_role_at_square(&to)
-        {
-            session.record_recovery_move(Move::Normal {
-                role: piece_type,
-                from,
-                capture: None,
-                to,
-                promotion,
-            });
+        if executed.is_none() {
+            log::warn!("Could not replay historical Lichess move: {}", move_str);
         }
 
         true
@@ -319,16 +310,7 @@ impl LichessMode {
             return false;
         }
 
-        let piece_at_to = session.get_role_at_square(&to);
-        if let Some(role) = piece_at_to.or(piece_type_from) {
-            session.record_recovery_move(Move::Normal {
-                role,
-                from,
-                capture: None,
-                to,
-                promotion,
-            });
-        }
+        log::warn!("Could not replay forced historical Lichess move: {from}{to}");
         false
     }
 
