@@ -1,6 +1,6 @@
 //! PGN viewer page: playback, game switching, footer, and result banner.
 
-use chess_tui_app::{Nav, Page, PgnViewerContext};
+use chess_tui_app::{App, Nav, Page};
 use chess_tui_core::PgnViewer;
 use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
@@ -28,13 +28,13 @@ impl PgnViewerPage {
         self.games.get_mut(self.game_idx)
     }
 
-    fn mirror<C: PgnViewerContext>(&self, ctx: &mut C) {
-        ctx.pgn_mirror(&self.games, self.game_idx);
+    fn mirror(&self, app: &mut App) {
+        app.pgn_mirror(&self.games, self.game_idx);
     }
 }
 
-impl<C: PgnViewerContext> Page<C> for PgnViewerPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for PgnViewerPage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         let game_count = self.games.len();
 
         match key.code {
@@ -43,7 +43,7 @@ impl<C: PgnViewerContext> Page<C> for PgnViewerPage {
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.games.clear();
                 self.game_idx = 0;
-                ctx.pgn_exit();
+                app.pgn_exit();
                 return Nav::None;
             }
 
@@ -67,7 +67,7 @@ impl<C: PgnViewerContext> Page<C> for PgnViewerPage {
             }
 
             // Help popup
-            KeyCode::Char('?') => ctx.open_help(),
+            KeyCode::Char('?') => app.open_help(),
 
             // Go to start
             KeyCode::Char('g') => {
@@ -121,23 +121,27 @@ impl<C: PgnViewerContext> Page<C> for PgnViewerPage {
             _ => {}
         }
 
-        self.mirror(ctx);
+        self.mirror(app);
         Nav::None
     }
 
-    fn tick(&mut self, ctx: &mut C) -> Nav<C> {
+    fn tick(&mut self, app: &mut App) -> Nav {
         let Some(viewer) = self.current_mut() else {
             return Nav::None;
         };
         let before = viewer.current_ply();
         viewer.tick();
         if viewer.current_ply() != before {
-            self.mirror(ctx);
+            self.mirror(app);
         }
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
+    fn is_pgn_viewer(&self) -> bool {
+        true
+    }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -146,8 +150,16 @@ impl<C: PgnViewerContext> Page<C> for PgnViewerPage {
             ])
             .split(area);
 
-        ctx.pgn_sync_board(&self.games, self.game_idx);
-        ctx.pgn_render_board(frame, layout[0]);
+        app.pgn_sync_board(&self.games, self.game_idx);
+        super::game::render_game_ui(
+            frame,
+            layout[0],
+            &mut app.game,
+            &mut app.kitty_pieces,
+            app.kitty_graphics_enabled,
+            false,
+            false,
+        );
         render_footer(frame, &self.games, self.game_idx, layout[1]);
         render_end_banner(frame, &self.games, self.game_idx, layout[0]);
     }

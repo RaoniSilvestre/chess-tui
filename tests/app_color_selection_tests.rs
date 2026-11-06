@@ -3,7 +3,7 @@ use shakmaty::Color;
 
 #[test]
 fn select_previous_color_moves_random_to_black_then_white() {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
     app.game_mode_state.is_random_color = true;
 
     app.game_mode_state.select_previous_color_option();
@@ -17,7 +17,7 @@ fn select_previous_color_moves_random_to_black_then_white() {
 
 #[test]
 fn select_next_color_cycles_white_black_random() {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
 
     app.game_mode_state.select_next_color_option();
     assert_eq!(app.game_mode_state.selected_color, Some(Color::Black));
@@ -37,7 +37,7 @@ fn select_next_color_cycles_white_black_random() {
 
 #[test]
 fn resolve_selected_color_defaults_to_white() {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
 
     app.game_mode_state.resolve_selected_color();
 
@@ -47,7 +47,7 @@ fn resolve_selected_color_defaults_to_white() {
 
 #[test]
 fn resolve_selected_color_preserves_random_selection_state() {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
     app.game_mode_state.is_random_color = true;
 
     app.game_mode_state.resolve_selected_color();

@@ -417,11 +417,20 @@ dependencies = [
  "chess-tui-core",
  "chess-tui-game",
  "chess-tui-lichess",
+ "chess-tui-net",
+ "chess-tui-theme",
  "chess-tui-ui",
+ "clap",
+ "dirs",
  "log",
  "rand 0.10.3",
  "ratatui",
+ "serde",
+ "serde_json",
  "shakmaty",
+ "tachyonfx",
+ "throbber-widgets-tui",
+ "toml",
 ]
 
 [[package]]

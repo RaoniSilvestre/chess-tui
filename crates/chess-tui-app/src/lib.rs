@@ -1,218 +1,195 @@
-//! Page and modal framework for the application.
+//! Application state, page framework, and shared services.
 
+pub mod animations;
+pub mod app;
+pub mod config;
+pub mod constants;
 pub mod game;
 pub mod game_mode;
+pub mod game_mode_menu;
+pub mod puzzle;
+pub mod state;
 
-/// The concrete game page being shown.
-#[derive(Clone, Copy, PartialEq, Eq)]
+pub use app::{App, AppResult};
+pub use game_mode::{AvailableGameMode, GameModeState};
+
+use ratatui::Frame;
+use ratatui::crossterm::event::{KeyEvent, MouseEvent};
+use ratatui::layout::Rect;
+use std::any::Any;
+
+/// Navigation result returned by a page.
+pub enum Nav {
+    None,
+    Replace(Box<dyn Page>),
+    Quit,
+}
+
+/// Object-safe downcasting helper for pages.
+pub trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: 'static> AsAny for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// A full-screen page. Pages own their local state and receive the concrete
+/// application directly.
+pub trait Page: AsAny {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav;
+
+    fn handle_mouse(&mut self, _mouse: MouseEvent, _app: &mut App) -> Nav {
+        Nav::None
+    }
+
+    fn tick(&mut self, _app: &mut App) -> Nav {
+        Nav::None
+    }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App);
+
+    /// Present when this page is one of the game pages.
+    fn game_kind(&self) -> Option<GamePageKind> {
+        None
+    }
+
+    /// Used by services that must not drive the PGN replay board.
+    fn is_pgn_viewer(&self) -> bool {
+        false
+    }
+}
+
+/// Owns the active page and applies navigation results.
+pub struct Router {
+    page: Box<dyn Page>,
+}
+
+impl Router {
+    pub fn new(page: Box<dyn Page>) -> Self {
+        Self { page }
+    }
+
+    pub fn page(&self) -> &dyn Page {
+        self.page.as_ref()
+    }
+
+    pub fn page_mut(&mut self) -> &mut dyn Page {
+        self.page.as_mut()
+    }
+
+    pub fn handle_key(&mut self, key: KeyEvent, app: &mut App) {
+        let nav = self.page.handle_key(key, app);
+        self.apply(nav, app);
+    }
+
+    pub fn handle_mouse(&mut self, mouse: MouseEvent, app: &mut App) {
+        let nav = self.page.handle_mouse(mouse, app);
+        self.apply(nav, app);
+    }
+
+    pub fn tick(&mut self, app: &mut App) {
+        let nav = self.page.tick(app);
+        self.apply(nav, app);
+    }
+
+    pub fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+        self.page.render(frame, area, app);
+    }
+
+    fn apply(&mut self, nav: Nav, app: &mut App) {
+        match nav {
+            Nav::None => {
+                if let Some(page) = app.take_pending_page() {
+                    self.page = page;
+                }
+            }
+            Nav::Replace(page) => self.page = page,
+            Nav::Quit => app.quit(),
+        }
+    }
+}
+
+/// Constructs page instances. Implemented by `chess-tui-pages`; the app crate
+/// depends only on this interface, which keeps the dependency one-way.
+pub trait PageFactory {
+    fn home(&self) -> Box<dyn Page>;
+    fn solo(&self) -> Box<dyn Page>;
+    fn bot(&self) -> Box<dyn Page>;
+    fn multiplayer(&self) -> Box<dyn Page>;
+    fn lichess(&self) -> Box<dyn Page>;
+    fn lichess_menu(&self, time_control: u8) -> Box<dyn Page>;
+    fn ongoing_games(&self) -> Box<dyn Page>;
+    fn game_mode_menu(&self) -> Box<dyn Page>;
+    fn settings(&self) -> Box<dyn Page>;
+    fn credits(&self) -> Box<dyn Page>;
+    fn pgn_viewer(
+        &self,
+        games: Vec<chess_tui_core::PgnViewer>,
+        game_idx: usize,
+    ) -> Box<dyn Page>;
+}
+
+/// Placeholder used by `App::default()` before the real factory is installed.
+pub struct NoopPageFactory;
+
+impl PageFactory for NoopPageFactory {
+    fn home(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn solo(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn bot(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn multiplayer(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn lichess(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn lichess_menu(&self, _time_control: u8) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn ongoing_games(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn game_mode_menu(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn settings(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn credits(&self) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+    fn pgn_viewer(
+        &self,
+        _games: Vec<chess_tui_core::PgnViewer>,
+        _game_idx: usize,
+    ) -> Box<dyn Page> {
+        Box::new(NoopPage)
+    }
+}
+
+struct NoopPage;
+
+impl Page for NoopPage {
+    fn handle_key(&mut self, _key: KeyEvent, _app: &mut App) -> Nav {
+        Nav::None
+    }
+
+    fn render(&mut self, _frame: &mut Frame<'_>, _area: Rect, _app: &mut App) {}
+}
+
+/// The concrete game page kind.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum GamePageKind {
     Solo,
     Bot,
     Multiplayer,
     Lichess,
-}
-
-use ratatui::Frame;
-use ratatui::crossterm::event::{KeyEvent, MouseEvent};
-use ratatui::layout::Rect;
-
-/// Navigation result returned by a page or modal.
-pub enum Nav<C: AppContext> {
-    None,
-    Replace(Box<dyn Page<C>>),
-    Quit,
-}
-
-/// Shared application context exposed to pages.
-///
-/// Pages own their local state and call these methods for navigation and
-/// shared services. The concrete application implements this trait.
-pub trait AppContext {
-    fn open_game_mode_menu(&mut self);
-    fn open_lichess_menu(&mut self);
-    fn open_settings(&mut self);
-    fn open_help(&mut self);
-    fn open_credits(&mut self);
-    fn go_home(&mut self);
-    fn quit(&mut self);
-
-    /// Build the page for the current navigation state, if it changed.
-    fn take_page(&mut self) -> Option<Box<dyn Page<Self>>>
-    where
-        Self: Sized;
-}
-
-/// A full-screen page. Pages own their local state and compose UI widgets.
-pub trait Page<C: AppContext> {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C>;
-    fn handle_mouse(&mut self, _mouse: MouseEvent, _ctx: &mut C) -> Nav<C> {
-        Nav::None
-    }
-    fn tick(&mut self, _ctx: &mut C) -> Nav<C> {
-        Nav::None
-    }
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C);
-}
-
-/// Owns the active page and applies navigation results.
-pub struct Router<C: AppContext> {
-    page: Box<dyn Page<C>>,
-}
-
-impl<C: AppContext> Router<C> {
-    pub fn new(page: Box<dyn Page<C>>) -> Self {
-        Self { page }
-    }
-
-    pub fn page(&self) -> &dyn Page<C> {
-        self.page.as_ref()
-    }
-
-    pub fn page_mut(&mut self) -> &mut dyn Page<C> {
-        self.page.as_mut()
-    }
-
-    pub fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) {
-        let nav = self.page.handle_key(key, ctx);
-        self.apply(nav, ctx);
-    }
-
-    pub fn handle_mouse(&mut self, mouse: MouseEvent, ctx: &mut C) {
-        let nav = self.page.handle_mouse(mouse, ctx);
-        self.apply(nav, ctx);
-    }
-
-    pub fn tick(&mut self, ctx: &mut C) {
-        let nav = self.page.tick(ctx);
-        self.apply(nav, ctx);
-    }
-
-    pub fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
-        self.page.render(frame, area, ctx);
-    }
-
-    fn apply(&mut self, nav: Nav<C>, ctx: &mut C) {
-        match nav {
-            Nav::None => {
-                if let Some(page) = ctx.take_page() {
-                    self.page = page;
-                }
-            }
-            Nav::Replace(page) => self.page = page,
-            Nav::Quit => ctx.quit(),
-        }
-    }
-}
-
-/// Settings-specific context.
-pub trait SettingsContext: AppContext {
-    fn settings_has_sound(&self) -> bool;
-    fn settings_kitty_available(&self) -> bool;
-
-    fn settings_skin_label(&self) -> String;
-    fn settings_sound_label(&self) -> String;
-    fn settings_animations_label(&self) -> String;
-    fn settings_bot_depth_label(&self) -> String;
-    fn settings_bot_difficulty_label(&self) -> String;
-    fn settings_kitty_label(&self) -> String;
-
-    fn settings_cycle_skin(&mut self, next: bool);
-    fn settings_toggle_sound(&mut self);
-    fn settings_toggle_animations(&mut self);
-    fn settings_open_engine_path(&mut self);
-    fn settings_bot_depth_down(&mut self);
-    fn settings_bot_depth_up(&mut self);
-    fn settings_cycle_difficulty(&mut self, next: bool);
-    fn settings_toggle_kitty(&mut self);
-}
-
-pub use game_mode::{AvailableGameMode, GameModeState};
-
-/// Game-mode menu context.
-pub trait GameModeContext: AppContext {
-    fn game_mode_menu_cursor(&self) -> u8;
-    fn game_mode_set_menu_cursor(&mut self, cursor: u8);
-
-    fn game_mode_state(&self) -> &GameModeState;
-    fn game_mode_state_mut(&mut self) -> &mut GameModeState;
-
-    fn game_mode_bot_depth(&self) -> u8;
-    fn game_mode_set_bot_depth(&mut self, depth: u8);
-    fn game_mode_bot_difficulty(&self) -> Option<u8>;
-    fn game_mode_cycle_difficulty(&mut self, next: bool);
-    fn game_mode_engine_path(&self) -> Option<String>;
-
-    fn game_mode_hosting(&self) -> Option<bool>;
-    fn game_mode_set_hosting(&mut self, hosting: Option<bool>);
-
-    fn game_mode_has_resume(&self, kind: AvailableGameMode) -> bool;
-    fn game_mode_resume(&mut self, kind: AvailableGameMode);
-    fn game_mode_submit(&mut self, kind: AvailableGameMode);
-    fn game_mode_open_pgn_loader(&mut self);
-}
-
-/// Lichess landing menu context.
-pub trait LichessMenuContext: AppContext {
-    fn lichess_has_token(&self) -> bool;
-    fn lichess_open_token_prompt(&mut self);
-
-    fn lichess_profile(&self) -> Option<&chess_tui_lichess::UserProfile>;
-    fn lichess_rating_history(&self) -> Option<&[chess_tui_lichess::RatingHistoryEntry]>;
-
-    fn lichess_time_control(&self) -> u8;
-    fn lichess_set_time_control(&mut self, cursor: u8);
-    fn lichess_seek(&mut self, cursor: u8);
-    fn lichess_start_puzzle(&mut self);
-    fn lichess_open_ongoing_games(&mut self);
-    fn lichess_open_join_code(&mut self);
-    fn lichess_disconnect(&mut self);
-}
-
-/// Ongoing Lichess games list context.
-pub trait OngoingGamesContext: AppContext {
-    fn ongoing_games(&self) -> &[chess_tui_lichess::OngoingGame];
-    fn ongoing_game_open(&mut self, index: usize);
-    fn ongoing_game_request_resign(&mut self, index: usize);
-    fn ongoing_games_back(&mut self);
-}
-
-/// PGN viewer context.
-pub trait PgnViewerContext: AppContext {
-    /// Mirror the page-owned viewer list into the shared compatibility fields.
-    fn pgn_mirror(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize);
-    /// Sync the current PGN ply into the board model.
-    fn pgn_sync_board(&mut self, games: &[chess_tui_core::PgnViewer], game_idx: usize);
-    /// Render the shared game board and history panel.
-    fn pgn_render_board(&mut self, frame: &mut Frame<'_>, area: Rect);
-    /// Leave the viewer and reset the shared game state.
-    fn pgn_exit(&mut self);
-}
-
-/// Game-page context. The page owns the game while it handles input/render,
-/// then hands it back so global popups and app services can use it.
-pub trait GamePageContext: AppContext {
-    fn game_take(&mut self) -> game::Game;
-    fn game_put(&mut self, game: game::Game);
-
-    fn game_is_puzzle(&self) -> bool;
-    fn game_selected_color(&self) -> Option<shakmaty::Color>;
-    fn game_is_lichess(&self) -> bool;
-
-    fn game_validate_promotion(&mut self, game: &mut game::Game, move_uci: String) -> bool;
-    fn game_validate_move(
-        &mut self,
-        game: &mut game::Game,
-        from: shakmaty::Square,
-        to: shakmaty::Square,
-    );
-    fn game_check_end(&mut self, game: &mut game::Game);
-    fn game_puzzle_hint(&mut self, game: &mut game::Game);
-    fn game_toggle_end_screen(&mut self);
-
-    fn game_request_restart(&mut self);
-    fn game_reset_home(&mut self);
-    fn game_open_move_input(&mut self);
-    fn game_cycle_skin(&mut self, next: bool);
-    fn game_prepare(&mut self, kind: GamePageKind) -> bool;
-    fn game_render(&mut self, frame: &mut Frame<'_>, area: Rect);
 }

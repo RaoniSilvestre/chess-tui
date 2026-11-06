@@ -27,7 +27,7 @@ fn send(app: &mut App, keys: &[KeyCode]) -> AppResult<()> {
 /// Navigates Home -> GameModeMenu and selects the PGN loader, which opens the
 /// `LoadPgnPath` popup. `PGNLoader` is the 4th entry (index 3, COUNT = 4).
 fn open_pgn_loader_popup() -> AppResult<App> {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
     send(&mut app, &[KeyCode::Enter])?; // Home "Play Game" -> GameModeMenu
     send(&mut app, &[KeyCode::Down, KeyCode::Down, KeyCode::Down])?; // -> PGNLoader
     send(&mut app, &[KeyCode::Enter])?; // open LoadPgnPath popup

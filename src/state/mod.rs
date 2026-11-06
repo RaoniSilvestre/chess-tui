@@ -1,8 +1,5 @@
-//! Runtime state containers.
+//! Runtime state containers, re-exported from `chess-tui-app`.
 
-pub mod bot_state;
-pub mod lichess_state;
-pub mod multiplayer_state;
-pub mod resume;
-pub mod theme_state;
-pub mod ui_state;
+pub use chess_tui_app::state::{
+    bot_state, lichess_state, multiplayer_state, resume, theme_state, ui_state,
+};

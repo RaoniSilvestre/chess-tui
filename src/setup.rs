@@ -21,7 +21,7 @@ use crate::{
 pub fn setup_app(args: &Args) -> AppResult<App> {
     setup_panic();
 
-    let mut app = App::default();
+    let mut app = crate::app::test_app();
 
     let config_dir = config_dir().ok_or("Error retrieving config directory.")?;
     let folder_path = config_dir.join("chess-tui");
@@ -178,9 +178,11 @@ fn setup_pgn(app: &mut App, args: &Args) -> AppResult<()> {
         std::process::exit(1);
     });
 
-    app.pgn_viewer_state = Some(games);
+    app.pgn_viewer_state = Some(games.clone());
     app.pgn_viewer_game_idx = 0;
     app.ui_state.current_page = Pages::PgnViewer;
+    let page = app.pages.pgn_viewer(games, 0);
+    app.set_page(page);
 
     Ok(())
 }

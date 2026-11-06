@@ -1,6 +1,6 @@
 //! Credits page.
 
-use chess_tui_app::{AppContext, Nav, Page};
+use chess_tui_app::{App, Nav, Page};
 use chess_tui_ui::components::centered_rect::centered_rect;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -25,17 +25,17 @@ impl Default for CreditsPage {
     }
 }
 
-impl<C: AppContext> Page<C> for CreditsPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for CreditsPage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         match key.code {
-            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => ctx.go_home(),
-            KeyCode::Char('q') => ctx.quit(),
+            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => app.go_home(),
+            KeyCode::Char('q') => app.quit(),
             _ => {}
         }
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut C) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _app: &mut App) {
         render_credits(frame, area);
     }
 }

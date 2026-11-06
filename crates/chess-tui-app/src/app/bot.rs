@@ -1,6 +1,6 @@
 //! Bot game setup and event translation.
 
-use crate::app::App;
+use crate::App;
 use chess_tui_core::Clock;
 use chess_tui_game::{Bot, BotMode};
 use shakmaty::Color;

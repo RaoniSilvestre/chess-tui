@@ -1,8 +1,8 @@
 //! Lichess authentication, game streaming, and puzzle management.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::{DOCS_URL, LICHESS_TIME_CONTROLS, Pages, Popups, SLEEP_DURATION_RESIGN_MS};
-use crate::game_logic::puzzle::PuzzleGame;
+use crate::puzzle::PuzzleGame;
 use crate::state::lichess_state::LichessUpdate;
 use chess_tui_core::Clock;
 use chess_tui_game::LichessMode;

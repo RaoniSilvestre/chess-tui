@@ -33,10 +33,8 @@ fn load_sample_viewer() -> App {
     let games =
         PgnViewer::from_file("examples/sample.pgn").expect("examples/sample.pgn should parse");
     common::isolate_resume_saves();
-    let mut app = App::default();
-    app.pgn_viewer_state = Some(games);
-    app.pgn_viewer_game_idx = 0;
-    app.ui_state.current_page = Pages::PgnViewer;
+    let mut app = chess_tui::app::test_app();
+    app.show_pgn_viewer(games, 0);
     app
 }
 

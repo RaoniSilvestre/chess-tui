@@ -1,6 +1,6 @@
 //! Board cursor movement and move submission.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::Popups;
 use chess_tui_core::Coord;
 use chess_tui_core::square_utils::flip_square_if_needed;

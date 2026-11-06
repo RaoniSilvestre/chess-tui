@@ -1,10 +1,10 @@
 //! Menu navigation and skin cycling.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::{DEFAULT_CUSTOM_TIME_VALUE, DEFAULT_TIME_CONTROL_SELECTED};
-use crate::handlers::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
-use crate::sound::play_menu_nav_sound;
-use chess_tui_app::game::Game;
+use crate::game_mode_menu::{cycle_difficulty_next, cycle_difficulty_prev};
+use chess_tui_ui::sound::play_menu_nav_sound;
+use crate::game::Game;
 use chess_tui_theme::DisplayMode;
 impl App {
     /// Cycles to the next or previous skin and updates the display mode to match.
@@ -85,6 +85,8 @@ impl App {
         self.game_mode_state.clock_cursor = 3; // Reset to default (Rapid)
         self.game_mode_state.custom_time_minutes = 10; // Reset custom time
         self.ui_state.navigate_to_homepage();
+        let page = self.pages.home();
+        self.set_page(page);
         self.ui_state.close_popup();
     }
 
@@ -95,5 +97,7 @@ impl App {
         self.game_mode_state.clock_cursor = DEFAULT_TIME_CONTROL_SELECTED; // Reset to default (Rapid)
         self.game_mode_state.custom_time_minutes = DEFAULT_CUSTOM_TIME_VALUE; // Reset custom time
         self.ui_state.navigate_to_homepage();
+        let page = self.pages.home();
+        self.set_page(page);
     }
 }

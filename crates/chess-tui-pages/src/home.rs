@@ -1,6 +1,6 @@
 //! Home page: title banner, main menu, and navigation.
 
-use chess_tui_app::{AppContext, Nav, Page};
+use chess_tui_app::{App, Nav, Page};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -35,8 +35,8 @@ impl Default for HomePage {
     }
 }
 
-impl<C: AppContext> Page<C> for HomePage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for HomePage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -45,21 +45,21 @@ impl<C: AppContext> Page<C> for HomePage {
                 self.cursor = (self.cursor + 1) % 5;
             }
             KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
-                0 => ctx.open_game_mode_menu(),
-                1 => ctx.open_lichess_menu(),
-                2 => ctx.open_settings(),
-                3 => ctx.open_help(),
-                4 => ctx.open_credits(),
+                0 => app.open_game_mode_menu(),
+                1 => app.open_lichess_menu(),
+                2 => app.open_settings(),
+                3 => app.open_help(),
+                4 => app.open_credits(),
                 _ => {}
             },
-            KeyCode::Char('?') => ctx.open_help(),
-            KeyCode::Char('q') => ctx.quit(),
+            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('q') => app.quit(),
             _ => {}
         }
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut C) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _app: &mut App) {
         render_home(frame, area, self.cursor);
     }
 }

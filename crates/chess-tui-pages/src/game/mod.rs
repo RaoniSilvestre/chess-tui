@@ -7,7 +7,7 @@ mod render;
 pub use render::render_game_ui;
 
 use chess_tui_app::game::Game;
-use chess_tui_app::{GamePageContext, GamePageKind, Nav, Page};
+use chess_tui_app::{App, GamePageKind, Nav, Page};
 use chess_tui_core::Coord;
 use chess_tui_core::GameState;
 use chess_tui_core::square_utils::flip_square_if_needed;
@@ -30,82 +30,82 @@ impl GamePage {
         Self { kind, game: None }
     }
 
-    fn take_game<C: GamePageContext>(&mut self, ctx: &mut C) -> &mut Game {
+    fn take_game(&mut self, app: &mut App) -> &mut Game {
         if self.game.is_none() {
-            self.game = Some(ctx.game_take());
+            self.game = Some(app.game_take());
         }
         self.game
             .as_mut()
             .expect("game page always holds a game after take_game")
     }
 
-    fn put_game<C: GamePageContext>(&mut self, ctx: &mut C) {
+    fn put_game(&mut self, app: &mut App) {
         if let Some(game) = self.game.take() {
-            ctx.game_put(game);
+            app.game_put(game);
         }
     }
 
-    fn handle_solo_key<C: GamePageContext>(&mut self, key: KeyEvent, ctx: &mut C) {
+    fn handle_solo_key(&mut self, key: KeyEvent, app: &mut App) {
         match key.code {
             KeyCode::Char('r') => {
-                self.put_game(ctx);
-                ctx.game_request_restart();
+                self.put_game(app);
+                app.game_request_restart();
             }
             KeyCode::Char('b') => {
-                self.put_game(ctx);
-                ctx.game_reset_home();
+                self.put_game(app);
+                app.game_reset_home();
             }
             KeyCode::Char('n' | 'N') => {
-                let game = self.take_game(ctx);
-                if !ctx.game_is_puzzle() && !game.runtime.state().is_finished() {
+                let game = self.take_game(app);
+                if !app.game_is_puzzle() && !game.runtime.state().is_finished() {
                     game.navigate_history_next();
                 }
             }
             KeyCode::Char('p' | 'P') => {
-                let game = self.take_game(ctx);
-                if !ctx.game_is_puzzle() && !game.runtime.state().is_finished() {
+                let game = self.take_game(app);
+                if !app.game_is_puzzle() && !game.runtime.state().is_finished() {
                     game.navigate_history_previous();
                 }
             }
-            KeyCode::Char('t' | 'T') if ctx.game_is_puzzle() => {
-                let game = self.take_game(ctx);
-                ctx.game_puzzle_hint(game);
+            KeyCode::Char('t' | 'T') if app.game_is_puzzle() => {
+                let game = self.take_game(app);
+                app.game_puzzle_hint(game);
             }
             _ => {
-                let game = self.take_game(ctx);
-                Self::handle_chess_key(game, key, ctx);
+                let game = self.take_game(app);
+                Self::handle_chess_key(game, key, app);
             }
         }
     }
 
-    fn handle_bot_key<C: GamePageContext>(&mut self, key: KeyEvent, ctx: &mut C) {
+    fn handle_bot_key(&mut self, key: KeyEvent, app: &mut App) {
         match key.code {
             KeyCode::Char('r') => {
-                self.put_game(ctx);
-                ctx.game_request_restart();
+                self.put_game(app);
+                app.game_request_restart();
             }
             KeyCode::Char('b') => {
-                self.put_game(ctx);
-                ctx.game_reset_home();
+                self.put_game(app);
+                app.game_reset_home();
             }
             _ => {
-                let game = self.take_game(ctx);
-                Self::handle_chess_key(game, key, ctx);
+                let game = self.take_game(app);
+                Self::handle_chess_key(game, key, app);
             }
         }
     }
 
-    fn handle_multiplayer_key<C: GamePageContext>(&mut self, key: KeyEvent, ctx: &mut C) {
+    fn handle_multiplayer_key(&mut self, key: KeyEvent, app: &mut App) {
         if key.code == KeyCode::Char('b') {
-            self.put_game(ctx);
-            ctx.game_reset_home();
+            self.put_game(app);
+            app.game_reset_home();
             return;
         }
-        let game = self.take_game(ctx);
-        Self::handle_chess_key(game, key, ctx);
+        let game = self.take_game(app);
+        Self::handle_chess_key(game, key, app);
     }
 
-    fn handle_chess_key<C: GamePageContext>(game: &mut Game, key: KeyEvent, ctx: &mut C) {
+    fn handle_chess_key(game: &mut Game, key: KeyEvent, app: &mut App) {
         let is_playing = game.runtime.state().is_playing();
 
         match key.code {
@@ -121,25 +121,25 @@ impl GamePage {
                 GameState::Promotion(_) => game.ui.cursor_left_promotion(),
                 GameState::Playing => game.ui.cursor_left(),
                 GameState::Finished(_) => {
-                    if !ctx.game_is_puzzle() {
-                        ctx.game_toggle_end_screen();
+                    if !app.game_is_puzzle() {
+                        app.game_toggle_end_screen();
                     }
                 }
             },
             KeyCode::Char(' ') | KeyCode::Enter => {
-                Self::process_cell_click(game, ctx);
+                Self::process_cell_click(game, app);
             }
-            KeyCode::Char('?') => ctx.open_help(),
-            KeyCode::Char('s' | 'S') => ctx.game_cycle_skin(true),
-            KeyCode::Char('m') => ctx.game_open_move_input(),
+            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('s' | 'S') => app.game_cycle_skin(true),
+            KeyCode::Char('m') => app.game_open_move_input(),
             KeyCode::Esc => game.ui.unselect_cell(),
-            KeyCode::Char('q') => ctx.quit(),
-            KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => ctx.quit(),
+            KeyCode::Char('q') => app.quit(),
+            KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => app.quit(),
             _ => {}
         }
     }
 
-    fn process_cell_click<C: GamePageContext>(game: &mut Game, ctx: &mut C) {
+    fn process_cell_click(game: &mut Game, app: &mut App) {
         if game.runtime.state().is_promotion() {
             let mut move_was_correct = true;
 
@@ -155,21 +155,21 @@ impl GamePage {
                 };
 
                 let move_uci = format!("{}{}{}", from, to, promotion_char);
-                if ctx.game_is_puzzle() {
-                    move_was_correct = ctx.game_validate_promotion(game, move_uci);
+                if app.game_is_puzzle() {
+                    move_was_correct = app.game_validate_promotion(game, move_uci);
                 }
             }
 
-            if move_was_correct || !ctx.game_is_puzzle() {
-                let should_flip = !ctx.game_is_puzzle() && game.runtime.flip_after_move();
+            if move_was_correct || !app.game_is_puzzle() {
+                let should_flip = !app.game_is_puzzle() && game.runtime.flip_after_move();
                 game.handle_promotion(should_flip);
             } else if game.runtime.state().is_promotion() {
                 game.runtime.start_playing();
             }
 
-            ctx.game_check_end(game);
+            app.game_check_end(game);
         } else {
-            let puzzle_move_info = if ctx.game_is_puzzle() && game.ui.is_cell_selected() {
+            let puzzle_move_info = if app.game_is_puzzle() && game.ui.is_cell_selected() {
                 if let Some(selected_square) = game.ui.selected_square {
                     let cursor_square = game.ui.cursor_coordinates.into();
                     let from = flip_square_if_needed(selected_square, game.runtime.is_flipped());
@@ -194,22 +194,22 @@ impl GamePage {
             if !game.runtime.state().is_promotion()
                 && let Some((from, to)) = puzzle_move_info
             {
-                ctx.game_validate_move(game, from, to);
+                app.game_validate_move(game, from, to);
             }
 
-            if ctx.game_is_puzzle() {
+            if app.game_is_puzzle() {
                 game.runtime.set_flipped(false);
             }
 
-            ctx.game_check_end(game);
+            app.game_check_end(game);
         }
     }
 
-    fn try_mouse_move<C: GamePageContext>(
+    fn try_mouse_move(
         game: &mut Game,
         target_square: Square,
         coords: Coord,
-        ctx: &mut C,
+        app: &mut App,
     ) -> bool {
         let Some(selected_square) = game.ui.selected_square else {
             return false;
@@ -224,19 +224,19 @@ impl GamePage {
             game.runtime.is_flipped(),
         )) {
             game.ui.cursor_coordinates = coords;
-            Self::process_cell_click(game, ctx);
+            Self::process_cell_click(game, app);
             return true;
         }
         false
     }
 
-    fn handle_game_mouse<C: GamePageContext>(&mut self, mouse: MouseEvent, ctx: &mut C) {
+    fn handle_game_mouse(&mut self, mouse: MouseEvent, app: &mut App) {
         if mouse.kind != MouseEventKind::Down(MouseButton::Left) {
             return;
         }
 
         let kind = self.kind;
-        let game = self.take_game(ctx);
+        let game = self.take_game(app);
 
         if game.runtime.state().is_finished() {
             return;
@@ -262,13 +262,13 @@ impl GamePage {
                     _ => 'q',
                 };
                 let move_uci = format!("{}{}{}", from, to, promotion_char);
-                if ctx.game_is_puzzle() {
-                    move_was_correct = ctx.game_validate_promotion(game, move_uci);
+                if app.game_is_puzzle() {
+                    move_was_correct = app.game_validate_promotion(game, move_uci);
                 }
             }
 
-            if move_was_correct || !ctx.game_is_puzzle() {
-                let should_flip = !ctx.game_is_puzzle() && game.runtime.flip_after_move();
+            if move_was_correct || !app.game_is_puzzle() {
+                let should_flip = !app.game_is_puzzle() && game.runtime.flip_after_move();
                 game.handle_promotion(should_flip);
             } else if game.runtime.state().is_promotion() {
                 game.runtime.start_playing();
@@ -277,7 +277,7 @@ impl GamePage {
         }
 
         if kind == GamePageKind::Lichess
-            && let Some(my_color) = ctx.game_selected_color()
+            && let Some(my_color) = app.game_selected_color()
             && game.runtime.turn() != my_color
         {
             return;
@@ -307,7 +307,7 @@ impl GamePage {
             if game.ui.selected_square.is_none() {
                 return;
             }
-            Self::try_mouse_move(game, square, coords, ctx);
+            Self::try_mouse_move(game, square, coords, app);
         } else if piece_color == Some(game.runtime.turn()) {
             if let Some(selected_square) = game.ui.selected_square {
                 let actual_selected =
@@ -325,7 +325,7 @@ impl GamePage {
                         Square::H8 => Square::G8,
                         Square::A8 => Square::C8,
                         _ => {
-                            if Self::try_mouse_move(game, square, coords, ctx) {
+                            if Self::try_mouse_move(game, square, coords, app) {
                                 return;
                             }
                             game.ui.selected_square = Some(square);
@@ -345,53 +345,65 @@ impl GamePage {
                             game,
                             flip_square_if_needed(castling_dest, game.runtime.is_flipped()),
                             castling_coords,
-                            ctx,
+                            app,
                         ) {
                             return;
                         }
                     }
                 }
 
-                if Self::try_mouse_move(game, square, coords, ctx) {
+                if Self::try_mouse_move(game, square, coords, app) {
                     return;
                 }
             }
             game.ui.selected_square = Some(square);
         } else if game.ui.selected_square.is_some() {
-            Self::try_mouse_move(game, square, coords, ctx);
+            Self::try_mouse_move(game, square, coords, app);
         }
     }
 }
 
-impl<C: GamePageContext> Page<C> for GamePage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for GamePage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         match self.kind {
-            GamePageKind::Solo => self.handle_solo_key(key, ctx),
-            GamePageKind::Bot => self.handle_bot_key(key, ctx),
+            GamePageKind::Solo => self.handle_solo_key(key, app),
+            GamePageKind::Bot => self.handle_bot_key(key, app),
             GamePageKind::Multiplayer | GamePageKind::Lichess => {
-                self.handle_multiplayer_key(key, ctx)
+                self.handle_multiplayer_key(key, app)
             }
         }
-        self.put_game(ctx);
+        self.put_game(app);
         Nav::None
     }
 
-    fn handle_mouse(&mut self, mouse: MouseEvent, ctx: &mut C) -> Nav<C> {
-        self.handle_game_mouse(mouse, ctx);
-        self.put_game(ctx);
+    fn handle_mouse(&mut self, mouse: MouseEvent, app: &mut App) -> Nav {
+        self.handle_game_mouse(mouse, app);
+        self.put_game(app);
         Nav::None
     }
 
-    fn tick(&mut self, ctx: &mut C) -> Nav<C> {
-        self.take_game(ctx).runtime.tick();
-        self.put_game(ctx);
+    fn tick(&mut self, app: &mut App) -> Nav {
+        self.take_game(app).runtime.tick();
+        self.put_game(app);
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
-        self.put_game(ctx);
-        if ctx.game_prepare(self.kind) {
-            ctx.game_render(frame, area);
+    fn game_kind(&self) -> Option<GamePageKind> {
+        Some(self.kind)
+    }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+        self.put_game(app);
+        if app.game_prepare(self.kind) {
+            super::game::render_game_ui(
+                frame,
+                area,
+                &mut app.game,
+                &mut app.kitty_pieces,
+                app.kitty_graphics_enabled,
+                app.lichess_state.puzzle_game.is_some(),
+                app.ui_state.current_popup == Some(chess_tui_app::constants::Popups::EndScreen),
+            );
         }
     }
 }

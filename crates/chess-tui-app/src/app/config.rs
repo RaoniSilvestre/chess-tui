@@ -1,6 +1,6 @@
 //! Persisting settings to `config.toml`.
 
-use crate::app::App;
+use crate::App;
 use crate::config::Config;
 use crate::constants::config_dir;
 use std::fs::{self, File};

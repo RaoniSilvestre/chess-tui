@@ -1,7 +1,7 @@
 //! Renders the user profile, rating sparkline, and menu options for the Lichess landing page.
 
 use super::rating_chart::render_rating_history_chart;
-use chess_tui_app::{LichessMenuContext, Nav, Page};
+use chess_tui_app::{App, Nav, Page};
 use chess_tui_lichess::LICHESS_TIME_CONTROLS;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -68,10 +68,10 @@ impl LichessLayout {
     }
 }
 
-fn render_lichess_menu<C: LichessMenuContext>(
+fn render_lichess_menu(
     frame: &mut Frame,
     area: Rect,
-    ctx: &C,
+    app: &App,
     cursor: u8,
     stats_scroll: u16,
     time_control: u8,
@@ -95,8 +95,8 @@ fn render_lichess_menu<C: LichessMenuContext>(
 
     render_menu_panel(frame, layout.menu, cursor);
     render_time_control(frame, layout.time_control, time_control);
-    render_user_stats_panel(frame, ctx, layout.profile, stats_scroll);
-    render_chart_panel(frame, ctx, layout.chart);
+    render_user_stats_panel(frame, app, layout.profile, stats_scroll);
+    render_chart_panel(frame, app, layout.chart);
 
     // Footer with controls
     let footer = Paragraph::new(vec![Line::from(vec![
@@ -259,9 +259,9 @@ fn rating_line(label: &str, rating: u16, prog: Option<i16>) -> Line<'static> {
     ])
 }
 
-fn render_user_stats_panel<C: LichessMenuContext>(
+fn render_user_stats_panel(
     frame: &mut Frame,
-    ctx: &C,
+    app: &App,
     area: Rect,
     stats_scroll: u16,
 ) {
@@ -284,7 +284,7 @@ fn render_user_stats_panel<C: LichessMenuContext>(
     let scroll_offset = stats_scroll as usize;
     let max_visible = inner_area.height as usize;
 
-    if let Some(profile) = ctx.lichess_profile() {
+    if let Some(profile) = app.lichess_profile() {
         // --- LEFT: username, online, bio, location, country, created at ---
         let mut left: Vec<Line> = vec![Line::from("")];
 
@@ -522,11 +522,11 @@ fn render_user_stats_panel<C: LichessMenuContext>(
     }
 }
 
-fn render_chart_panel<C: LichessMenuContext>(frame: &mut Frame, ctx: &C, area: Rect) {
-    if let Some(history) = ctx.lichess_rating_history() {
+fn render_chart_panel(frame: &mut Frame, app: &App, area: Rect) {
+    if let Some(history) = app.lichess_rating_history() {
         render_rating_history_chart(frame, history, area);
     } else {
-        let msg = if ctx.lichess_profile().is_some() {
+        let msg = if app.lichess_profile().is_some() {
             "Loading rating history..."
         } else {
             "Loading..."
@@ -560,11 +560,11 @@ impl LichessMenuPage {
         }
     }
 
-    fn require_token<C: LichessMenuContext>(&self, ctx: &mut C) -> bool {
-        if ctx.lichess_has_token() {
+    fn require_token(&self, app: &mut App) -> bool {
+        if app.lichess_has_token() {
             true
         } else {
-            ctx.lichess_open_token_prompt();
+            app.lichess_open_token_prompt();
             false
         }
     }
@@ -576,8 +576,8 @@ impl Default for LichessMenuPage {
     }
 }
 
-impl<C: LichessMenuContext> Page<C> for LichessMenuPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for LichessMenuPage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -587,11 +587,11 @@ impl<C: LichessMenuContext> Page<C> for LichessMenuPage {
             }
             KeyCode::Right | KeyCode::Char('l') => {
                 self.time_control = if self.time_control >= 4 { 3 } else { 4 };
-                ctx.lichess_set_time_control(self.time_control);
+                app.lichess_set_time_control(self.time_control);
             }
             KeyCode::Left | KeyCode::Char('h') => {
                 self.time_control = if self.time_control <= 3 { 4 } else { 3 };
-                ctx.lichess_set_time_control(self.time_control);
+                app.lichess_set_time_control(self.time_control);
             }
             KeyCode::PageUp => {
                 self.stats_scroll = self.stats_scroll.saturating_sub(3);
@@ -601,41 +601,41 @@ impl<C: LichessMenuContext> Page<C> for LichessMenuPage {
             }
             KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
                 0 => {
-                    if self.require_token(ctx) {
-                        ctx.lichess_seek(self.time_control);
+                    if self.require_token(app) {
+                        app.lichess_seek(self.time_control);
                     }
                 }
                 1 => {
-                    if self.require_token(ctx) {
-                        ctx.lichess_start_puzzle();
+                    if self.require_token(app) {
+                        app.lichess_start_puzzle();
                     }
                 }
                 2 => {
-                    if self.require_token(ctx) {
-                        ctx.lichess_open_ongoing_games();
+                    if self.require_token(app) {
+                        app.lichess_open_ongoing_games();
                     }
                 }
                 3 => {
-                    if self.require_token(ctx) {
-                        ctx.lichess_open_join_code();
+                    if self.require_token(app) {
+                        app.lichess_open_join_code();
                     }
                 }
-                4 => ctx.lichess_disconnect(),
+                4 => app.lichess_disconnect(),
                 _ => {}
             },
-            KeyCode::Esc | KeyCode::Char('b') => ctx.go_home(),
-            KeyCode::Char('?') => ctx.open_help(),
-            KeyCode::Char('q') => ctx.quit(),
+            KeyCode::Esc | KeyCode::Char('b') => app.go_home(),
+            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('q') => app.quit(),
             _ => {}
         }
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
         render_lichess_menu(
             frame,
             area,
-            ctx,
+            app,
             self.cursor,
             self.stats_scroll,
             self.time_control,

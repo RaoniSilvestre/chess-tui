@@ -34,7 +34,7 @@ mod local_game_tests {
 
     fn setup_local_game_start() -> AppResult<App> {
         crate::common::isolate_resume_saves();
-        let mut app = App::default();
+        let mut app = chess_tui::app::test_app();
 
         send_keys(
             &mut app,

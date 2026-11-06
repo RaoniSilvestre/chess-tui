@@ -22,7 +22,7 @@ fn send(app: &mut App, keys: &[KeyCode]) -> AppResult<()> {
 }
 
 fn open_settings_menu() -> AppResult<App> {
-    let mut app = App::default();
+    let mut app = chess_tui::app::test_app();
     send(&mut app, &[KeyCode::Down, KeyCode::Down, KeyCode::Enter])?;
     Ok(app)
 }
@@ -139,7 +139,7 @@ fn change_bot_difficulty() -> AppResult<()> {
 
 #[test]
 fn kitty_graphics_hidden_outside_kitty() -> AppResult<()> {
-    // App::default() has no Kitty pieces loaded, as in a non-Kitty terminal.
+    // chess_tui::app::test_app() has no Kitty pieces loaded, as in a non-Kitty terminal.
     let mut app = open_settings_menu()?;
 
     // Up from the first item wraps to the last visible one, which must not be Kitty Graphics.

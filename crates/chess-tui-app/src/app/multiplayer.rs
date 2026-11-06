@@ -1,6 +1,6 @@
 //! TCP multiplayer session setup and teardown.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::Popups;
 use chess_tui_game::TcpMode;
 use chess_tui_net::{NETWORK_PORT, get_host_ip};

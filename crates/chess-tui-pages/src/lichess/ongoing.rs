@@ -1,6 +1,6 @@
 //! Ongoing Lichess games list.
 
-use chess_tui_app::{Nav, OngoingGamesContext, Page};
+use chess_tui_app::{App, Nav, Page};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -11,10 +11,10 @@ use ratatui::{
 };
 
 /// Renders the ongoing Lichess games list with navigation hints.
-fn render_ongoing_games<C: OngoingGamesContext>(
+fn render_ongoing_games(
     frame: &mut Frame,
     area: Rect,
-    ctx: &C,
+    app: &App,
     cursor: u8,
 ) {
     // Create layout
@@ -43,7 +43,7 @@ fn render_ongoing_games<C: OngoingGamesContext>(
     frame.render_widget(title, chunks[0]);
 
     // Games list
-    let games = ctx.ongoing_games();
+    let games = app.ongoing_games();
     let mut game_lines = vec![Line::from("")];
 
     if games.is_empty() {
@@ -145,32 +145,32 @@ impl Default for OngoingGamesPage {
     }
 }
 
-impl<C: OngoingGamesContext> Page<C> for OngoingGamesPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
+impl Page for OngoingGamesPage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = self.cursor.saturating_sub(1);
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                if (self.cursor as usize) < ctx.ongoing_games().len().saturating_sub(1) {
+                if (self.cursor as usize) < app.ongoing_games().len().saturating_sub(1) {
                     self.cursor += 1;
                 }
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
-                ctx.ongoing_game_open(self.cursor as usize);
+                app.ongoing_game_open(self.cursor as usize);
             }
             KeyCode::Char('r' | 'R') => {
-                ctx.ongoing_game_request_resign(self.cursor as usize);
+                app.ongoing_game_request_resign(self.cursor as usize);
             }
-            KeyCode::Esc | KeyCode::Char('b') => ctx.ongoing_games_back(),
-            KeyCode::Char('?') => ctx.open_help(),
-            KeyCode::Char('q') => ctx.quit(),
+            KeyCode::Esc | KeyCode::Char('b') => app.ongoing_games_back(),
+            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('q') => app.quit(),
             _ => {}
         }
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
-        render_ongoing_games(frame, area, ctx, self.cursor);
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
+        render_ongoing_games(frame, area, app, self.cursor);
     }
 }

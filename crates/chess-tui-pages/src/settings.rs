@@ -1,6 +1,6 @@
 //! Settings page.
 
-use chess_tui_app::{Nav, Page, SettingsContext};
+use chess_tui_app::{App, Nav, Page};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -30,23 +30,23 @@ impl SettingsPage {
         Self { cursor: 0 }
     }
 
-    fn items(ctx: &impl SettingsContext) -> Vec<SettingsItem> {
+    fn items(app: &App) -> Vec<SettingsItem> {
         let mut items = vec![SettingsItem::Skin];
-        if ctx.settings_has_sound() {
+        if app.settings_has_sound() {
             items.push(SettingsItem::Sound);
         }
         items.push(SettingsItem::Animations);
         items.push(SettingsItem::EnginePath);
         items.push(SettingsItem::BotDepth);
         items.push(SettingsItem::BotDifficulty);
-        if ctx.settings_kitty_available() {
+        if app.settings_kitty_available() {
             items.push(SettingsItem::KittyGraphics);
         }
         items
     }
 
-    fn current_item(&self, ctx: &impl SettingsContext) -> Option<SettingsItem> {
-        let items = Self::items(ctx);
+    fn current_item(&self, app: &App) -> Option<SettingsItem> {
+        let items = Self::items(app);
         if items.is_empty() {
             None
         } else {
@@ -79,58 +79,58 @@ impl Default for SettingsPage {
     }
 }
 
-impl<C: SettingsContext> Page<C> for SettingsPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &mut C) -> Nav<C> {
-        let items = Self::items(ctx);
+impl Page for SettingsPage {
+    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> Nav {
+        let items = Self::items(app);
         let len = items.len();
 
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => self.move_up(len),
             KeyCode::Down | KeyCode::Char('j') => self.move_down(len),
             KeyCode::Left | KeyCode::Char('h') => {
-                if let Some(item) = self.current_item(ctx) {
+                if let Some(item) = self.current_item(app) {
                     match item {
-                        SettingsItem::Skin => ctx.settings_cycle_skin(false),
-                        SettingsItem::BotDepth => ctx.settings_bot_depth_down(),
-                        SettingsItem::BotDifficulty => ctx.settings_cycle_difficulty(false),
+                        SettingsItem::Skin => app.settings_cycle_skin(false),
+                        SettingsItem::BotDepth => app.settings_bot_depth_down(),
+                        SettingsItem::BotDifficulty => app.settings_cycle_difficulty(false),
                         _ => {}
                     }
                 }
             }
             KeyCode::Right | KeyCode::Char('l') => {
-                if let Some(item) = self.current_item(ctx) {
+                if let Some(item) = self.current_item(app) {
                     match item {
-                        SettingsItem::Skin => ctx.settings_cycle_skin(true),
-                        SettingsItem::BotDepth => ctx.settings_bot_depth_up(),
-                        SettingsItem::BotDifficulty => ctx.settings_cycle_difficulty(true),
+                        SettingsItem::Skin => app.settings_cycle_skin(true),
+                        SettingsItem::BotDepth => app.settings_bot_depth_up(),
+                        SettingsItem::BotDifficulty => app.settings_cycle_difficulty(true),
                         _ => {}
                     }
                 }
             }
-            KeyCode::Char('s' | 'S') => ctx.settings_cycle_skin(true),
+            KeyCode::Char('s' | 'S') => app.settings_cycle_skin(true),
             KeyCode::Char(' ') | KeyCode::Enter => {
-                if let Some(item) = self.current_item(ctx) {
+                if let Some(item) = self.current_item(app) {
                     match item {
-                        SettingsItem::Skin => ctx.settings_cycle_skin(true),
-                        SettingsItem::Sound => ctx.settings_toggle_sound(),
-                        SettingsItem::Animations => ctx.settings_toggle_animations(),
-                        SettingsItem::EnginePath => ctx.settings_open_engine_path(),
+                        SettingsItem::Skin => app.settings_cycle_skin(true),
+                        SettingsItem::Sound => app.settings_toggle_sound(),
+                        SettingsItem::Animations => app.settings_toggle_animations(),
+                        SettingsItem::EnginePath => app.settings_open_engine_path(),
                         SettingsItem::BotDepth => {}
-                        SettingsItem::BotDifficulty => ctx.settings_cycle_difficulty(true),
-                        SettingsItem::KittyGraphics => ctx.settings_toggle_kitty(),
+                        SettingsItem::BotDifficulty => app.settings_cycle_difficulty(true),
+                        SettingsItem::KittyGraphics => app.settings_toggle_kitty(),
                     }
                 }
             }
-            KeyCode::Esc | KeyCode::Char('b') => ctx.go_home(),
-            KeyCode::Char('?') => ctx.open_help(),
-            KeyCode::Char('q') => ctx.quit(),
+            KeyCode::Esc | KeyCode::Char('b') => app.go_home(),
+            KeyCode::Char('?') => app.open_help(),
+            KeyCode::Char('q') => app.quit(),
             _ => {}
         }
 
         Nav::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut C) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, app: &mut App) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -154,33 +154,33 @@ impl<C: SettingsContext> Page<C> for SettingsPage {
             );
         frame.render_widget(title, main_chunks[0]);
 
-        let items = Self::items(ctx);
+        let items = Self::items(app);
         let mut menu_items: Vec<(String, &str)> = Vec::new();
         for item in &items {
             match item {
                 SettingsItem::Skin => {
-                    menu_items.push((ctx.settings_skin_label(), "Change display theme"))
+                    menu_items.push((app.settings_skin_label(), "Change display theme"))
                 }
                 SettingsItem::Sound => {
-                    menu_items.push((ctx.settings_sound_label(), "Toggle sound effects"))
+                    menu_items.push((app.settings_sound_label(), "Toggle sound effects"))
                 }
                 SettingsItem::Animations => {
-                    menu_items.push((ctx.settings_animations_label(), "Toggle animation effects"))
+                    menu_items.push((app.settings_animations_label(), "Toggle animation effects"))
                 }
                 SettingsItem::EnginePath => menu_items.push((
                     "Chess Engine Path".to_string(),
                     "Set engine path with command-line arguments",
                 )),
                 SettingsItem::BotDepth => menu_items.push((
-                    ctx.settings_bot_depth_label(),
+                    app.settings_bot_depth_label(),
                     "Set bot thinking depth for chess engine",
                 )),
                 SettingsItem::BotDifficulty => menu_items.push((
-                    ctx.settings_bot_difficulty_label(),
+                    app.settings_bot_difficulty_label(),
                     "Set bot difficulty for chess engine",
                 )),
                 SettingsItem::KittyGraphics => menu_items.push((
-                    ctx.settings_kitty_label(),
+                    app.settings_kitty_label(),
                     "Draw pieces as images in Kitty (Off uses skin pieces)",
                 )),
             }

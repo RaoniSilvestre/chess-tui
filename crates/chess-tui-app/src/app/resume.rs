@@ -4,12 +4,12 @@
 //! decisions: when to write, when to clear, and how to rebuild the in-memory
 //! game from a saved snapshot.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::{Pages, Popups};
 use crate::state::resume::{
     BotConfig, ClockState, ResumeMode, SavedGame, TakenPieceRecord, delete, has_save, load, save,
 };
-use chess_tui_app::game::Game;
+use crate::game::Game;
 use chess_tui_core::{Clock, TimeControl};
 use shakmaty::{CastlingMode, Chess, Color, fen::Fen, uci::UciMove};
 use std::time::{Duration, Instant};

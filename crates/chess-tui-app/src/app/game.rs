@@ -1,8 +1,8 @@
 //! Game end detection and restart.
 
-use crate::app::App;
+use crate::App;
 use crate::constants::{Pages, Popups};
-use chess_tui_app::game::Game;
+use crate::game::Game;
 use chess_tui_core::Clock;
 use chess_tui_game::{Bot, BotMode, GameKind};
 use shakmaty::Color;

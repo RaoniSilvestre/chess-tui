@@ -1,6 +1,7 @@
 //! Application pages.
 
 pub mod credits;
+pub mod factory;
 pub mod game;
 pub mod game_mode;
 pub mod home;
@@ -16,3 +17,4 @@ pub use home::HomePage;
 pub use lichess::{LichessMenuPage, OngoingGamesPage};
 pub use pgn::PgnViewerPage;
 pub use settings::SettingsPage;
+pub use factory::DefaultPageFactory;

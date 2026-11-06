@@ -14,7 +14,7 @@ fn main() -> AppResult<()> {
 
     let mut app = chess_tui::setup::setup_app(&args)?;
 
-    let result = app.run();
+    let result = chess_tui::app::run(&mut app);
 
     // Exit the user interface.
     ratatui::try_restore()?;
