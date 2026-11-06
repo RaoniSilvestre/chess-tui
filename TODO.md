@@ -2,34 +2,40 @@
 
 ## Deferred game-board quirks
 
-- [ ] `GameBoard::reset()` clears moves/positions but leaves `taken_pieces` untouched. Decide whether `reset()` should clear captured pieces or whether a separate `reset_position()` should preserve them.
-- [ ] Undoing a move (`undo_last_move`, used by promotion and puzzle reset paths) pops the move and position but does not restore the captured piece. Fix once the new `GameSession`/mode refactor settles.
+- [x] `Board::reset()` now clears captured pieces as well as moves/positions.
+- [x] `Board::undo_last_move()` now restores the captured piece, including en passant.
 
 ## Temporary API exceptions
 
-- [ ] Remove or hide `GameBoard::record_move_for_draw_rule` once `GameSession` owns move application and the fifty-move counter.
-- [ ] Remove `GameBoard::record_recovery_move` once Lichess historical replay moves into `LichessMode`.
+- [x] `Board::record_move_for_draw_rule` is private; `Board::play` updates the fifty-move counter automatically.
+- [x] Removed `Board::record_recovery_move`; unreplayable Lichess history moves are logged instead of creating inconsistent history.
 
 ## Temporary migration bridges
 
-- [ ] Remove `GameSession`'s `Deref`/`DerefMut` to `GameBoard` once call sites use `board()` and session methods directly.
-- [ ] Collapse the remaining `GameLogic` wrapper into `GameRuntime` now that bot/opponent orchestration lives in modes.
+- [x] Removed `GameSession`'s `Deref`/`DerefMut` to `Board`; call sites use session forwarding methods or `board()`.
+- [x] Collapsed `GameLogic` into `GameRuntime`.
 
 ## Game-state follow-ups
 
-- [ ] Parse the Lichess `winner` field for resignation events and populate `GameOutcome::Resignation { winner: Some(...) }`.
-- [ ] Add a `DrawReason` if the UI needs to distinguish stalemate, fifty-move, repetition, insufficient material, and agreement.
+- [x] Parse the Lichess `winner` field for resignation/checkmate events.
+- [x] Added `DrawReason` for stalemate, fifty-move, repetition, insufficient material, agreement, and unknown draws.
 
 ## UI migration follow-ups
 
-- [ ] Move board rendering from `src/game_logic/ui.rs` into `chess-tui-ui` using a `BoardView` view model once `BoardViewState` lives in the game page.
-- [ ] Remove the temporary `src/ui` re-exports of `chess-tui-ui` once pages import the UI crate directly.
-- [ ] Move page-specific menu/popup renderers into `chess-tui-pages`.
+- [x] Moved board rendering into `chess-tui-ui` behind the `BoardView` view model.
+- [x] Removed the temporary `src/ui` re-exports of `chess-tui-ui`.
+- [ ] Move the remaining page-specific popup renderers (promotion, end screen, move input, new game, resignation, puzzle end) into `chess-tui-pages`.
 
 ## Pages migration
 
 - [x] Move Settings, GameModeMenu, LichessMenu, OngoingGames, and PgnViewer off `LegacyPage`.
-- [ ] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages` with `GameRuntime` + `BoardViewState`.
-- [ ] Move page-local state out of `App`/`UIState` into page structs.
-- [ ] Remove the temporary per-page context traits (`SettingsContext`, `GameModeContext`, `LichessMenuContext`, `OngoingGamesContext`, `PgnViewerContext`) once pages own their services/state directly. They are scaffolding, not the target API.
-- [ ] Remove `LegacyPage`, `Pages`, and `Popups` dispatch.
+- [x] Move game pages (Solo, Bot, Multiplayer, Lichess) into `chess-tui-pages`.
+- [x] Move page-local state (home/settings/game-mode/Lichess/PGN cursors and game view state) into page structs.
+- [x] Remove `LegacyPage` and the central legacy page dispatch.
+- [ ] Replace the remaining `Pages`/`Popups` state enums with page-owned navigation results.
+- [ ] Remove the temporary per-page context traits once the concrete `App` moves into `chess-tui-app`; they are scaffolding, not the target API.
+
+## Validation
+
+- [ ] Live smoke-test the Lichess and TCP multiplayer paths.
+- [x] `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, and `cargo build --release` pass.
