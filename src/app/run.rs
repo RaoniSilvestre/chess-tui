@@ -80,11 +80,8 @@ impl App {
         }
 
         if let Some(bot) = &self.game.logic.bot {
-            self.bot_state.start_bot_thinking(
-                self.game.logic.game_board.fen(),
-                bot.depth(),
-                bot.difficulty(),
-            );
+            self.bot_state
+                .start_bot_thinking(self.game.logic.fen(), bot.depth(), bot.difficulty());
         }
 
         if let Some(bot) = self.game.logic.bot.as_mut() {
@@ -131,7 +128,7 @@ impl App {
         };
 
         // Check if it's the opponent's turn: if player_turn == opponent.color, it's opponent's turn
-        let is_opponent_turn = self.game.logic.player_turn == opponent.color;
+        let is_opponent_turn = self.game.logic.turn() == opponent.color;
 
         // Only check for TCP multiplayer moves here (Lichess is handled in tick())
         // Check both the turn and the flag for TCP multiplayer
@@ -143,8 +140,8 @@ impl App {
 
         tui.draw(self)?;
 
-        let is_checkmate = self.game.logic.game_board.is_checkmate();
-        let is_draw = self.game.logic.game_board.is_draw();
+        let is_checkmate = self.game.logic.is_checkmate();
+        let is_draw = self.game.logic.is_draw();
 
         if !is_checkmate && !is_draw && self.game.logic.execute_opponent_move() {
             self.game.switch_player_turn();

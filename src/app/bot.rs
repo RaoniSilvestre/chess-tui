@@ -23,19 +23,21 @@ impl App {
         ));
 
         // Initialize clock for bot games.
-        self.game.logic.clock = Clock::new(self.game_mode_state.get_time_control());
+        self.game
+            .logic
+            .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
         if let Some(color) = self.game_mode_state.selected_color
             && color == Color::Black
         {
             // Flip the board once so Black player sees from their perspective
-            self.game.logic.game_board.flip();
+            self.game.logic.flip();
 
             if let Some(bot) = &self.game.logic.bot
-                && self.game.logic.player_turn != color
+                && self.game.logic.turn() != color
             {
                 self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen(),
+                    self.game.logic.fen(),
                     bot.depth(),
                     bot.difficulty(),
                 );
@@ -85,17 +87,16 @@ impl App {
         let promotion = bot_move.promotion();
 
         // Normalize all move types to Normal for history display (castles/en-passant share the same fields).
-        let played =
-            self.game
-                .logic
-                .game_board
-                .play_and_record(from_square, to_square, promotion, |_| Move::Normal {
-                    role,
-                    from: from_square,
-                    capture,
-                    to: to_square,
-                    promotion,
-                });
+        let played = self
+            .game
+            .logic
+            .play_and_record(from_square, to_square, promotion, |_| Move::Normal {
+                role,
+                from: from_square,
+                capture,
+                to: to_square,
+                promotion,
+            });
 
         if played.is_none() {
             log::error!("Failed to play bot move");

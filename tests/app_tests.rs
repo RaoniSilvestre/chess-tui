@@ -80,12 +80,12 @@ mod local_game_tests {
             "Selection should clear after making a valid move"
         );
         assert_eq!(
-            app.game.logic.game_board.moves().len(),
+            app.game.logic.moves().len(),
             1,
             "One move should be recorded in the history"
         );
         assert_eq!(
-            app.game.logic.player_turn,
+            app.game.logic.turn(),
             Color::Black,
             "The turn should have swapped to Black"
         );
@@ -114,12 +114,12 @@ mod local_game_tests {
 
         // Verify the move was rejected and state remains untouched
         assert_eq!(
-            app.game.logic.game_board.moves().len(),
+            app.game.logic.moves().len(),
             0,
             "No move should be recorded for an illegal destination"
         );
         assert_eq!(
-            app.game.logic.player_turn,
+            app.game.logic.turn(),
             Color::White,
             "It should still be White's turn"
         );
@@ -179,12 +179,12 @@ mod local_game_tests {
             "Input should be cleared after a successful move"
         );
         assert_eq!(
-            app.game.logic.player_turn,
+            app.game.logic.turn(),
             Color::Black,
             "Turn should swap to Black"
         );
         assert_eq!(
-            app.game.logic.game_board.get_role_at_square(&Square::E4),
+            app.game.logic.get_role_at_square(&Square::E4),
             Some(Role::Pawn),
             "A pawn should now sit on e4"
         );
@@ -224,11 +224,7 @@ mod local_game_tests {
             app.game.ui.prompt.input, "zzz",
             "Input must be preserved so the user can edit it"
         );
-        assert_eq!(
-            app.game.logic.game_board.moves().len(),
-            0,
-            "No move should be applied"
-        );
+        assert_eq!(app.game.logic.moves().len(), 0, "No move should be applied");
 
         Ok(())
     }
@@ -258,16 +254,12 @@ mod local_game_tests {
             "Illegal SAN should set an error"
         );
         assert_eq!(
-            app.game.logic.player_turn,
+            app.game.logic.turn(),
             Color::White,
             "Turn should not change on illegal input"
         );
         assert!(
-            app.game
-                .logic
-                .game_board
-                .get_role_at_square(&Square::E5)
-                .is_none(),
+            app.game.logic.get_role_at_square(&Square::E5).is_none(),
             "e5 must remain empty"
         );
 
@@ -344,7 +336,7 @@ mod local_game_tests {
             app.game.ui.selected_square.is_none(),
             "Pressing enter on the currently selected piece should deselect it"
         );
-        assert_eq!(app.game.logic.game_board.moves().len(), 0);
+        assert_eq!(app.game.logic.moves().len(), 0);
 
         Ok(())
     }

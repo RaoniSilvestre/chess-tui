@@ -315,8 +315,8 @@ impl App {
                         .into_position::<shakmaty::Chess>(shakmaty::CastlingMode::Standard)
                     {
                         Ok(position) => {
-                            let halfmove_clock = self.game.logic.game_board.halfmove_clock();
-                            if let Err(e) = self.game.logic.game_board.load_history(
+                            let halfmove_clock = self.game.logic.halfmove_clock();
+                            if let Err(e) = self.game.logic.load_history(
                                 vec![position],
                                 vec![],
                                 vec![],
@@ -375,12 +375,14 @@ impl App {
         immediate_last_move: Option<String>,
     ) {
         // Reset game state so a previous ended game doesn't block input in handle_cell_click
-        self.game.logic.game_state = GameState::Playing;
+        self.game.logic.set_state(GameState::Playing);
         self.ui_state.close_popup();
         self.ui_state.end_screen_dismissed = false;
 
         // Best-effort initial clock; the first game event resyncs with the server.
-        self.game.logic.clock = Clock::new(self.game_mode_state.get_time_control());
+        self.game
+            .logic
+            .set_clock(Clock::new(self.game_mode_state.get_time_control()));
 
         let Ok(client) = self.lichess_state.require_client() else {
             self.ui_state.show_message_popup(
@@ -439,7 +441,7 @@ impl App {
         self.game.logic.opponent = Some(opponent);
 
         if color == Color::Black {
-            self.game.logic.game_board.flip();
+            self.game.logic.flip();
         }
         // Ensure skin is preserved
         if let Some(skin) = &self.theme_state.loaded_skin {
@@ -651,7 +653,7 @@ impl App {
 
         // Reset game state to Playing (in case it was Checkmate/Draw from previous puzzle)
         // This must be done early to prevent check_and_show_game_end from re-showing the popup
-        self.game.logic.game_state = GameState::Playing;
+        self.game.logic.set_state(GameState::Playing);
 
         // Fetch fresh user profile to get the latest puzzle rating
         // This ensures we use the correct baseline rating after any previous puzzle's Elo change
@@ -675,7 +677,7 @@ impl App {
         }
 
         // Initialize PuzzleGame
-        let puzzle = match PuzzleGame::load(client, &mut self.game.logic.game_board) {
+        let puzzle = match PuzzleGame::load(client, &mut self.game.logic) {
             Ok(p) => p,
             Err(e) => {
                 self.ui_state.show_message_popup(e, Popups::Error);
@@ -690,7 +692,7 @@ impl App {
 
         // Ensure board stays unflipped in puzzle mode
         if self.lichess_state.puzzle_game.is_some() {
-            self.game.logic.game_board.set_flipped(false);
+            self.game.logic.set_flipped(false);
         }
         // Switch to Solo page to show the board
         self.ui_state.current_page = Pages::Solo;

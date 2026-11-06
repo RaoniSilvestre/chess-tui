@@ -129,26 +129,26 @@ impl App {
             .as_ref()
             .is_some_and(|o| o.is_lichess());
 
-        let clock = &self.game.logic.clock;
+        let clock = &self.game.logic.clock();
 
         // Detect time running out for Lichess games (the server stops sending
         // events once a player flags, so we finish the countdown locally).
         if is_lichess
-            && let ClockState::Running { active_color, .. } = self.game.logic.clock.state()
+            && let ClockState::Running { active_color, .. } = self.game.logic.clock().state()
             && clock.get_time(active_color, Instant::now()).is_zero()
         {
-            self.game.logic.clock.force_time_up(active_color);
+            self.game.logic.force_time_up(active_color);
         }
 
         // Check clock for time up (for local games and bot games with clock)
-        if let ClockState::TimeUp { loser_color } = self.game.logic.clock.state() {
+        if let ClockState::TimeUp { loser_color } = self.game.logic.clock().state() {
             // Time is up - end the game
             let winner = loser_color.other();
-            self.game.logic.game_state = GameState::Checkmate;
+            self.game.logic.set_state(GameState::Checkmate);
             // Set player_turn to the winner so check_and_show_game_end shows correct winner
-            self.game.logic.player_turn = winner;
+            self.game.logic.set_turn(winner);
             // Mark that the game ended due to time
-            self.game.logic.game_ended_by_time = true;
+            self.game.logic.set_ended_by_time(true);
             self.check_and_show_game_end();
         }
 
@@ -180,7 +180,7 @@ impl App {
                 }
             } else {
                 // For TCP multiplayer, only check when it's the opponent's turn
-                let is_opponent_turn = self.game.logic.player_turn == opponent.color;
+                let is_opponent_turn = self.game.logic.turn() == opponent.color;
                 if is_opponent_turn && self.game.logic.execute_opponent_move() {
                     self.game.logic.switch_player_turn();
                     self.check_and_show_game_end();

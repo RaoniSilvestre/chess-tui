@@ -425,7 +425,9 @@ pub fn cycle_difficulty_next(app: &mut App) {
 }
 
 fn apply_clock_and_start(app: &mut App, page: Pages) {
-    app.game.logic.clock = Clock::new(app.game_mode_state.get_time_control());
+    app.game
+        .logic
+        .set_clock(Clock::new(app.game_mode_state.get_time_control()));
     finish_form(app, page);
 }
 

@@ -2,60 +2,62 @@
 
 use super::{bot::Bot, opponent::Opponent, ui::UI};
 use chess_tui_core::{
-    Clock, ClockState, Coord, GameBoard, GameState, square_utils::flip_square_if_needed,
+    ClockState, Coord, GameBoard, GameState, square_utils::flip_square_if_needed,
 };
+use chess_tui_game::GameSession;
 use shakmaty::{Color, Move, Position, Role, Square};
+use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
 impl Clone for GameLogic {
     fn clone(&self) -> Self {
-        let opponent_clone = self.opponent.clone();
-
-        GameLogic {
-            game_board: self.game_board.clone(),
+        Self {
+            session: self.session.clone(),
             bot: self.bot.clone(),
-            opponent: opponent_clone,
-            player_turn: self.player_turn,
-            game_state: self.game_state,
-            clock: self.clock.clone(),
-            game_ended_by_time: self.game_ended_by_time,
-            pending_promotion_move: None,
+            opponent: self.opponent.clone(),
         }
     }
 }
 
+/// Application-level game logic: a pure [`GameSession`] plus bot/opponent
+/// orchestration that will move into game modes in a later step.
+#[derive(Default)]
 pub struct GameLogic {
-    /// The GameBoard storing data about the board related stuff
-    pub game_board: GameBoard,
+    session: GameSession,
     /// The struct to handle Bot related stuff
     pub bot: Option<Bot>,
     /// The other player when playing in multiplayer
     pub opponent: Option<Opponent>,
-    /// Which player is it to play
-    pub player_turn: Color,
-    /// The current state of the game (Playing, Draw, Checkmate. Promotion)
-    pub game_state: GameState,
-    /// Chess clock for timing games (optional, for local play and bot games)
-    pub clock: Clock,
-    /// Whether the game ended due to time running out
-    pub game_ended_by_time: bool,
-    /// Pending promotion move for puzzle validation (from, to squares)
-    /// This is set when a promotion move is made and cleared after validation
-    pub pending_promotion_move: Option<(shakmaty::Square, shakmaty::Square)>,
 }
 
-impl Default for GameLogic {
-    fn default() -> Self {
+impl Deref for GameLogic {
+    type Target = GameSession;
+
+    fn deref(&self) -> &Self::Target {
+        &self.session
+    }
+}
+
+impl DerefMut for GameLogic {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.session
+    }
+}
+
+impl GameLogic {
+    pub fn new(board: GameBoard, turn: Color) -> Self {
         Self {
-            game_board: GameBoard::default(),
-            bot: None,
-            opponent: None,
-            player_turn: Color::White,
-            game_state: GameState::Playing,
-            clock: Clock::default(),
-            game_ended_by_time: false,
-            pending_promotion_move: None,
+            session: GameSession::new(board, turn),
+            ..Self::default()
         }
+    }
+
+    pub fn session(&self) -> &GameSession {
+        &self.session
+    }
+
+    pub fn session_mut(&mut self) -> &mut GameSession {
+        &mut self.session
     }
 }
 
@@ -78,11 +80,7 @@ impl Clone for Game {
 impl Game {
     pub fn new(game_board: GameBoard, player_turn: Color) -> Self {
         Self {
-            logic: GameLogic {
-                game_board,
-                player_turn,
-                ..Default::default()
-            },
+            logic: GameLogic::new(game_board, player_turn),
             ui: UI::default(),
         }
     }
@@ -98,18 +96,18 @@ impl Game {
         if let Some(opponent) = &self.logic.opponent
             && opponent.is_tcp_multiplayer()
             && let Some(my_color) = player_color
-            && self.logic.player_turn != my_color
+            && self.logic.turn() != my_color
         {
             // Player can only move when it's their turn
             return;
         }
 
         // If we are viewing history and making a move, truncate history at this point
-        if let Some(history_index) = self.logic.game_board.history_position() {
-            self.logic.game_board.truncate_history_at(history_index);
+        if let Some(history_index) = self.logic.history_position() {
+            self.logic.truncate_history_at(history_index);
         }
 
-        match self.logic.game_state {
+        match self.logic.state() {
             GameState::Promotion => {
                 // Default to flipping in solo mode (no bot, no opponent)
                 let should_flip = self.logic.opponent.is_none() && self.logic.bot.is_none();
@@ -122,23 +120,18 @@ impl Game {
                 } else {
                     // Selection Guard: Check if we SHOULD even call select_cell()
                     let square: shakmaty::Square = self.ui.cursor_coordinates.into();
-                    let actual_square =
-                        flip_square_if_needed(square, self.logic.game_board.is_flipped());
+                    let actual_square = flip_square_if_needed(square, self.logic.is_flipped());
 
-                    let piece_color = self
-                        .logic
-                        .game_board
-                        .get_piece_color_at_square(&actual_square);
+                    let piece_color = self.logic.get_piece_color_at_square(&actual_square);
 
                     // Do nothing if clicking an empty square or the opponent's piece
-                    if piece_color != Some(self.logic.player_turn) {
+                    if piece_color != Some(self.logic.turn()) {
                         return;
                     }
 
                     let authorized_positions = self
                         .logic
-                        .game_board
-                        .get_authorized_positions(self.logic.player_turn, &actual_square);
+                        .get_authorized_positions(self.logic.turn(), &actual_square);
 
                     if !authorized_positions.is_empty() {
                         self.select_cell();
@@ -193,8 +186,8 @@ impl Game {
             self.logic.update_game_state();
 
             // Trigger bot move if game is still in progress
-            if self.logic.game_state != GameState::Promotion
-                && self.logic.game_state != GameState::Checkmate
+            if self.logic.state() != GameState::Promotion
+                && self.logic.state() != GameState::Checkmate
                 && let Some(bot) = self.logic.bot.as_mut()
             {
                 bot.request_move();
@@ -204,39 +197,44 @@ impl Game {
 
     /// Handle opponent-specific logic after a move
     fn handle_after_move_opponent_logic(&mut self) {
-        if self.logic.opponent.is_some() {
-            if self.logic.game_board.is_latest_move_promotion() {
-                self.logic.game_state = GameState::Promotion;
-            } else {
-                self.logic.update_game_state();
+        if self.logic.opponent.is_none() {
+            return;
+        }
 
-                // Signal opponent to move and send move if game is still in progress
-                if let Some(opponent) = self.logic.opponent.as_mut() {
-                    if self.logic.game_state != GameState::Checkmate {
-                        opponent.opponent_will_move = true;
-                    }
+        if self.logic.is_latest_move_promotion() {
+            self.logic.set_state(GameState::Promotion);
+            return;
+        }
 
-                    // Send move to opponent
-                    if let Some(last_move) = self.logic.game_board.moves().last() {
-                        opponent.send_move_to_server(last_move, last_move.promotion());
+        self.logic.update_game_state();
 
-                        // For Lichess games, signal the polling thread that player made a move
-                        // This resets the polling skip flag so polling resumes for opponent's turn
-                        if let Some(crate::game_logic::opponent::OpponentKind::Lichess {
-                            player_move_tx: Some(tx),
-                            ..
-                        }) = &opponent.kind
-                        {
-                            if let Err(e) = tx.send(()) {
-                                log::warn!("Failed to signal player move to polling thread: {}", e);
-                            } else {
-                                log::debug!("Signaled polling thread that player made a move");
-                            }
-                        }
+        let state = self.logic.state();
+        let last_move = self.logic.moves().last().cloned();
+
+        // Signal opponent to move and send move if game is still in progress.
+        if let Some(opponent) = self.logic.opponent.as_mut() {
+            if state != GameState::Checkmate {
+                opponent.opponent_will_move = true;
+            }
+
+            if let Some(last_move) = last_move {
+                opponent.send_move_to_server(&last_move, last_move.promotion());
+
+                // For Lichess games, signal the polling thread that player made a move.
+                // This resets the polling skip flag so polling resumes for opponent's turn.
+                if let Some(crate::game_logic::opponent::OpponentKind::Lichess {
+                    player_move_tx: Some(tx),
+                    ..
+                }) = &opponent.kind
+                {
+                    if let Err(e) = tx.send(()) {
+                        log::warn!("Failed to signal player move to polling thread: {}", e);
                     } else {
-                        log::error!("Cannot send move to opponent: move history is empty");
+                        log::debug!("Signaled polling thread that player made a move");
                     }
                 }
+            } else {
+                log::error!("Cannot send move to opponent: move history is empty");
             }
         }
     }
@@ -246,11 +244,11 @@ impl Game {
         // Only flip the board in single-player mode (no bot, no opponent)
         if self.logic.bot.is_none()
             && self.logic.opponent.is_none()
-            && (!self.logic.game_board.is_latest_move_promotion()
-                || self.logic.game_board.is_draw()
-                || self.logic.game_board.is_checkmate())
+            && (!self.logic.is_latest_move_promotion()
+                || self.logic.is_draw()
+                || self.logic.is_checkmate())
         {
-            self.logic.game_board.flip();
+            self.logic.flip();
         }
     }
 
@@ -263,9 +261,8 @@ impl Game {
         let cursor_square = self.ui.cursor_coordinates.into();
 
         let actual_selected_coords =
-            flip_square_if_needed(selected_square, self.logic.game_board.is_flipped());
-        let actual_cursor_coords =
-            flip_square_if_needed(cursor_square, self.logic.game_board.is_flipped());
+            flip_square_if_needed(selected_square, self.logic.is_flipped());
+        let actual_cursor_coords = flip_square_if_needed(cursor_square, self.logic.is_flipped());
 
         if actual_cursor_coords == actual_selected_coords {
             self.ui.unselect_cell();
@@ -275,16 +272,12 @@ impl Game {
         // Check authorized positions before taking any action.
         let authorized_positions = self
             .logic
-            .game_board
-            .get_authorized_positions(self.logic.player_turn, &actual_selected_coords);
+            .get_authorized_positions(self.logic.turn(), &actual_selected_coords);
 
         if !authorized_positions.contains(&actual_cursor_coords) {
-            let piece_at_destination = self
-                .logic
-                .game_board
-                .get_piece_color_at_square(&actual_cursor_coords);
+            let piece_at_destination = self.logic.get_piece_color_at_square(&actual_cursor_coords);
 
-            if piece_at_destination == Some(self.logic.player_turn) {
+            if piece_at_destination == Some(self.logic.turn()) {
                 self.select_cell();
             } else {
                 self.ui.unselect_cell();
@@ -298,11 +291,11 @@ impl Game {
 
         self.logic.update_game_state();
 
-        if self.logic.game_state != GameState::Promotion {
+        if self.logic.state() != GameState::Promotion {
             self.logic.start_clock_if_needed();
             self.logic.switch_player_turn();
         } else {
-            self.logic.clock.pause(Instant::now());
+            self.logic.pause_clock();
         }
 
         self.handle_after_move_board_flip();
@@ -316,20 +309,13 @@ impl Game {
         let square: Square = self.ui.cursor_coordinates.into();
         let square: Square = Coord::from(square).into();
 
-        let actual_square = flip_square_if_needed(square, self.logic.game_board.is_flipped());
+        let actual_square = flip_square_if_needed(square, self.logic.is_flipped());
 
         // Check if there is a piece on the cell and if it's the right color
-        let piece_color = self
-            .logic
-            .game_board
-            .get_piece_color_at_square(&actual_square);
+        let piece_color = self.logic.get_piece_color_at_square(&actual_square);
 
-        if self
-            .logic
-            .game_board
-            .get_role_at_square(&actual_square)
-            .is_none()
-            || piece_color != Some(self.logic.player_turn)
+        if self.logic.get_role_at_square(&actual_square).is_none()
+            || piece_color != Some(self.logic.turn())
         {
             return;
         }
@@ -337,8 +323,7 @@ impl Game {
         // Check if the piece on the cell can move before selecting it
         let authorized_positions = self
             .logic
-            .game_board
-            .get_authorized_positions(self.logic.player_turn, &actual_square);
+            .get_authorized_positions(self.logic.turn(), &actual_square);
 
         if authorized_positions.is_empty() {
             return;
@@ -350,30 +335,28 @@ impl Game {
     }
 
     pub fn apply_player_move(&mut self, from: Square, to: Square, promotion: Option<Role>) -> bool {
-        let role_from = match self.logic.game_board.get_role_at_square(&from) {
+        let role_from = match self.logic.get_role_at_square(&from) {
             Some(role) => role,
             None => return false,
         };
-        let role_to = self.logic.game_board.get_role_at_square(&to);
+        let role_to = self.logic.get_role_at_square(&to);
 
-        let executed_move = self.logic.game_board.play(from, to, promotion);
+        let executed_move = self.logic.play(from, to, promotion);
 
         let Some(_executed_move) = executed_move else {
             return false;
         };
 
         crate::sound::play_move_sound();
-        self.logic
-            .game_board
-            .record_move_for_draw_rule(role_from, role_to);
+        self.logic.record_move_for_draw_rule(role_from, role_to);
 
         self.logic.update_game_state();
 
-        if self.logic.game_state != GameState::Promotion {
+        if self.logic.state() != GameState::Promotion {
             self.logic.start_clock_if_needed();
             self.logic.switch_player_turn();
         } else {
-            self.logic.clock.pause(Instant::now());
+            self.logic.pause_clock();
         }
 
         self.handle_after_move_board_flip();
@@ -384,47 +367,29 @@ impl Game {
     }
 
     pub fn clock_state(&self) -> ClockState {
-        self.logic.clock.state()
+        self.logic.clock().state()
     }
 }
 
 impl GameLogic {
     pub fn update_game_state(&mut self) {
-        let new_state = if self.game_board.is_checkmate() {
-            GameState::Checkmate
-        } else if self.game_board.is_draw() {
-            GameState::Draw
-        } else if self.game_board.is_latest_move_promotion() {
-            GameState::Promotion
-        } else {
-            self.clock.resume(Instant::now());
-            return;
-        };
-
-        self.game_state = new_state;
-        self.clock.pause(Instant::now());
+        self.session.update_game_state();
     }
 
     /// Switch the player turn
     pub fn switch_player_turn(&mut self) {
-        match self.player_turn {
-            Color::White => self.player_turn = Color::Black,
-            Color::Black => self.player_turn = Color::White,
-        }
-
-        self.clock.switch_turn(Instant::now());
+        self.session.switch_turn();
     }
 
     /// Start the clock for the current player (used on first move)
     pub fn start_clock_if_needed(&mut self) {
-        // Clock hasn't started yet, start it for the current player (White on first move)
-        self.clock.start(Instant::now());
+        self.session.start_clock_if_needed();
     }
 
     /// Sync player_turn with the current position's turn
     /// This is needed when navigating history to ensure moves are allowed for the correct player
     pub fn sync_player_turn_with_position(&mut self) {
-        self.player_turn = self.game_board.current_position().turn();
+        self.session.sync_turn_with_position();
     }
 
     /// Method to make a move for the bot
@@ -436,7 +401,7 @@ impl GameLogic {
             None => return,
         };
 
-        let fen_position = self.game_board.fen();
+        let fen_position = self.session.fen();
 
         // Retrieve the bot move from the bot
         let uci_move = match bot.find_move(&fen_position) {
@@ -448,7 +413,7 @@ impl GameLogic {
         };
 
         // Convert UCI move to a shakmaty Move using the current position
-        let current_position = self.game_board.current_position().clone();
+        let current_position = self.session.current_position().clone();
         let bot_actual_move = match uci_move.to_move(&current_position) {
             Ok(m) => m,
             Err(e) => {
@@ -467,7 +432,7 @@ impl GameLogic {
         let promotion = bot_actual_move.promotion();
 
         let played = self
-            .game_board
+            .session
             .play_and_record(from_square, to_square, promotion, |_| Move::Normal {
                 role,
                 from: from_square,
@@ -491,7 +456,7 @@ impl GameLogic {
 
     /// Method to promote a pawn
     pub fn promote_piece(&mut self, role: Role, should_flip: bool) {
-        if let Some(last_move) = self.game_board.moves().last().cloned() {
+        if let Some(last_move) = self.session.moves().last().cloned() {
             let new_piece = role;
 
             // Promotion moves are always pawn moves, so they should have a from square
@@ -505,10 +470,10 @@ impl GameLogic {
 
             let to_square = last_move.to();
             let capture = last_move.capture();
-            self.game_board.undo_last_move();
+            self.session.undo_last_move();
 
             // Re-execute the move with the correct promotion
-            self.game_board
+            self.session
                 .play_and_record(from_square, to_square, Some(new_piece), |_| Move::Normal {
                     role: Role::Pawn,
                     from: from_square,
@@ -518,28 +483,28 @@ impl GameLogic {
                 });
         }
 
-        self.game_state = GameState::Playing;
+        self.session.set_state(GameState::Playing);
         if should_flip
-            && !self.game_board.is_draw()
-            && !self.game_board.is_checkmate()
+            && !self.session.is_draw()
+            && !self.session.is_checkmate()
             && self.opponent.is_none()
             && self.bot.is_none()
         {
-            self.game_board.flip();
+            self.session.flip();
         }
     }
 
     /// Move a piece from a cell to another
     pub fn execute_move(&mut self, from: Square, to: Square) {
         // Check if moving a piece and get the piece type
-        let Some(role_from) = self.game_board.get_role_at_square(&from) else {
+        let Some(role_from) = self.session.get_role_at_square(&from) else {
             return;
         };
 
-        let role_to = self.game_board.get_role_at_square(&to);
+        let role_to = self.session.get_role_at_square(&to);
 
         let executed_move = self
-            .game_board
+            .session
             .play_and_record(from, to, None, |executed_move| {
                 // If this is a pawn reaching the last row, store it without promotion piece
                 // so that is_latest_move_promotion() returns true and the popup appears.
@@ -567,8 +532,7 @@ impl GameLogic {
             crate::sound::play_move_sound();
 
             // We increment the consecutive_non_pawn_or_capture if the piece type is a pawn or if there is no capture
-            self.game_board
-                .record_move_for_draw_rule(role_from, role_to);
+            self.session.record_move_for_draw_rule(role_from, role_to);
         }
     }
 
@@ -654,12 +618,7 @@ impl GameLogic {
         }
 
         // Handle control messages (INIT_MOVES, GAME_STATUS, CLOCK_SYNC)
-        if Self::handle_opponent_control_message(
-            opponent,
-            &mut self.clock,
-            &mut self.game_state,
-            &opponent_move,
-        ) {
+        if Self::handle_opponent_control_message(opponent, &mut self.session, &opponent_move) {
             return false;
         }
 
@@ -667,12 +626,12 @@ impl GameLogic {
         opponent.moves_received += 1;
 
         // Handle historical moves
-        if Self::handle_historical_move(opponent, &mut self.game_board, &opponent_move) {
+        if Self::handle_historical_move(opponent, &mut self.session, &opponent_move) {
             return false;
         }
 
         // Process live move
-        Self::process_live_move(opponent, &mut self.game_board, &opponent_move)
+        Self::process_live_move(opponent, &mut self.session, &opponent_move)
     }
 
     fn process_live_move(
@@ -856,8 +815,7 @@ impl GameLogic {
 
     fn handle_opponent_control_message(
         opponent: &mut Opponent,
-        clock: &mut Clock,
-        game_state: &mut GameState,
+        session: &mut GameSession,
         message: &str,
     ) -> bool {
         // Check if this is a control message to update initial_move_count
@@ -892,7 +850,12 @@ impl GameLogic {
                 } else {
                     Color::Black
                 };
-                clock.sync_from_server(white_ms, black_ms, active_color, Instant::now());
+                session.clock_mut().sync_from_server(
+                    white_ms,
+                    black_ms,
+                    active_color,
+                    Instant::now(),
+                );
             }
             return true;
         }
@@ -904,20 +867,20 @@ impl GameLogic {
                 match status_str {
                     "checkmate" => {
                         log::info!("Game ended by checkmate - updating game state");
-                        *game_state = GameState::Checkmate;
+                        session.set_state(GameState::Checkmate);
                     }
                     "draw" | "stalemate" | "repetition" | "insufficient" | "fifty" => {
                         log::info!("Game ended by draw ({}) - updating game state", status_str);
-                        *game_state = GameState::Draw;
+                        session.set_state(GameState::Draw);
                     }
                     "resign" => {
                         log::info!("Game ended by resignation - updating game state");
                         // Resignation is treated as checkmate for the winner
-                        *game_state = GameState::Checkmate;
+                        session.set_state(GameState::Checkmate);
                     }
                     "aborted" => {
                         log::info!("Game was aborted - updating game state");
-                        *game_state = GameState::Draw;
+                        session.set_state(GameState::Draw);
                     }
                     _ => {
                         log::warn!("Unknown game status: {}", status_str);
@@ -1177,7 +1140,7 @@ impl GameLogic {
             }
         };
 
-        let last_move = match self.game_board.moves().last() {
+        let last_move = match self.session.moves().last() {
             Some(m) => m,
             None => {
                 log::error!("handle_multiplayer_promotion called but move history is empty");
@@ -1207,7 +1170,7 @@ impl GameLogic {
     pub fn navigate_history_next(&mut self) {
         // Check if we're in solo mode (no bot, no opponent)
         let is_solo_mode = self.bot.is_none() && self.opponent.is_none();
-        if self.game_board.navigate_history_next(is_solo_mode) {
+        if self.session.navigate_history_next(is_solo_mode) {
             // Update player_turn to match the position's turn
             self.sync_player_turn_with_position();
         }
@@ -1217,7 +1180,7 @@ impl GameLogic {
     pub fn navigate_history_previous(&mut self) {
         // Check if we're in solo mode (no bot, no opponent)
         let is_solo_mode = self.bot.is_none() && self.opponent.is_none();
-        if self.game_board.navigate_history_previous(is_solo_mode) {
+        if self.session.navigate_history_previous(is_solo_mode) {
             // Update player_turn to match the position's turn
             self.sync_player_turn_with_position();
         }

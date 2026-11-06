@@ -75,11 +75,11 @@ impl App {
         // Mid-promotion is a half-move — wait for the user to pick a piece.
         // Terminal states get cleared by `clear_resume_state_on_end`, so we
         // intentionally skip writing them here too.
-        if self.game.logic.game_state != GameState::Playing {
+        if self.game.logic.state() != GameState::Playing {
             return;
         }
 
-        let count = self.game.logic.game_board.moves().len();
+        let count = self.game.logic.moves().len();
         if count == 0 {
             return;
         }
@@ -89,12 +89,11 @@ impl App {
 
         let saved = SavedGame {
             mode,
-            fen: self.game.logic.game_board.fen(),
-            is_flipped: self.game.logic.game_board.is_flipped(),
+            fen: self.game.logic.fen(),
+            is_flipped: self.game.logic.is_flipped(),
             taken_pieces: self
                 .game
                 .logic
-                .game_board
                 .taken_pieces()
                 .iter()
                 .map(|p| TakenPieceRecord::from_piece(*p))
@@ -107,7 +106,6 @@ impl App {
             moves_uci: self
                 .game
                 .logic
-                .game_board
                 .moves()
                 .iter()
                 .map(|m| UciMove::from_standard(m).to_string())
@@ -119,7 +117,7 @@ impl App {
     }
 
     fn clock_state_for_save(&self) -> Option<ClockState> {
-        let clock = &self.game.logic.clock;
+        let clock = &self.game.logic.clock();
         let now = Instant::now();
         let white = clock.get_time(Color::White, now);
         let black = clock.get_time(Color::Black, now);
@@ -222,7 +220,6 @@ impl App {
                 if let Err(e) =
                     self.game
                         .logic
-                        .game_board
                         .load_history(vec![position], vec![], taken_pieces, 0)
                 {
                     log::error!("Failed to load saved position: {e}");
@@ -241,13 +238,12 @@ impl App {
             let moves_joined = saved.moves_uci.join(" ");
             self.game
                 .logic
-                .game_board
                 .reconstruct_history(&moves_joined, Some(&saved.fen));
         }
 
-        self.game.logic.game_board.set_flipped(saved.is_flipped);
+        self.game.logic.set_flipped(saved.is_flipped);
         self.game.logic.sync_player_turn_with_position();
-        self.game.logic.game_state = GameState::Playing;
+        self.game.logic.set_state(GameState::Playing);
 
         // Restore any saved clock + the form selection used to create it so a
         // follow-up "new game" presents the same time control by default.
@@ -259,11 +255,11 @@ impl App {
             // Game was mid-flight before the quit; start the side-to-move
             // clock immediately so resume feels continuous instead of frozen.
             clock.start(Instant::now());
-            self.game.logic.clock = clock;
+            self.game.logic.set_clock(clock);
             self.game_mode_state.clock_cursor = cs.clock_cursor;
             self.game_mode_state.custom_time_minutes = cs.custom_minutes;
         } else {
-            self.game.logic.clock = Clock::new(TimeControl::NoClock);
+            self.game.logic.set_clock(Clock::new(TimeControl::NoClock));
         }
 
         match mode {
@@ -291,10 +287,9 @@ impl App {
 
                 // Re-launch the engine. `Bot::new` matches the `bot_setup`
                 // call path so the resumed game behaves like a fresh one.
-                let is_bot_starting = self.game.logic.player_turn != player_color
+                let is_bot_starting = self.game.logic.turn() != player_color
                     && player_color == Color::White
-                    || (player_color == Color::Black
-                        && self.game.logic.player_turn == Color::White);
+                    || (player_color == Color::Black && self.game.logic.turn() == Color::White);
                 self.game.logic.bot = Some(Bot::new(
                     &bot_cfg.path,
                     is_bot_starting,
@@ -306,11 +301,11 @@ impl App {
                 self.last_saved_move_count = Some(0);
 
                 // If it's the bot's turn in the saved position, kick it off.
-                if self.game.logic.player_turn != player_color
+                if self.game.logic.turn() != player_color
                     && let Some(bot) = &self.game.logic.bot
                 {
                     self.bot_state.start_bot_thinking(
-                        self.game.logic.game_board.fen(),
+                        self.game.logic.fen(),
                         bot.depth(),
                         bot.difficulty(),
                     );

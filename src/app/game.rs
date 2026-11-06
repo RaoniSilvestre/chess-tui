@@ -27,9 +27,9 @@ impl App {
             return;
         }
 
-        let previous_state = self.game.logic.game_state;
+        let previous_state = self.game.logic.state();
         self.game.logic.update_game_state();
-        let new_state = self.game.logic.game_state;
+        let new_state = self.game.logic.state();
 
         if previous_state != new_state
             && (new_state == GameState::Checkmate || new_state == GameState::Draw)
@@ -68,7 +68,7 @@ impl App {
         // Clear puzzle state when restarting (for normal games)
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
-        self.game.logic.game_ended_by_time = false;
+        self.game.logic.set_ended_by_time(false);
         let bot = self.game.logic.bot.clone();
         let opponent = self.game.logic.opponent.clone();
         // Preserve skin and display mode
@@ -104,7 +104,9 @@ impl App {
 
         // Re-initialize clock for local games and bot games
         if is_local_game || is_bot_game {
-            self.game.logic.clock = Clock::new(self.game_mode_state.get_time_control());
+            self.game
+                .logic
+                .set_clock(Clock::new(self.game_mode_state.get_time_control()));
         }
 
         if self
@@ -115,10 +117,10 @@ impl App {
             .is_some_and(|bot| bot.is_starting())
         {
             // Flip the board once so Black player sees from their perspective
-            self.game.logic.game_board.flip();
+            self.game.logic.flip();
             if let Some(bot) = &self.game.logic.bot {
                 self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen(),
+                    self.game.logic.fen(),
                     bot.depth(),
                     bot.difficulty(),
                 );
@@ -134,8 +136,8 @@ impl App {
         // Update game state first (this will stop the clock if game ended)
         self.game.logic.update_game_state();
 
-        if self.game.logic.game_state == GameState::Checkmate
-            || self.game.logic.game_state == GameState::Draw
+        if self.game.logic.state() == GameState::Checkmate
+            || self.game.logic.state() == GameState::Draw
         {
             // Game ended - only show end screen if it's not already shown and not dismissed
             if self.ui_state.current_popup != Some(Popups::EndScreen)

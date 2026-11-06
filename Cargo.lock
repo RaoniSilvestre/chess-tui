@@ -382,6 +382,7 @@ version = "2.8.0"
 dependencies = [
  "chess-tui-core",
  "chess-tui-engine",
+ "chess-tui-game",
  "chrono",
  "clap",
  "dirs",
@@ -416,6 +417,14 @@ name = "chess-tui-engine"
 version = "2.8.0"
 dependencies = [
  "ruci",
+ "shakmaty",
+]
+
+[[package]]
+name = "chess-tui-game"
+version = "2.8.0"
+dependencies = [
+ "chess-tui-core",
  "shakmaty",
 ]
 

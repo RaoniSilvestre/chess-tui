@@ -324,7 +324,7 @@ fn handle_move_input_selection(app: &mut App, key_event: KeyEvent) {
                 }
             };
 
-            let position = app.game.logic.game_board.current_position().clone();
+            let position = app.game.logic.current_position().clone();
 
             let chess_move = match san.to_move(&position) {
                 Ok(chess_move) => chess_move,

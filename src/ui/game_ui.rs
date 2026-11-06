@@ -42,7 +42,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         .split(main_layout_horizontal[1]);
 
     // Create layout for board + file labels + clock
-    let has_clock = app.game.logic.clock.state() != ClockState::Disabled
+    let has_clock = app.game.logic.clock().state() != ClockState::Disabled
         || app
             .game
             .logic
@@ -72,7 +72,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     if has_clock {
         render_clock(
             frame,
-            &app.game.logic.clock,
+            app.game.logic.clock(),
             board_with_labels[0],
             Instant::now(),
         );
@@ -117,17 +117,17 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
     );
 
     // Render rank labels (1-8) on the left - aligned with board's inner area
-    ui.render_rank_labels(frame, rank_label_area[0], logic.game_board.is_flipped());
+    ui.render_rank_labels(frame, rank_label_area[0], logic.is_flipped());
 
     // Render file labels (A-H) below the board
     ui.render_file_labels(
         frame,
         board_with_labels[file_labels_index],
-        logic.game_board.is_flipped(),
+        logic.is_flipped(),
     );
 
     //top box for black material
-    let black_taken = app.game.logic.game_board.black_taken_pieces();
+    let black_taken = app.game.logic.black_taken_pieces();
     app.game
         .ui
         .black_material_render(board_block.inner(right_box_layout[0]), frame, &black_taken);
@@ -138,7 +138,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         .history_render(board_block.inner(right_box_layout[1]), frame, &app.game);
 
     //bottom box for white material
-    let white_taken = app.game.logic.game_board.white_taken_pieces();
+    let white_taken = app.game.logic.white_taken_pieces();
     let is_puzzle_mode = app.lichess_state.puzzle_game.is_some();
     if is_puzzle_mode {
         app.game.ui.white_material_render_with_puzzle_hint(
@@ -155,20 +155,20 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         );
     }
 
-    if app.game.logic.game_state == GameState::Promotion {
+    if app.game.logic.state() == GameState::Promotion {
         render_promotion_popup(frame, app);
     }
 
     // If the game ended (checkmate or draw) and there's no active popup yet,
     // open the EndScreen popup so it appears immediately instead of waiting for
     // another user interaction.
-    if app.game.logic.game_state == GameState::Checkmate {
+    if app.game.logic.state() == GameState::Checkmate {
         // When game ended by time, player_turn is already set to the winner
         // For checkmate, the winner is the other player (the one who delivered checkmate)
-        let victorious_player = if app.game.logic.game_ended_by_time {
-            app.game.logic.player_turn
+        let victorious_player = if app.game.logic.ended_by_time() {
+            app.game.logic.turn()
         } else {
-            app.game.logic.player_turn.other()
+            app.game.logic.turn().other()
         };
 
         let string_color = match victorious_player {
@@ -187,7 +187,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
                 .unwrap_or(false);
 
             // Check if game ended due to time
-            let message = if app.game.logic.game_ended_by_time {
+            let message = if app.game.logic.ended_by_time() {
                 let time_up_color = match victorious_player {
                     shakmaty::Color::White => "Black",
                     shakmaty::Color::Black => "White",
@@ -201,7 +201,7 @@ pub fn render_game_ui(frame: &mut Frame<'_>, app: &mut App, main_area: Rect) {
         }
     }
 
-    if app.game.logic.game_state == GameState::Draw
+    if app.game.logic.state() == GameState::Draw
         && app.ui_state.current_popup == Some(Popups::EndScreen)
     {
         // Check if it's Lichess multiplayer (restart not available in Lichess)

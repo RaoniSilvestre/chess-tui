@@ -1,0 +1,12 @@
+[package]
+name = "chess-tui-game"
+version = "2.8.0"
+edition = "2024"
+license = "MIT"
+authors = ["Thomas Mauran"]
+repository = "https://github.com/thomas-mauran/chess-tui"
+publish = false
+
+[dependencies]
+chess-tui-core = { path = "../chess-tui-core" }
+shakmaty = "0.27.3"

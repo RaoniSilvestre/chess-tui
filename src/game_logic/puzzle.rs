@@ -80,14 +80,14 @@ impl PuzzleGame {
     }
 
     fn reset_last_move(&self, game: &mut Game) {
-        if !game.logic.game_board.moves().is_empty() {
-            game.logic.game_board.undo_last_move();
+        if !game.logic.moves().is_empty() {
+            game.logic.undo_last_move();
             game.logic.sync_player_turn_with_position();
             game.ui.unselect_cell();
 
             // Reset game state to Playing if it was Promotion
-            if game.logic.game_state == chess_tui_core::GameState::Promotion {
-                game.logic.game_state = chess_tui_core::GameState::Playing;
+            if game.logic.state() == chess_tui_core::GameState::Promotion {
+                game.logic.set_state(chess_tui_core::GameState::Playing);
             }
         }
     }
@@ -150,28 +150,25 @@ impl PuzzleGame {
             None
         };
 
-        let piece_type_from = game.logic.game_board.get_role_at_square(&from);
+        let piece_type_from = game.logic.get_role_at_square(&from);
 
-        let executed_move =
-            game.logic
-                .game_board
-                .play_and_record(from, to, promotion, |executed| {
-                    if let Some(piece_type) = piece_type_from {
-                        shakmaty::Move::Normal {
-                            role: piece_type,
-                            from,
-                            capture: executed.capture(),
-                            to,
-                            promotion: executed.promotion(),
-                        }
-                    } else {
-                        executed.clone()
-                    }
-                });
+        let executed_move = game.logic.play_and_record(from, to, promotion, |executed| {
+            if let Some(piece_type) = piece_type_from {
+                shakmaty::Move::Normal {
+                    role: piece_type,
+                    from,
+                    capture: executed.capture(),
+                    to,
+                    promotion: executed.promotion(),
+                }
+            } else {
+                executed.clone()
+            }
+        });
 
         if executed_move.is_some() {
             game.logic.switch_player_turn();
-            game.logic.game_board.set_flipped(false);
+            game.logic.set_flipped(false);
             true
         } else {
             false
@@ -216,11 +213,11 @@ impl PuzzleGame {
     }
 
     pub fn show_hint(&self, game: &mut Game) {
-        if game.logic.game_state != GameState::Playing {
+        if game.logic.state() != GameState::Playing {
             return;
         }
         if let Some(from_square) = self.get_next_move_from_square() {
-            let coord = get_coord_from_square(from_square, game.logic.game_board.is_flipped());
+            let coord = get_coord_from_square(from_square, game.logic.is_flipped());
             game.ui.cursor_coordinates = coord;
             game.select_cell();
         }

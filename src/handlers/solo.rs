@@ -16,8 +16,8 @@ pub fn handle_solo_page_events(app: &mut App, key_event: KeyEvent) {
             // In puzzle mode, 'n' is used for new puzzle (handled in popup)
             // Otherwise, navigate to next position in history
             if app.lichess_state.puzzle_game.is_none()
-                && app.game.logic.game_state != GameState::Checkmate
-                && app.game.logic.game_state != GameState::Draw
+                && app.game.logic.state() != GameState::Checkmate
+                && app.game.logic.state() != GameState::Draw
             {
                 app.game.logic.navigate_history_next();
             }
@@ -25,8 +25,8 @@ pub fn handle_solo_page_events(app: &mut App, key_event: KeyEvent) {
         KeyCode::Char('p' | 'P') => {
             // Navigate to previous position in history (only if game hasn't ended and not in puzzle mode)
             if app.lichess_state.puzzle_game.is_none()
-                && app.game.logic.game_state != GameState::Checkmate
-                && app.game.logic.game_state != GameState::Draw
+                && app.game.logic.state() != GameState::Checkmate
+                && app.game.logic.state() != GameState::Draw
             {
                 app.game.logic.navigate_history_previous();
             }

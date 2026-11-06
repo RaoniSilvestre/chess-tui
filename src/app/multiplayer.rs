@@ -123,7 +123,7 @@ impl App {
 
         if self.game_mode_state.selected_color.unwrap_or(Color::White) == Color::Black {
             log::debug!("Flipping board for black player");
-            self.game.logic.game_board.flip();
+            self.game.logic.flip();
         }
 
         // Ensure skin is preserved when starting multiplayer
@@ -147,7 +147,7 @@ impl App {
         self.game.logic.opponent = None;
         self.multiplayer_state.reset();
         self.game_mode_state.reset_selected_color();
-        self.game.logic.game_board.reset();
+        self.game.logic.reset();
         self.game.ui.reset();
     }
 }
