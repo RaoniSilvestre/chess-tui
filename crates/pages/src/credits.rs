@@ -1,6 +1,7 @@
 //! Credits page.
 
-use page::{Page, PageAction, PageContext};
+use crate::globals::Globals;
+use crate::page::{Page, PageAction, PageKind, PageRequest};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -26,15 +27,21 @@ impl Default for CreditsPage {
 }
 
 impl Page for CreditsPage {
-    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
+    fn kind(&self) -> PageKind {
+        PageKind::Credits
+    }
+
+    fn handle_key(&mut self, key: KeyEvent, _globals: &mut Globals) -> PageAction {
         match key.code {
-            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => PageAction::OpenHome,
+            KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter => {
+                PageAction::Navigate(PageRequest::Home)
+            }
             KeyCode::Char('q') => PageAction::Quit,
             _ => PageAction::None,
         }
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut PageContext<'_>) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _globals: &mut Globals) {
         render_credits(frame, area);
     }
 }

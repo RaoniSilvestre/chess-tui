@@ -1,16 +1,25 @@
 //! Renders the user profile, rating sparkline, and menu options for the Lichess landing page.
 
-use super::rating_chart::render_rating_history_chart;
-use page::{LichessAction, Page, PageAction, PageContext};
-use lichess::LICHESS_TIME_CONTROLS;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, channel};
+
+use lichess::{LICHESS_TIME_CONTROLS, LichessClient, RatingHistoryEntry, UserProfile};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Position, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
 };
+use ui::prompt::Prompt;
+
+use super::rating_chart::render_rating_history_chart;
+use super::{LichessGameSpec, LichessUpdate};
+use crate::globals::Globals;
+use crate::page::{Page, PageAction, PageKind, PageRequest};
+use ui::prompt::PromptResult;
 
 struct LichessLayout {
     title: Rect,
@@ -69,26 +78,28 @@ impl LichessLayout {
 }
 
 struct RenderState<'c> {
-    ctx: &'c PageContext<'c>,
+    profile: Option<&'c UserProfile>,
+    history: Option<&'c [RatingHistoryEntry]>,
 }
 
 impl RenderState<'_> {
     fn lichess_profile(&self) -> Option<&lichess::UserProfile> {
-        self.ctx.lichess.profile
+        self.profile
     }
 
     fn lichess_rating_history(&self) -> Option<&[lichess::RatingHistoryEntry]> {
-        self.ctx.lichess.rating_history
+        self.history
     }
 }
 
 fn render_lichess_menu(
     frame: &mut Frame,
     area: Rect,
-    ctx: &mut PageContext<'_>,
+    profile: Option<&UserProfile>,
+    history: Option<&[RatingHistoryEntry]>,
     page: &LichessMenuPage,
 ) {
-    let state = RenderState { ctx };
+    let state = RenderState { profile, history };
     let cursor = page.cursor;
     let stats_scroll = page.stats_scroll;
     let time_control = page.time_control;
@@ -275,7 +286,12 @@ fn rating_line(label: &str, rating: u16, prog: Option<i16>) -> Line<'static> {
     ])
 }
 
-fn render_user_stats_panel(frame: &mut Frame, state: &RenderState<'_>, area: Rect, stats_scroll: u16) {
+fn render_user_stats_panel(
+    frame: &mut Frame,
+    state: &RenderState<'_>,
+    area: Rect,
+    stats_scroll: u16,
+) {
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -555,35 +571,322 @@ fn render_chart_panel(frame: &mut Frame, state: &RenderState<'_>, area: Rect) {
     }
 }
 
-/// Lichess landing menu page.
+enum PromptKind {
+    Token,
+    GameCode,
+}
+
+struct PromptState {
+    kind: PromptKind,
+    prompt: Prompt,
+}
+
+/// Lichess landing menu page. Owns the client, profile, seek channel and
+/// page-local prompts.
 pub struct LichessMenuPage {
     cursor: u8,
     stats_scroll: u16,
     time_control: u8,
+    client: Option<LichessClient>,
+    token: Option<String>,
+    profile: Option<UserProfile>,
+    rating_history: Option<Vec<RatingHistoryEntry>>,
+    receiver: Option<Receiver<LichessUpdate>>,
+    cancellation: Option<Arc<AtomicBool>>,
+    prompt: Option<PromptState>,
+    seeking: bool,
 }
 
 impl LichessMenuPage {
-    pub fn new() -> Self {
+    pub fn new(globals: &mut Globals) -> Self {
+        let token = globals.lichess_token();
+        let client = token.clone().map(LichessClient::new);
         Self {
             cursor: 0,
             stats_scroll: 0,
             time_control: 3,
+            client,
+            token,
+            profile: None,
+            rating_history: None,
+            receiver: None,
+            cancellation: None,
+            prompt: None,
+            seeking: false,
         }
     }
 
-    fn require_token(ctx: &PageContext<'_>) -> bool {
-        ctx.lichess.has_token
+    fn open_prompt(&mut self, kind: PromptKind, message: &str) {
+        let mut prompt = Prompt::new();
+        prompt.message = message.to_string();
+        self.prompt = Some(PromptState { kind, prompt });
     }
-}
 
-impl Default for LichessMenuPage {
-    fn default() -> Self {
-        Self::new()
+    fn fetch_profile(&mut self) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        let (tx, rx) = channel();
+        self.receiver = Some(rx);
+        std::thread::spawn(move || {
+            const MAX_ATTEMPTS: u32 = 3;
+            const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+            let mut last_err = String::new();
+            for attempt in 1..=MAX_ATTEMPTS {
+                match client.get_user_profile() {
+                    Ok(profile) => {
+                        let username = profile.username.clone();
+                        let history = client.get_rating_history(&username).unwrap_or_default();
+                        let _ = tx.send(LichessUpdate::ProfileResult(Ok(Box::new((
+                            profile, history,
+                        )))));
+                        return;
+                    }
+                    Err(e) => {
+                        last_err = e.to_string();
+                        log::warn!(
+                            "Profile fetch attempt {}/{} failed: {}",
+                            attempt,
+                            MAX_ATTEMPTS,
+                            last_err
+                        );
+                        if attempt < MAX_ATTEMPTS {
+                            std::thread::sleep(RETRY_DELAY);
+                        }
+                    }
+                }
+            }
+            let _ = tx.send(LichessUpdate::ProfileResult(Err(last_err)));
+        });
+    }
+
+    fn start_seek(&mut self, globals: &mut Globals) {
+        let Some(client) = self.client.clone() else {
+            self.open_prompt(PromptKind::Token, "Enter your Lichess API token:");
+            return;
+        };
+        let (tx, rx) = channel();
+        self.receiver = Some(rx);
+        let cancellation = Arc::new(AtomicBool::new(false));
+        self.cancellation = Some(cancellation.clone());
+        let idx = usize::from(self.time_control >= 4);
+        let tc = LICHESS_TIME_CONTROLS[idx];
+        self.seeking = true;
+        let _ = globals;
+        std::thread::spawn(move || {
+            match client.seek_game(tc.minutes, tc.increment, cancellation) {
+                Ok((game_id, color)) => {
+                    let _ = tx.send(LichessUpdate::SeekResult(Ok((game_id, color))));
+                }
+                Err(e) => {
+                    let _ = tx.send(LichessUpdate::SeekResult(Err(e.to_string())));
+                }
+            }
+        });
+    }
+
+    fn start_join(&mut self, game_code: String) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        let (tx, rx) = channel();
+        self.receiver = Some(rx);
+        self.seeking = true;
+        std::thread::spawn(move || {
+            let game_id = if game_code.contains("lichess.org/") {
+                game_code
+                    .split('/')
+                    .next_back()
+                    .unwrap_or(&game_code)
+                    .to_string()
+            } else {
+                game_code
+            };
+            let my_id = match client.get_user_profile() {
+                Ok(profile) => profile.id,
+                Err(e) => {
+                    let _ = tx.send(LichessUpdate::SeekResult(Err(format!(
+                        "Failed to fetch profile: {}",
+                        e
+                    ))));
+                    return;
+                }
+            };
+            match client.join_game(&game_id, my_id) {
+                Ok((game_id, color)) => {
+                    let _ = tx.send(LichessUpdate::SeekResult(Ok((game_id, color))));
+                }
+                Err(e) => {
+                    let _ = tx.send(LichessUpdate::SeekResult(Err(e.to_string())));
+                }
+            }
+        });
+    }
+
+    fn start_puzzle(&mut self, globals: &mut Globals) -> PageAction {
+        let Some(client) = &self.client else {
+            self.open_prompt(PromptKind::Token, "Enter your Lichess API token:");
+            return PageAction::None;
+        };
+        match super::puzzle::PuzzleGame::fetch(client) {
+            Ok(puzzle) => PageAction::Navigate(PageRequest::PuzzleGame { puzzle }),
+            Err(e) => {
+                globals.show_error(format!("Failed to load puzzle: {e}"));
+                PageAction::None
+            }
+        }
+    }
+
+    fn disconnect(&mut self, globals: &mut Globals) -> PageAction {
+        self.token = None;
+        self.client = None;
+        self.profile = None;
+        self.rating_history = None;
+        self.receiver = None;
+        self.cancellation = None;
+        globals.set_lichess_token(None);
+        globals.show_success(
+            "Disconnected from Lichess successfully!\n\n Your token has been removed.\n\n You can reconnect anytime from the Lichess menu.",
+        );
+        PageAction::Navigate(PageRequest::Home)
+    }
+
+    fn handle_prompt(&mut self, key: KeyEvent, globals: &mut Globals) -> PageAction {
+        let Some(state) = self.prompt.as_mut() else {
+            return PageAction::None;
+        };
+        match ui::prompt::handle_key(&mut state.prompt, key) {
+            PromptResult::Cancel => {
+                self.prompt = None;
+                PageAction::None
+            }
+            PromptResult::Submit => {
+                let value = state.prompt.input.trim().to_string();
+                match state.kind {
+                    PromptKind::Token => {
+                        if value.is_empty() {
+                            state.prompt.error = Some("Token cannot be empty".into());
+                            return PageAction::None;
+                        }
+                        match LichessClient::new(value.clone()).get_user_profile() {
+                            Ok(profile) => {
+                                self.token = Some(value.clone());
+                                self.client = Some(LichessClient::new(value.clone()));
+                                self.profile = Some(profile);
+                                globals.set_lichess_token(Some(value));
+                                self.prompt = None;
+                                self.fetch_profile();
+                            }
+                            Err(e) => {
+                                state.prompt.error = Some(format!("Invalid token: {e}"));
+                            }
+                        }
+                    }
+                    PromptKind::GameCode => {
+                        self.prompt = None;
+                        if !value.is_empty() {
+                            self.start_join(value);
+                        }
+                    }
+                }
+                PageAction::None
+            }
+            PromptResult::None => PageAction::None,
+        }
+    }
+
+    fn poll_updates(&mut self, globals: &mut Globals) -> PageAction {
+        let update = match &self.receiver {
+            Some(rx) => rx.try_recv().ok(),
+            None => None,
+        };
+        let Some(update) = update else {
+            return PageAction::None;
+        };
+        self.receiver = None;
+        match update {
+            LichessUpdate::ProfileResult(result) => match result {
+                Ok(data) => {
+                    let (profile, history) = *data;
+                    self.profile = Some(profile);
+                    self.rating_history = Some(history);
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch user profile: {e}");
+                    globals
+                        .show_error("An error occured when trying to fetch your lichess profile");
+                }
+            },
+            LichessUpdate::SeekResult(result) => {
+                self.seeking = false;
+                if let Some(token) = self.cancellation.take() {
+                    token.store(true, Ordering::Relaxed);
+                }
+                match result {
+                    Ok((game_id, color)) => {
+                        return PageAction::Navigate(PageRequest::LichessGame {
+                            spec: LichessGameSpec {
+                                game_id,
+                                color,
+                                fen: None,
+                            },
+                        });
+                    }
+                    Err(e) => {
+                        log::error!("Failed to seek Lichess game: {e}");
+                        globals.show_error_then(
+                            format!("Failed to seek game: {e}"),
+                            PageRequest::LichessMenu,
+                        );
+                    }
+                }
+            }
+            LichessUpdate::OngoingGamesResult(_) => {}
+        }
+        PageAction::None
     }
 }
 
 impl Page for LichessMenuPage {
-    fn handle_key(&mut self, key: KeyEvent, ctx: &PageContext<'_>) -> PageAction {
+    fn kind(&self) -> PageKind {
+        PageKind::LichessMenu
+    }
+    fn is_modal_active(&self) -> bool {
+        self.prompt.is_some() || self.seeking
+    }
+
+    fn on_enter(&mut self, globals: &mut Globals) -> PageAction {
+        if self.token.is_none() {
+            self.open_prompt(PromptKind::Token, "Enter your Lichess API token:");
+        } else if self.profile.is_none() {
+            self.fetch_profile();
+        }
+        let _ = globals;
+        PageAction::None
+    }
+
+    fn on_exit(&mut self, _globals: &mut Globals) {
+        if let Some(token) = self.cancellation.take() {
+            token.store(true, Ordering::Relaxed);
+        }
+        self.receiver = None;
+    }
+
+    fn handle_key(&mut self, key: KeyEvent, globals: &mut Globals) -> PageAction {
+        if self.prompt.is_some() {
+            return self.handle_prompt(key, globals);
+        }
+        if self.seeking {
+            if key.code == KeyCode::Esc {
+                if let Some(token) = self.cancellation.take() {
+                    token.store(true, Ordering::Relaxed);
+                }
+                self.receiver = None;
+                self.seeking = false;
+                return PageAction::Navigate(PageRequest::Home);
+            }
+            return PageAction::None;
+        }
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -605,30 +908,155 @@ impl Page for LichessMenuPage {
             }
             KeyCode::Char(' ') | KeyCode::Enter => {
                 if self.cursor == 4 {
-                    return PageAction::Lichess(LichessAction::Disconnect);
+                    return self.disconnect(globals);
                 }
-                if !Self::require_token(ctx) {
-                    return PageAction::Lichess(LichessAction::PromptToken);
+                if self.client.is_none() {
+                    self.open_prompt(PromptKind::Token, "Enter your Lichess API token:");
+                    return PageAction::None;
                 }
                 return match self.cursor {
-                    0 => PageAction::Lichess(LichessAction::Seek {
-                        time_control: self.time_control,
-                    }),
-                    1 => PageAction::Lichess(LichessAction::Puzzle),
-                    2 => PageAction::Lichess(LichessAction::OpenOngoingGames),
-                    3 => PageAction::Lichess(LichessAction::JoinByCode),
+                    0 => {
+                        self.start_seek(globals);
+                        PageAction::None
+                    }
+                    1 => self.start_puzzle(globals),
+                    2 => PageAction::Navigate(PageRequest::OngoingGames),
+                    3 => {
+                        self.open_prompt(PromptKind::GameCode, "Enter a Lichess game code or URL:");
+                        PageAction::None
+                    }
                     _ => PageAction::None,
                 };
             }
-            KeyCode::Esc | KeyCode::Char('b') => return PageAction::OpenHome,
-            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Esc | KeyCode::Char('b') => return PageAction::Navigate(PageRequest::Home),
+            KeyCode::Char('?') => {
+                globals.show_help();
+            }
             KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
         PageAction::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
-        render_lichess_menu(frame, area, ctx, self);
+    fn update(&mut self, globals: &mut Globals) -> PageAction {
+        self.poll_updates(globals)
     }
+
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _globals: &mut Globals) {
+        render_lichess_menu(
+            frame,
+            area,
+            self.profile.as_ref(),
+            self.rating_history.as_deref(),
+            self,
+        );
+        if let Some(state) = &self.prompt {
+            match state.kind {
+                PromptKind::Token => render_enter_lichess_token_popup(frame, &state.prompt),
+                PromptKind::GameCode => render_enter_game_code_popup(frame, &state.prompt),
+            }
+        }
+        if self.seeking {
+            render_seeking_popup(frame, area);
+        }
+    }
+}
+fn render_enter_game_code_popup(frame: &mut Frame<'_>, prompt: &Prompt) {
+    let block = Block::default()
+        .title("Join Lichess Game")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .padding(Padding::horizontal(1))
+        .border_style(Style::default().fg(ui::constants::WHITE));
+    let area = ui::components::centered_rect::centered_rect(50, 30, frame.area());
+
+    let text = vec![
+        Line::from("Enter game ID or URL:").alignment(Alignment::Center),
+        Line::from(""),
+        Line::from(prompt.input.as_str()),
+        Line::from(""),
+        Line::from(""),
+        Line::from("You can paste the full URL or just the game ID."),
+        Line::from("Note: You must be a participant in the game."),
+        Line::from(""),
+        Line::from("Press `Esc` to cancel.").alignment(Alignment::Center),
+    ];
+
+    let paragraph = Paragraph::new(text)
+        .block(block.clone())
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true });
+
+    frame.set_cursor_position(Position::new(
+        area.x + prompt.character_index as u16 + 2,
+        area.y + 3,
+    ));
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    frame.render_widget(paragraph, area);
+}
+
+fn render_enter_lichess_token_popup(frame: &mut Frame<'_>, prompt: &Prompt) {
+    let block = Block::default()
+        .title("Enter Lichess API Token")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .padding(Padding::horizontal(1))
+        .border_style(Style::default().fg(ui::constants::WHITE));
+    let area = ui::components::centered_rect::centered_rect(70, 40, frame.area());
+
+    let current_input = prompt.input.as_str();
+    let masked_input = if current_input.len() > 4 {
+        format!(
+            "{}...{}",
+            "*".repeat(current_input.len().saturating_sub(4)),
+            &current_input[current_input.len().saturating_sub(4)..]
+        )
+    } else if !current_input.is_empty() {
+        "*".repeat(current_input.len())
+    } else {
+        String::new()
+    };
+
+    let text = vec![
+        Line::from("Enter your Lichess API token:").alignment(Alignment::Center),
+        Line::from(""),
+        Line::from(masked_input),
+        Line::from(""),
+        Line::from(""),
+        Line::from("To get a token, follow the documentation:"),
+        Line::from(format!(
+            "Documentation: {}/Lichess/setup",
+            crate::constants::DOCS_URL
+        )),
+        Line::from(""),
+        Line::from("Press `Enter` to save, `Esc` to cancel.").alignment(Alignment::Center),
+    ];
+
+    let paragraph = Paragraph::new(text)
+        .block(block.clone())
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true });
+
+    frame.set_cursor_position(Position::new(
+        area.x + prompt.character_index as u16 + 2,
+        area.y + 3,
+    ));
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    frame.render_widget(paragraph, area);
+}
+
+fn render_seeking_popup(frame: &mut Frame<'_>, area: Rect) {
+    let popup_area = ui::components::centered_rect::centered_rect(60, 20, area);
+    let block = Block::default()
+        .title("Lichess")
+        .borders(Borders::ALL)
+        .style(Style::default().bg(Color::DarkGray));
+    let paragraph = Paragraph::new("Seeking a game on Lichess...\n(Press 'Esc' to cancel)")
+        .block(block)
+        .alignment(Alignment::Center);
+    frame.render_widget(paragraph, popup_area);
 }

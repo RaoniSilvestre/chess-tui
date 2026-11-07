@@ -1,37 +1,17 @@
-//! Application state, page framework, and shared services.
+//! Application lifecycle, terminal presentation, and page dispatch.
+
+#![warn(dead_code)]
+#![warn(unreachable_pub)]
 
 pub mod animations;
-pub mod app;
-pub mod config;
-pub mod constants;
-pub mod game_mode;
-pub mod game_mode_menu;
-pub mod modal;
-pub mod puzzle;
-pub mod services;
-pub mod state;
+mod app;
+pub mod event;
+pub mod handlers;
+pub mod logging;
+pub mod run;
+pub mod setup;
+pub mod tui;
 
 pub use app::{App, AppResult};
-pub use game_mode::GameModeState;
-
-pub use page::{
-    AsAny, AvailableGameMode, GameAction, GameModeAction, GameModeView, GameModeKind, GameView,
-    LichessAction, LichessView, OngoingAction, Page, PageAction, PageContext, PageFactory,
-    PgnAction, PgnViewerAccess, Router, SettingsAction, SettingsView,
-};
-
-use ratatui::Frame;
-use ratatui::crossterm::event::KeyEvent;
-
-/// Result of a modal key event.
-pub enum ModalResult {
-    None,
-    Close,
-    Replace(Box<dyn Modal>),
-}
-
-/// A modal overlay. Modals own their local state and receive the application.
-pub trait Modal: AsAny {
-    fn handle_key(&mut self, key: KeyEvent, app: &mut App) -> ModalResult;
-    fn render(&mut self, frame: &mut Frame<'_>, area: ratatui::layout::Rect, app: &App);
-}
+pub use pages::{BotGameConfig, Globals, Page, PageAction, PageKind, PageRequest, Theme};
+pub use setup::AppSetup;

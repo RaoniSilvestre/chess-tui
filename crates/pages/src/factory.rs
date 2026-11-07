@@ -1,59 +1,36 @@
-//! Default page factory used by the application bootstrap.
+//! Page construction from navigation requests.
 
-use page::{Page, PageFactory};
-use session::GameHandle;
-use model::PgnViewer;
+use crate::credits::CreditsPage;
+use crate::game_mode::GameModeMenuPage;
+use crate::game_page::{BotGamePage, LocalGamePage, MultiplayerGamePage};
+use crate::globals::Globals;
+use crate::home::HomePage;
+use crate::lichess_pages::{LichessGamePage, LichessMenuPage, OngoingGamesPage, PuzzleGamePage};
+use crate::page::{Page, PageRequest};
+use crate::pgn::PgnViewerPage;
+use crate::settings::SettingsPage;
 
-use crate::{
-    BotGamePage, CreditsPage, GameModeMenuPage, HomePage, LichessGamePage, LichessMenuPage,
-    LocalGamePage, MultiplayerGamePage, OngoingGamesPage, PgnViewerPage, SettingsPage,
-};
-
-/// Builds the concrete pages shipped with chess-tui.
-pub struct DefaultPageFactory;
-
-impl PageFactory for DefaultPageFactory {
-    fn home(&self) -> Box<dyn Page> {
-        Box::new(HomePage::new())
-    }
-
-    fn solo(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(LocalGamePage::new(game))
-    }
-
-    fn bot(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(BotGamePage::new(game))
-    }
-
-    fn multiplayer(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(MultiplayerGamePage::new(game))
-    }
-
-    fn lichess(&self, game: GameHandle) -> Box<dyn Page> {
-        Box::new(LichessGamePage::new(game))
-    }
-
-    fn lichess_menu(&self) -> Box<dyn Page> {
-        Box::new(LichessMenuPage::new())
-    }
-
-    fn ongoing_games(&self) -> Box<dyn Page> {
-        Box::new(OngoingGamesPage::new())
-    }
-
-    fn game_mode_menu(&self) -> Box<dyn Page> {
-        Box::new(GameModeMenuPage::new())
-    }
-
-    fn settings(&self) -> Box<dyn Page> {
-        Box::new(SettingsPage::new())
-    }
-
-    fn credits(&self) -> Box<dyn Page> {
-        Box::new(CreditsPage::new())
-    }
-
-    fn pgn_viewer(&self, games: Vec<PgnViewer>, game_idx: usize) -> Box<dyn Page> {
-        Box::new(PgnViewerPage::new(games, game_idx))
+pub fn create_page(request: PageRequest, globals: &mut Globals) -> Box<dyn Page> {
+    match request {
+        PageRequest::Home => Box::new(HomePage::new()),
+        PageRequest::GameModeMenu => Box::new(GameModeMenuPage::new()),
+        PageRequest::Settings => Box::new(SettingsPage::new()),
+        PageRequest::Credits => Box::new(CreditsPage::new()),
+        PageRequest::LichessMenu => Box::new(LichessMenuPage::new(globals)),
+        PageRequest::OngoingGames => Box::new(OngoingGamesPage::new(globals)),
+        PageRequest::LocalGame { config, resume } => {
+            Box::new(LocalGamePage::new(config, resume, globals))
+        }
+        PageRequest::BotGame {
+            config,
+            bot,
+            resume,
+        } => Box::new(BotGamePage::new(config, bot, resume, globals)),
+        PageRequest::MultiplayerGame { config } => {
+            Box::new(MultiplayerGamePage::new(config, globals))
+        }
+        PageRequest::LichessGame { spec } => Box::new(LichessGamePage::new(spec, globals)),
+        PageRequest::PuzzleGame { puzzle } => Box::new(PuzzleGamePage::new(puzzle, globals)),
+        PageRequest::PgnViewer { games, index } => Box::new(PgnViewerPage::new(games, index)),
     }
 }

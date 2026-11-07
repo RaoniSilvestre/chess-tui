@@ -42,13 +42,18 @@
 - [x] Split `App` into composition/dispatch, navigation, action reducer, and modal helper modules.
 - [x] Move all domain state out of `App` into a `Services` container; `App` now only owns router, page factory, services, lifecycle, and pending page.
 
-## App phase 2 follow-ups
+## Page ownership refactor
 
-- [ ] Extract `LichessService`, `ResumeService`, and game setup from `App` into dedicated service structs.
-- [ ] Move `App` action reducer and modal helpers into service-owned modules once those services exist.
-- [ ] Remove the shared `GameHandle` once game services consume page-emitted events instead of borrowing the game.
+- [x] Delete the `page` crate and move `Page`, `PageAction`, `PageRequest`, and `create_page` into `pages`.
+- [x] Remove `Services`, `GameHandle`, and all shared page/domain state; each page owns its own game and runtime state.
+- [x] Move persistent settings into the new `config` crate (`Args`, `Config`, `ConfigStore`, paths).
+- [x] Reduce `App` to `running`, the active page, and `Globals`.
+- [x] Keep only truly app-wide state in `Globals` (config store, loaded theme, sound/animations/kitty, global overlays).
+- [x] Restore Bot/Multiplayer setup via page lifecycle hooks and add regression tests.
+- [x] Move page-specific prompts/modals into their page structs.
+- [x] Remove the dead `game_state.rs` duplicate, the duplicate app runtime loop, and the old action reducer.
 
 ## Validation
 
 - [ ] Live smoke-test the Lichess and TCP multiplayer paths.
-- [x] `cargo test --workspace`, `cargo clippy --workspace -- -D warnings`, `cargo check --no-default-features`, and `cargo build --release` pass.
+- [x] `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo check --workspace --no-default-features`, and `cargo build --release` pass.

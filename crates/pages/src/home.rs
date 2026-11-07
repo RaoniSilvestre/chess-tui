@@ -1,6 +1,7 @@
 //! Home page: title banner, main menu, and navigation.
 
-use page::{Page, PageAction, PageContext};
+use crate::globals::Globals;
+use crate::page::{Page, PageAction, PageKind, PageRequest};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -36,7 +37,11 @@ impl Default for HomePage {
 }
 
 impl Page for HomePage {
-    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
+    fn kind(&self) -> PageKind {
+        PageKind::Home
+    }
+
+    fn handle_key(&mut self, key: KeyEvent, globals: &mut Globals) -> PageAction {
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.cursor = if self.cursor == 0 { 4 } else { self.cursor - 1 };
@@ -45,26 +50,24 @@ impl Page for HomePage {
                 self.cursor = (self.cursor + 1) % 5;
             }
             KeyCode::Char(' ') | KeyCode::Enter => match self.cursor {
-                0 => return PageAction::OpenGameModeMenu,
-                1 => return PageAction::OpenLichessMenu,
-                2 => return PageAction::OpenSettings,
-                3 => return PageAction::OpenHelp,
-                4 => return PageAction::OpenCredits,
+                0 => return PageAction::Navigate(PageRequest::GameModeMenu),
+                1 => return PageAction::Navigate(PageRequest::LichessMenu),
+                2 => return PageAction::Navigate(PageRequest::Settings),
+                3 => {
+                    globals.show_help();
+                }
+                4 => return PageAction::Navigate(PageRequest::Credits),
                 _ => {}
             },
-            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('?') => globals.show_help(),
             KeyCode::Char('q') => return PageAction::Quit,
             _ => {}
         }
         PageAction::None
     }
 
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _ctx: &mut PageContext<'_>) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, _globals: &mut Globals) {
         render_home(frame, area, self.cursor);
-    }
-
-    fn is_home(&self) -> bool {
-        true
     }
 }
 

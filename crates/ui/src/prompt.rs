@@ -103,6 +103,91 @@ impl Prompt {
     }
 }
 
+use ratatui::Frame;
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
+use ratatui::layout::{Alignment, Position};
+use ratatui::style::{Color, Style};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap};
+
+use crate::components::right_rect::right_rect;
+
+pub enum PromptResult {
+    None,
+    Submit,
+    Cancel,
+}
+
+/// Routes editing keys into a prompt. Enter/Esc are returned to the caller so
+/// it can decide what submitting/cancelling means for its page.
+pub fn handle_key(prompt: &mut Prompt, key: KeyEvent) -> PromptResult {
+    match key.code {
+        KeyCode::Enter => PromptResult::Submit,
+        KeyCode::Esc => PromptResult::Cancel,
+        KeyCode::Char(to_insert) => {
+            prompt.enter_char(to_insert);
+            PromptResult::None
+        }
+        KeyCode::Backspace => {
+            prompt.delete_char();
+            PromptResult::None
+        }
+        KeyCode::Left => {
+            prompt.move_cursor_left();
+            PromptResult::None
+        }
+        KeyCode::Right => {
+            prompt.move_cursor_right();
+            PromptResult::None
+        }
+        _ => PromptResult::None,
+    }
+}
+
+/// Renders a right-anchored text input box for typing a move in SAN notation.
+pub fn render_move_input_popup(frame: &mut Frame, prompt: &Prompt) {
+    let block = Block::default()
+        .title("Input a move")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .padding(Padding::horizontal(1))
+        .border_style(Style::default().fg(crate::color::board_white()));
+    let area = right_rect(23, 40, frame.area());
+
+    let current_input = prompt.input.as_str();
+    let mut text = vec![
+        Line::from("Enter a move in chess notation").alignment(Alignment::Center),
+        Line::from(""),
+        Line::from(current_input),
+        Line::from(""),
+    ];
+    if let Some(err) = prompt.error.as_deref() {
+        text.push(Line::from(err).style(Style::default().fg(Color::Red)));
+        text.push(Line::from(""));
+    }
+    text.extend([
+        Line::from(
+            "Visit this website for more information: https://www.chess.com/terms/chess-notation",
+        ),
+        Line::from(""),
+        Line::from("Press `Esc` to close the popup.").alignment(Alignment::Center),
+    ]);
+
+    let paragraph = Paragraph::new(text)
+        .block(block.clone())
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true });
+
+    frame.set_cursor_position(Position::new(
+        area.x + prompt.character_index as u16 + 2,
+        area.y + 3,
+    ));
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+    frame.render_widget(paragraph, area);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

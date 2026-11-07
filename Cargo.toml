@@ -49,40 +49,10 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 tempfile = "3.8"
 
 [dependencies]
-model = { path = "crates/model" }
-engine = { path = "crates/engine" }
-game = { path = "crates/game" }
-lichess = { path = "crates/lichess" }
-net = { path = "crates/net" }
-theme = { path = "crates/theme" }
-ui = { path = "crates/ui" }
 app = { path = "crates/app" }
-pages = { path = "crates/pages" }
-session = { path = "crates/session" }
-clap.workspace = true
-dirs.workspace = true
-ratatui.workspace = true
-ruci.workspace = true
-toml.workspace = true
-log.workspace = true
-simplelog.workspace = true
-chrono.workspace = true
-shakmaty.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-reqwest.workspace = true
-rodio = { workspace = true, optional = true }
-rand.workspace = true
-throbber-widgets-tui.workspace = true
-tachyonfx.workspace = true
-ratatui-image.workspace = true
-image.workspace = true
-
-[dev-dependencies]
-tempfile.workspace = true
 
 [features]
-sound = ["rodio", "ui/sound", "app/sound"]
+sound = ["app/sound"]
 default = ["sound"]
 
 [profile.release]

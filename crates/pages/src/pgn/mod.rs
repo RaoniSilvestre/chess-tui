@@ -1,8 +1,8 @@
 //! PGN viewer page: playback, game switching, footer, and result banner.
 
-use page::{Page, PageAction, PageContext, PgnAction, PgnViewerAccess};
+use crate::globals::Globals;
+use crate::page::{Page, PageAction, PageKind, PageRequest};
 use model::PgnViewer;
-use session::Game;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -11,6 +11,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph, Wrap},
 };
+use session::Game;
 use ui::components::centered_rect::centered_rect;
 
 /// PGN viewer page. Owns the loaded games, the selected game, and playback
@@ -54,28 +55,25 @@ impl PgnViewerPage {
         self.game.ui.selected_square = None;
         self.game.runtime.start_playing();
         self.game.ui.hide_cursor = true;
-        self.game
-            .runtime
-            .set_turn(if current_ply % 2 == 0 {
-                shakmaty::Color::White
-            } else {
-                shakmaty::Color::Black
-            });
-    }
-}
-
-impl PgnViewerAccess for PgnViewerPage {
-    fn pgn_games(&self) -> &[PgnViewer] {
-        &self.games
-    }
-
-    fn pgn_game_idx(&self) -> usize {
-        self.game_idx
+        self.game.runtime.set_turn(if current_ply % 2 == 0 {
+            shakmaty::Color::White
+        } else {
+            shakmaty::Color::Black
+        });
     }
 }
 
 impl Page for PgnViewerPage {
-    fn handle_key(&mut self, key: KeyEvent, _ctx: &PageContext<'_>) -> PageAction {
+    fn kind(&self) -> PageKind {
+        PageKind::PgnViewer
+    }
+
+    fn on_enter(&mut self, globals: &mut Globals) -> PageAction {
+        globals.theme.apply_to_game(&mut self.game);
+        PageAction::None
+    }
+
+    fn handle_key(&mut self, key: KeyEvent, globals: &mut Globals) -> PageAction {
         let game_count = self.games.len();
 
         match key.code {
@@ -84,7 +82,7 @@ impl Page for PgnViewerPage {
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.games.clear();
                 self.game_idx = 0;
-                return PageAction::Pgn(PgnAction::Exit);
+                return PageAction::Navigate(PageRequest::Home);
             }
 
             // Next move
@@ -107,7 +105,7 @@ impl Page for PgnViewerPage {
             }
 
             // Help popup
-            KeyCode::Char('?') => return PageAction::OpenHelp,
+            KeyCode::Char('?') => globals.show_help(),
 
             // Go to start
             KeyCode::Char('g') => {
@@ -164,26 +162,14 @@ impl Page for PgnViewerPage {
         PageAction::None
     }
 
-    fn tick(&mut self, _ctx: &PageContext<'_>) -> PageAction {
+    fn tick(&mut self, _globals: &mut Globals) -> PageAction {
         if let Some(viewer) = self.current_mut() {
             viewer.tick();
         }
         PageAction::None
     }
 
-    fn pgn_viewer(&self) -> Option<&dyn PgnViewerAccess> {
-        Some(self)
-    }
-
-    fn sync_pgn(&mut self) {
-        self.sync_board();
-    }
-
-    fn is_pgn_viewer(&self) -> bool {
-        true
-    }
-
-    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, ctx: &mut PageContext<'_>) {
+    fn render(&mut self, frame: &mut Frame<'_>, area: Rect, globals: &mut Globals) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -193,12 +179,13 @@ impl Page for PgnViewerPage {
             .split(area);
 
         self.sync_board();
-        super::game_page::render_game_ui(
+        ui::game::render_game_ui(
             frame,
             layout[0],
-            &mut self.game,
-            ctx.kitty.as_deref_mut(),
-            ctx.kitty_enabled,
+            &self.game.runtime,
+            &mut self.game.ui,
+            globals.kitty_pieces.as_mut(),
+            globals.kitty_graphics_enabled,
             false,
             false,
         );
@@ -391,4 +378,102 @@ fn render_end_banner(frame: &mut Frame, games: &[PgnViewer], game_idx: usize, bo
 
     frame.render_widget(Clear, area);
     frame.render_widget(paragraph, area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::page::PageRequest;
+    use crate::test_support::{send, test_globals};
+    use model::PgnViewer;
+    use ratatui::crossterm::event::KeyCode;
+
+    fn load_page() -> (PgnViewerPage, Globals) {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample.pgn");
+        let games = PgnViewer::from_file(path.to_str().expect("utf8 path")).expect("sample pgn");
+        let mut globals = test_globals();
+        let mut page = PgnViewerPage::new(games, 0);
+        page.on_enter(&mut globals);
+        (page, globals)
+    }
+
+    #[test]
+    fn help_popup_opens_in_pgn_mode() {
+        let (mut page, mut globals) = load_page();
+        send(&mut page, &mut globals, &[KeyCode::Char('?')]);
+        assert!(matches!(
+            globals.overlay,
+            Some(crate::overlay::Overlay::Help)
+        ));
+        let _ = globals.handle_overlay_key(crate::test_support::key(KeyCode::Char('?')));
+        assert!(globals.overlay.is_none());
+    }
+
+    #[test]
+    fn p_and_n_navigate_prev_next() {
+        let (mut page, mut globals) = load_page();
+        send(
+            &mut page,
+            &mut globals,
+            &[KeyCode::Char('N'), KeyCode::Char('N')],
+        );
+        assert_eq!(page.games[0].current_ply(), 2);
+        send(&mut page, &mut globals, &[KeyCode::Char('P')]);
+        assert_eq!(page.games[0].current_ply(), 1);
+    }
+
+    #[test]
+    fn g_and_capital_g_jump_to_start_and_end() {
+        let (mut page, mut globals) = load_page();
+        send(&mut page, &mut globals, &[KeyCode::Char('G')]);
+        assert!(page.games[0].is_at_end());
+        let total = page.games[0].total_plies();
+
+        send(&mut page, &mut globals, &[KeyCode::Char('g')]);
+        assert_eq!(page.games[0].current_ply(), 0);
+        assert!(total > 0);
+    }
+
+    #[test]
+    fn h_dismisses_end_banner_and_step_back_restores_it() {
+        let (mut page, mut globals) = load_page();
+        send(&mut page, &mut globals, &[KeyCode::Char('G')]);
+        assert!(page.games[0].is_at_end());
+
+        let end_ply = page.games[0].current_ply();
+        send(&mut page, &mut globals, &[KeyCode::Char('h')]);
+        assert_eq!(page.games[0].current_ply(), end_ply);
+        assert!(page.games[0].end_banner_dismissed());
+
+        send(&mut page, &mut globals, &[KeyCode::Char('h')]);
+        assert_eq!(page.games[0].current_ply(), end_ply - 1);
+        assert!(!page.games[0].end_banner_dismissed());
+
+        send(&mut page, &mut globals, &[KeyCode::Char('N')]);
+        assert!(page.games[0].is_at_end());
+        assert!(!page.games[0].end_banner_dismissed());
+    }
+
+    #[test]
+    fn speed_steps_through_multipliers() {
+        let (mut page, mut globals) = load_page();
+        assert_eq!(page.games[0].speed_label(), "1x");
+
+        for expected in ["1.5x", "2x", "2.5x", "3x", "4x", "4x"] {
+            send(&mut page, &mut globals, &[KeyCode::Char('+')]);
+            assert_eq!(page.games[0].speed_label(), expected);
+        }
+
+        send(&mut page, &mut globals, &[KeyCode::Char('-')]);
+        assert_eq!(page.games[0].speed_label(), "3x");
+    }
+
+    #[test]
+    fn esc_returns_home_and_clears_games() {
+        let (mut page, mut globals) = load_page();
+        let action = page.handle_key(crate::test_support::key(KeyCode::Esc), &mut globals);
+        assert!(matches!(action, PageAction::Navigate(PageRequest::Home)));
+        assert!(page.games.is_empty());
+    }
 }

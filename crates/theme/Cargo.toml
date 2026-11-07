@@ -7,6 +7,9 @@ authors = ["Thomas Mauran"]
 repository = "https://github.com/thomas-mauran/chess-tui"
 publish = false
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [dependencies]
 chrono.workspace = true
 dirs.workspace = true

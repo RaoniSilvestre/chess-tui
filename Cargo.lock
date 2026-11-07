@@ -120,25 +120,16 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "2.8.0"
 dependencies = [
+ "chrono",
  "clap",
- "dirs",
- "game",
- "lichess",
+ "config",
  "log",
  "model",
- "net",
- "page",
- "rand 0.10.3",
+ "pages",
  "ratatui",
- "serde",
- "serde_json",
- "session",
- "shakmaty",
+ "simplelog",
  "tachyonfx",
  "theme",
- "throbber-widgets-tui",
- "toml",
- "ui",
 ]
 
 [[package]]
@@ -406,34 +397,6 @@ name = "chess-tui"
 version = "2.8.0"
 dependencies = [
  "app",
- "chrono",
- "clap",
- "dirs",
- "engine",
- "game",
- "image",
- "lichess",
- "log",
- "model",
- "net",
- "pages",
- "rand 0.10.3",
- "ratatui",
- "ratatui-image",
- "reqwest",
- "rodio",
- "ruci",
- "serde",
- "serde_json",
- "session",
- "shakmaty",
- "simplelog",
- "tachyonfx",
- "tempfile",
- "theme",
- "throbber-widgets-tui",
- "toml",
- "ui",
 ]
 
 [[package]]
@@ -540,6 +503,18 @@ dependencies = [
  "itoa",
  "static_assertions",
  "zmij",
+]
+
+[[package]]
+name = "config"
+version = "2.8.0"
+dependencies = [
+ "clap",
+ "dirs",
+ "log",
+ "serde",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -2182,31 +2157,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
-name = "page"
-version = "2.8.0"
-dependencies = [
- "lichess",
- "model",
- "ratatui",
- "session",
- "shakmaty",
- "theme",
- "ui",
-]
-
-[[package]]
 name = "pages"
 version = "2.8.0"
 dependencies = [
  "chrono",
+ "config",
  "game",
  "lichess",
  "log",
  "model",
- "page",
+ "net",
+ "rand 0.10.3",
  "ratatui",
+ "serde",
+ "serde_json",
  "session",
  "shakmaty",
+ "tempfile",
+ "theme",
+ "throbber-widgets-tui",
  "ui",
 ]
 
@@ -3750,6 +3719,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -4041,6 +4011,7 @@ dependencies = [
  "rodio",
  "shakmaty",
  "theme",
+ "throbber-widgets-tui",
 ]
 
 [[package]]

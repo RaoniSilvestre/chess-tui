@@ -1,9 +1,9 @@
 //! Renders the two-phase game-mode screen: mode list then the per-mode configuration form.
 
-use page::{
-    AvailableGameMode, BOT_DIFFICULTY_NAMES, PageContext, TIME_CONTROL_CUSTOM_INDEX,
-    TIME_CONTROL_OPTIONS,
+use crate::game_mode::{
+    AvailableGameMode, BOT_DIFFICULTY_NAMES, TIME_CONTROL_CUSTOM_INDEX, TIME_CONTROL_OPTIONS,
 };
+use crate::globals::BotSettings;
 
 use super::GameModeMenuPage;
 use ratatui::{
@@ -17,26 +17,28 @@ use shakmaty::Color as ShakmatyColor;
 
 const DOCS_URL: &str = "https://thomas-mauran.github.io/chess-tui/docs";
 
-struct RenderState<'p, 'c> {
+struct RenderState<'p> {
     page: &'p GameModeMenuPage,
-    ctx: &'c PageContext<'c>,
+    bot: BotSettings,
+    has_local_resume: bool,
+    has_bot_resume: bool,
 }
 
-impl RenderState<'_, '_> {
+impl RenderState<'_> {
     fn game_mode_state(&self) -> &GameModeMenuPage {
         self.page
     }
 
     fn game_mode_bot_depth(&self) -> u8 {
-        self.ctx.game_mode.bot_depth
+        self.bot.depth
     }
 
     fn game_mode_bot_difficulty(&self) -> Option<u8> {
-        self.ctx.game_mode.bot_difficulty
+        self.bot.difficulty
     }
 
     fn game_mode_engine_path(&self) -> Option<String> {
-        self.ctx.game_mode.engine_path.clone()
+        (!self.bot.engine_path.is_empty()).then(|| self.bot.engine_path.clone())
     }
 
     fn game_mode_hosting(&self) -> Option<bool> {
@@ -45,8 +47,8 @@ impl RenderState<'_, '_> {
 
     fn game_mode_has_resume(&self, kind: AvailableGameMode) -> bool {
         match kind {
-            AvailableGameMode::Local => self.ctx.game_mode.has_local_resume,
-            AvailableGameMode::Bot => self.ctx.game_mode.has_bot_resume,
+            AvailableGameMode::Local => self.has_local_resume,
+            AvailableGameMode::Bot => self.has_bot_resume,
             _ => false,
         }
     }
@@ -55,7 +57,7 @@ impl RenderState<'_, '_> {
 /// Returns the updated chunk index after rendering
 fn render_time_control_ui(
     frame: &mut Frame,
-    state: &RenderState<'_, '_>,
+    state: &RenderState<'_>,
     time_control_area: Rect,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
@@ -212,7 +214,7 @@ fn render_time_control_ui(
 
 fn render_color_selection_ui(
     frame: &mut Frame,
-    state: &RenderState<'_, '_>,
+    state: &RenderState<'_>,
     color_area: Rect,
     is_active: bool,
     is_enabled: bool,
@@ -311,10 +313,17 @@ fn render_color_selection_ui(
 pub fn render_game_mode_menu(
     frame: &mut Frame,
     area: Rect,
-    ctx: &mut PageContext<'_>,
     page: &GameModeMenuPage,
+    bot: BotSettings,
+    has_local_resume: bool,
+    has_bot_resume: bool,
 ) {
-    let state = RenderState { page, ctx };
+    let state = RenderState {
+        page,
+        bot,
+        has_local_resume,
+        has_bot_resume,
+    };
     let cursor = page.cursor;
     let game_mode = match cursor {
         0 => AvailableGameMode::Local,
@@ -454,7 +463,7 @@ pub fn render_game_mode_menu(
     frame.render_widget(footer, main_chunks[2]);
 }
 
-fn build_local_detail_lines(state: &RenderState<'_, '_>) -> Vec<Line<'static>> {
+fn build_local_detail_lines(state: &RenderState<'_>) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![Span::styled(
             "Local Game",
@@ -574,7 +583,7 @@ fn build_multiplayer_detail_lines() -> Vec<Line<'static>> {
     ]
 }
 
-fn build_bot_detail_lines(state: &RenderState<'_, '_>) -> Vec<Line<'static>> {
+fn build_bot_detail_lines(state: &RenderState<'_>) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![Span::styled(
             "Play Bot",
@@ -705,7 +714,12 @@ fn build_pgn_detail_lines() -> Vec<Line<'static>> {
     ]
 }
 
-fn render_details_panel(frame: &mut Frame, state: &RenderState<'_, '_>, area: Rect, game_mode: AvailableGameMode) {
+fn render_details_panel(
+    frame: &mut Frame,
+    state: &RenderState<'_>,
+    area: Rect,
+    game_mode: AvailableGameMode,
+) {
     let panel_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -803,7 +817,7 @@ fn render_spinner(
 
 fn render_multiplayer_form(
     frame: &mut Frame,
-    state: &RenderState<'_, '_>,
+    state: &RenderState<'_>,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
     is_active: bool,
@@ -894,7 +908,7 @@ fn render_multiplayer_form(
 
 fn render_bot_form(
     frame: &mut Frame,
-    state: &RenderState<'_, '_>,
+    state: &RenderState<'_>,
     form_chunks: &[Rect],
     chunk_idx: &mut usize,
     is_active: bool,
@@ -955,7 +969,12 @@ fn render_bot_form(
     );
 }
 
-fn render_game_mode_form(frame: &mut Frame, state: &RenderState<'_, '_>, area: Rect, game_mode: AvailableGameMode) {
+fn render_game_mode_form(
+    frame: &mut Frame,
+    state: &RenderState<'_>,
+    area: Rect,
+    game_mode: AvailableGameMode,
+) {
     let is_active = state.game_mode_state().form_active;
     let grey_color = if is_active {
         Color::White

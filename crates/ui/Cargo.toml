@@ -16,6 +16,7 @@ ratatui.workspace = true
 ratatui-image.workspace = true
 rodio = { workspace = true, optional = true }
 shakmaty.workspace = true
+throbber-widgets-tui.workspace = true
 
 [features]
 sound = ["rodio"]

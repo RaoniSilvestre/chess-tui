@@ -323,3 +323,101 @@ pub type GameHandle = Rc<RefCell<Game>>;
 pub fn game_handle(game: Game) -> GameHandle {
     Rc::new(RefCell::new(game))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Game;
+    use model::GameState;
+    use shakmaty::{Color, Position, Square};
+
+    #[test]
+    fn test_new_game() {
+        let game = Game::default();
+        assert_eq!(game.runtime.turn(), Color::White);
+        assert_eq!(game.runtime.state(), GameState::Playing);
+        assert_eq!(game.runtime.kind(), game::GameKind::Local);
+    }
+
+    #[test]
+    fn test_switch_player_turn() {
+        let mut game = Game::default();
+        assert_eq!(game.runtime.turn(), Color::White);
+
+        game.switch_player_turn();
+        assert_eq!(game.runtime.turn(), Color::Black);
+
+        game.switch_player_turn();
+        assert_eq!(game.runtime.turn(), Color::White);
+    }
+
+    #[test]
+    fn test_execute_move_updates_state() {
+        let mut game = Game::default();
+        game.execute_move(Square::E2, Square::E4);
+        assert_eq!(game.runtime.moves().len(), 1);
+        assert_eq!(game.runtime.positions().len(), 2);
+    }
+
+    #[test]
+    fn test_checkmate_state() {
+        let mut game = Game::default();
+        game.execute_move(Square::F2, Square::F3);
+        game.switch_player_turn();
+        game.execute_move(Square::E7, Square::E5);
+        game.switch_player_turn();
+        game.execute_move(Square::G2, Square::G4);
+        game.switch_player_turn();
+        game.execute_move(Square::D8, Square::H4);
+        assert!(game.runtime.is_checkmate());
+    }
+
+    #[test]
+    fn test_sync_player_turn_with_position() {
+        let mut game = Game::default();
+        assert_eq!(game.runtime.turn(), Color::White);
+        assert_eq!(game.runtime.positions()[0].turn(), Color::White);
+
+        game.execute_move(Square::E2, Square::E4);
+        game.switch_player_turn();
+        assert_eq!(game.runtime.turn(), Color::Black);
+        assert_eq!(game.runtime.positions()[1].turn(), Color::Black);
+
+        game.runtime.session_mut().navigate_history_previous(true);
+        assert_eq!(game.runtime.history_position(), Some(0));
+        game.sync_player_turn_with_position();
+        assert_eq!(game.runtime.turn(), Color::White);
+
+        let success = game.runtime.session_mut().navigate_history_previous(true);
+        assert!(!success);
+        assert_eq!(game.runtime.history_position(), Some(0));
+        game.sync_player_turn_with_position();
+        assert_eq!(game.runtime.turn(), Color::White);
+
+        game.runtime.session_mut().navigate_history_next(true);
+        assert_eq!(game.runtime.history_position(), Some(1));
+        game.sync_player_turn_with_position();
+        assert_eq!(game.runtime.turn(), Color::Black);
+    }
+
+    #[test]
+    fn test_truncate_history_when_making_move_from_history() {
+        let mut game = Game::default();
+        game.execute_move(Square::E2, Square::E4);
+        game.switch_player_turn();
+        game.execute_move(Square::E7, Square::E5);
+        game.switch_player_turn();
+        game.execute_move(Square::G1, Square::F3);
+        game.switch_player_turn();
+
+        assert_eq!(game.runtime.moves().len(), 3);
+        assert_eq!(game.runtime.positions().len(), 4);
+
+        game.runtime.session_mut().navigate_history_previous(true);
+        assert_eq!(game.runtime.history_position(), Some(2));
+
+        game.runtime.truncate_history_at(1);
+        assert_eq!(game.runtime.moves().len(), 1);
+        assert_eq!(game.runtime.positions().len(), 2);
+        assert_eq!(game.runtime.history_position(), None);
+    }
+}

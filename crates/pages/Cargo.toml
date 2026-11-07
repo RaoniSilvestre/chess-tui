@@ -8,13 +8,25 @@ repository = "https://github.com/thomas-mauran/chess-tui"
 publish = false
 
 [dependencies]
+config = { path = "../config" }
 model = { path = "../model" }
 session = { path = "../session" }
-page = { path = "../page" }
 game = { path = "../game" }
 lichess = { path = "../lichess" }
+net = { path = "../net" }
+theme = { path = "../theme" }
 log.workspace = true
 chrono.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 ui = { path = "../ui" }
 ratatui.workspace = true
 shakmaty.workspace = true
+throbber-widgets-tui.workspace = true
+
+[features]
+sound = ["ui/sound"]
+
+[dev-dependencies]
+tempfile.workspace = true
