@@ -109,7 +109,7 @@ impl App {
                 .game_board
                 .move_history
                 .iter()
-                .map(|m| UciMove::from_standard(m).to_string())
+                .map(|&m| UciMove::from_standard(m).to_string())
                 .collect(),
         };
 

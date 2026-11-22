@@ -1,0 +1,15 @@
+[package]
+name = "chess-tui-uci"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+description = "Minimal UCI client used by chess-tui."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/thomas-mauran/chess-tui"
+keywords = ["chess", "uci", "engine"]
+categories = ["game-development"]
+readme = "README.md"
+include = ["src", "examples", "README.md", "LICENSE"]
+
+[lints]
+workspace = true

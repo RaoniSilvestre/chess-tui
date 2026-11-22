@@ -48,24 +48,7 @@ impl BotState {
         // Spawn thread to compute bot move
         std::thread::spawn(move || {
             let bot = Bot::new(&engine_path, false, depth, bot_difficulty);
-            let uci_move = match bot.get_move(&fen) {
-                Ok(m) => m,
-                Err(e) => {
-                    let _ = tx.send(Err(e));
-                    return;
-                }
-            };
-
-            // Convert UCI move to shakmaty Move
-            let position: Option<shakmaty::Chess> = shakmaty::fen::Fen::from_ascii(fen.as_bytes())
-                .ok()
-                .and_then(|fen| fen.into_position(shakmaty::CastlingMode::Standard).ok());
-
-            if let Some(pos) = position
-                && let Ok(chess_move) = uci_move.to_move(&pos)
-            {
-                let _ = tx.send(Ok(chess_move));
-            }
+            let _ = tx.send(bot.get_move(&fen));
         });
     }
 

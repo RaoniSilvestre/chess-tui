@@ -9,14 +9,18 @@ RUN apt-get update && \
 
 # 2. Copy dependency files first for better layer caching
 COPY Cargo.toml Cargo.lock ./
+COPY crates/uci/Cargo.toml ./crates/uci/Cargo.toml
 
-# 3. Create a dummy src directory to cache dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+# 3. Create dummy sources to cache dependencies
+RUN mkdir -p src crates/uci/src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "" > crates/uci/src/lib.rs && \
     cargo build --release && \
-    rm -rf src
+    rm -rf src crates/uci/src
 
 # 4. Copy the actual source code
 COPY src/ ./src/
+COPY crates/ ./crates/
 # Piece images embedded at compile time via include_bytes!
 COPY assets/ ./assets/
 

@@ -1,12 +1,11 @@
 //! UCI engine wrapper and bot difficulty config.
 
 use crate::constants::{BOT_DIFFICULTY_DEPTH, BOT_DIFFICULTY_ELO, BOT_DIFFICULTY_MOVETIME_MS};
-use ruci::{Engine, Go};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
-use std::borrow::Cow;
-use std::process::Command;
-use std::str::FromStr;
+use shakmaty::{CastlingMode, Chess, Move};
+use std::process::{Command, Stdio};
+use uci::{Engine, Go};
 
 /// UCI engine wrapper and bot difficulty config.
 #[derive(Clone)]
@@ -31,6 +30,75 @@ impl Bot {
             depth,
             difficulty,
         }
+    }
+
+    /// Advances the engine for `fen` and returns the chosen legal move.
+    ///
+    /// This is what the bot thread runs; it owns all FEN/UCI conversion so the
+    /// caller only has to send the resulting `Result` through its channel.
+    pub fn get_move(&self, fen: &str) -> Result<Move, String> {
+        let position = Fen::from_ascii(fen.as_bytes())
+            .map_err(|e| format!("Failed to parse FEN '{fen}': {e}"))?
+            .into_position::<Chess>(CastlingMode::Standard)
+            .map_err(|e| format!("Failed to set up position from FEN '{fen}': {e}"))?;
+
+        let uci_move = self.query_engine(fen)?;
+
+        uci_move
+            .to_move(&position)
+            .map_err(|e| format!("Engine returned illegal UCI move: {e}"))
+    }
+
+    /// Spawns the engine, configures it and returns its raw UCI move.
+    fn query_engine(&self, fen: &str) -> Result<UciMove, String> {
+        let mut engine = Engine::spawn(self.engine_command())
+            .map_err(|e| format!("Failed to spawn engine process: {e}"))?;
+
+        // UCI handshake (required before setoption/position). Discard options.
+        engine
+            .handshake()
+            .map_err(|e| format!("Failed UCI handshake: {e}"))?;
+
+        // Optional ELO limit via UCI options (UCI_LimitStrength + UCI_Elo) when difficulty is set
+        if let Some(elo) = self.elo() {
+            engine
+                .set_option("UCI_LimitStrength", Some("true"))
+                .map_err(|e| format!("Failed to set UCI_LimitStrength: {e}"))?;
+            let elo = elo.to_string();
+            engine
+                .set_option("UCI_Elo", Some(&elo))
+                .map_err(|e| format!("Failed to set UCI_Elo: {e}"))?;
+        }
+
+        engine
+            .position_fen(fen)
+            .map_err(|e| format!("Failed to send position to engine: {e}"))?;
+
+        let best_move = engine
+            .go(Go {
+                depth: Some(u32::from(self.effective_depth())),
+                move_time: self.movetime_ms(),
+            })
+            .map_err(|e| format!("Engine failed to compute move: {e}"))?
+            .ok_or_else(|| "Engine returned no move".to_string())?;
+
+        best_move.movement.parse::<UciMove>().map_err(|e| {
+            format!(
+                "Engine returned invalid UCI move '{}': {e}",
+                best_move.movement
+            )
+        })
+    }
+
+    /// Builds the engine command, splitting any arguments off `engine_path`.
+    fn engine_command(&self) -> Command {
+        let mut parts = self.engine_path.split_whitespace();
+        let mut command = Command::new(parts.next().unwrap_or_default());
+        command.args(parts);
+
+        // Keep engine diagnostics from corrupting the TUI.
+        command.stderr(Stdio::null());
+        command
     }
 
     /// Effective depth: preset depth when difficulty is set, else base depth.
@@ -69,77 +137,5 @@ impl Bot {
                 None
             }
         })
-    }
-
-    /// Get the best move from the chess engine.
-    pub fn get_move(&self, fen: &str) -> Result<UciMove, String> {
-        let parts: Vec<&str> = self.engine_path.split_whitespace().collect();
-        let (command, args) = if parts.is_empty() {
-            (self.engine_path.as_str(), &[] as &[&str])
-        } else {
-            (parts[0], &parts[1..])
-        };
-
-        let mut cmd = Command::new(command);
-        if !args.is_empty() {
-            cmd.args(args);
-        }
-
-        let mut process = cmd
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn engine process: {e}"))?;
-
-        let mut engine = Engine::from_process(&mut process, false)
-            .map_err(|e| format!("Failed to initialize engine: {e}"))?;
-
-        // UCI handshake (required before setoption/position). Discard options.
-        engine
-            .use_uci(|_| {})
-            .map_err(|e| format!("Failed UCI handshake: {e}"))?;
-
-        // Optional ELO limit via UCI options (UCI_LimitStrength + UCI_Elo) when difficulty is set
-        if let Some(elo) = self.elo() {
-            engine
-                .send(ruci::gui::SetOption {
-                    name: Cow::Borrowed("UCI_LimitStrength"),
-                    value: Some(Cow::Borrowed("true")),
-                })
-                .map_err(|e| format!("Failed to set UCI_LimitStrength: {e}"))?;
-            engine
-                .send(ruci::gui::SetOption {
-                    name: Cow::Borrowed("UCI_Elo"),
-                    value: Some(Cow::Owned(elo.to_string())),
-                })
-                .map_err(|e| format!("Failed to set UCI_Elo: {e}"))?;
-        }
-
-        let fen_parsed =
-            Fen::from_str(fen).map_err(|e| format!("Failed to parse FEN '{fen}': {e}"))?;
-
-        engine
-            .send(ruci::Position::Fen {
-                fen: Cow::Owned(fen_parsed),
-                moves: Cow::Borrowed(&[]),
-            })
-            .map_err(|e| format!("Failed to send position to engine: {e}"))?;
-
-        let depth = self.effective_depth();
-        let move_time_ms = self.movetime_ms();
-
-        engine
-            .go(
-                &Go {
-                    depth: Some(depth as usize),
-                    move_time: move_time_ms.map(|ms| ms as usize),
-                    ..Default::default()
-                },
-                |_| {},
-            )
-            .map_err(|e| format!("Engine failed to compute move: {e}"))?
-            .take_normal()
-            .ok_or_else(|| "Engine returned non-normal move".to_string())
-            .map(|r| r.r#move)
     }
 }

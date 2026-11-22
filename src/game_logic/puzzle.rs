@@ -299,9 +299,9 @@ impl PuzzleGame {
                     if let Ok(san) = shakmaty::san::San::from_ascii(move_str.as_bytes()) {
                         if let Ok(chess_move) = san.to_move(&position) {
                             // Store the move before playing it
-                            move_history.push(chess_move.clone());
+                            move_history.push(chess_move);
 
-                            position = match position.play(&chess_move) {
+                            position = match position.play(chess_move) {
                                 Ok(new_pos) => {
                                     log::info!("Applied move {}: {}", i + 1, move_str);
                                     // Store the position after the move

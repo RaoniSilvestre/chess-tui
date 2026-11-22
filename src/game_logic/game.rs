@@ -190,9 +190,8 @@ impl Game {
             self.logic.handle_multiplayer_promotion();
         }
 
-        if self.logic.bot.is_some() {
-            self.logic.execute_bot_move();
-        }
+        // Reuse the normal bot-move path so promotion does not block the UI thread.
+        self.handle_after_move_bot_logic();
     }
 
     /// Handle bot-specific logic after a move
@@ -203,6 +202,7 @@ impl Game {
             // Trigger bot move if game is still in progress
             if self.logic.game_state != GameState::Promotion
                 && self.logic.game_state != GameState::Checkmate
+                && self.logic.game_state != GameState::Draw
                 && let Some(bot) = self.logic.bot.as_mut()
             {
                 bot.bot_will_move = true;
@@ -437,85 +437,6 @@ impl GameLogic {
         if let Some(position) = self.game_board.current_position() {
             self.player_turn = position.turn();
         }
-    }
-
-    /// Method to make a move for the bot
-    /// We use the UCI protocol to communicate with the chess engine
-    pub fn execute_bot_move(&mut self) {
-        // Check if bot exists
-        let bot = match self.bot.as_mut() {
-            Some(b) => b,
-            None => return,
-        };
-
-        let fen_position = self.game_board.fen_position();
-
-        // Retrieve the bot move from the bot
-        let uci_move = match bot.get_move(&fen_position) {
-            Ok(m) => m,
-            Err(e) => {
-                log::error!("Engine error: {e}");
-                return;
-            }
-        };
-
-        // Convert UCI move to a shakmaty Move using the current position
-        let current_position = self.game_board.position_ref().clone();
-        let bot_actual_move = match uci_move.to_move(&current_position) {
-            Ok(m) => m,
-            Err(e) => {
-                log::error!("Engine returned illegal UCI move: {}", e);
-                return;
-            }
-        };
-
-        // Record captured piece (before applying the move) so material display is correct
-        match &bot_actual_move {
-            Move::Normal { .. } => {
-                if let Some(captured_piece) =
-                    current_position.board().piece_at(bot_actual_move.to())
-                {
-                    self.game_board.taken_pieces.push(captured_piece);
-                }
-            }
-            Move::EnPassant { .. } => {
-                if let (Some(from_square), to_square) =
-                    (bot_actual_move.from(), bot_actual_move.to())
-                {
-                    let captured_pawn_square =
-                        shakmaty::Square::from_coords(to_square.file(), from_square.rank());
-                    if let Some(captured_piece) =
-                        current_position.board().piece_at(captured_pawn_square)
-                    {
-                        self.game_board.taken_pieces.push(captured_piece);
-                    }
-                }
-            }
-            Move::Castle { .. } | Move::Put { .. } => {}
-        }
-
-        // Execute the move and update position
-        let new_position = match current_position.play(&bot_actual_move) {
-            Ok(pos) => pos,
-            Err(e) => {
-                log::error!("Failed to execute bot move: {}", e);
-                return;
-            }
-        };
-
-        // Store move and position in history
-        self.game_board.move_history.push(bot_actual_move);
-        self.game_board.position_history.push(new_position);
-        // Reset history navigation when a new move is made
-        self.game_board.history_position_index = None;
-        self.game_board.original_flip_state = None;
-
-        // Switch turn back to the human player (bot just moved)
-        self.switch_player_turn();
-        self.update_game_state();
-
-        // Play move sound
-        crate::sound::play_move_sound();
     }
 
     /// Method to promote a pawn
