@@ -3228,12 +3228,11 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "suci"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc0c3f51d3cf16bef96d756ab2408451d792273923f1ea79d2fe2506676afb14"
+checksum = "44a870f6dbe05490534982455308c1ffc2fc9d966f07e37ddb3fe299c628a3c8"
 dependencies = [
  "shakmaty",
- "tracing",
 ]
 
 [[package]]

@@ -2,7 +2,6 @@
 
 use crate::constants::{BOT_DIFFICULTY_DEPTH, BOT_DIFFICULTY_ELO, BOT_DIFFICULTY_MOVETIME_MS};
 use shakmaty::{CastlingMode, Chess, Move, fen::Fen, uci::UciMove};
-use std::borrow::Cow;
 use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::thread::{self, JoinHandle};
@@ -257,14 +256,14 @@ impl EngineProcess {
         if let Some(elo) = elo_for(config.difficulty) {
             engine
                 .set_option(&SetOption {
-                    name: Cow::Borrowed("UCI_LimitStrength"),
-                    value: Some(Cow::Borrowed("true")),
+                    name: "UCI_LimitStrength".into(),
+                    value: Some("true".into()),
                 })
                 .map_err(|error| format!("Failed to configure UCI_LimitStrength: {error}"))?;
             engine
                 .set_option(&SetOption {
-                    name: Cow::Borrowed("UCI_Elo"),
-                    value: Some(Cow::Owned(elo.to_string())),
+                    name: "UCI_Elo".into(),
+                    value: Some(elo.to_string()),
                 })
                 .map_err(|error| format!("Failed to configure UCI_Elo: {error}"))?;
         }
@@ -292,17 +291,17 @@ impl EngineProcess {
     }
 
     fn compute_move(&mut self, fen: &str) -> Result<Move, String> {
-        let parsed_fen = Fen::from_ascii(fen.as_bytes())
+        let fen = Fen::from_ascii(fen.as_bytes())
             .map_err(|error| format!("Failed to parse FEN '{fen}': {error}"))?;
-        let position = parsed_fen
+        let position = fen
             .clone()
             .into_position::<Chess>(CastlingMode::Standard)
             .map_err(|error| format!("Failed to build a position from FEN '{fen}': {error}"))?;
 
         self.engine
             .set_position(&Position::Fen {
-                fen: Cow::Owned(parsed_fen),
-                moves: Cow::Borrowed(&[]),
+                fen,
+                moves: Vec::new(),
             })
             .map_err(|error| format!("Failed to send position to engine: {error}"))?;
 
