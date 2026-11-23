@@ -1,21 +1,21 @@
-//! Engine thread and move application.
+//! Bot game setup and move application.
 
 use crate::constants::Popups;
-use crate::game_logic::bot::Bot;
+use crate::game_logic::bot::{Bot, BotEvent};
 use crate::sound::play_move_sound;
 use crate::{app::App, game_logic::clock::Clock};
 use shakmaty::{Color, Move};
 
 impl App {
     /// Initializes the bot for a new game. Creates the `Bot` instance, sets up the clock,
-    /// flips the board if the human plays Black, and triggers the bot's first move if it starts.
+    /// starts the engine session, flips the board if the human plays Black, and triggers
+    /// the bot's first move if it starts.
     pub fn bot_setup(&mut self) {
         // Bot starts (plays White) when the human chose Black.
         let is_bot_starting =
             self.game_mode_state.selected_color.unwrap_or(Color::White) == shakmaty::Color::Black;
-        let path = self.bot_state.chess_engine_path.as_deref().unwrap_or("");
+
         self.game.logic.bot = Some(Bot::new(
-            path,
             is_bot_starting,
             self.bot_state.bot_depth,
             self.bot_state.bot_difficulty,
@@ -24,20 +24,17 @@ impl App {
         // Initialize clock for bot games.
         self.game.logic.clock = Clock::new(self.game_mode_state.get_time_control());
 
+        // A new game gets a fresh engine session, started eagerly.
+        let engine_started = self.start_bot_engine();
+
         if let Some(color) = self.game_mode_state.selected_color
             && color == Color::Black
         {
             // Flip the board once so Black player sees from their perspective
             self.game.logic.game_board.flip_the_board();
 
-            if let Some(bot) = &self.game.logic.bot
-                && self.game.logic.player_turn != color
-            {
-                self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen_position(),
-                    bot.depth,
-                    bot.difficulty,
-                );
+            if engine_started && self.game.logic.player_turn != color {
+                self.request_bot_move();
             }
             // Don't set player_turn to Black here - the bot (White) moves first,
             // so player_turn should remain White until after the bot's first move
@@ -51,25 +48,44 @@ impl App {
         self.update_config_from_app();
     }
 
-    /// Polls the bot move channel and applies the move if one is ready. Returns `true` if a move was applied.
-    pub fn check_and_apply_bot_move(&mut self) -> bool {
-        if let Some(rx) = &self.bot_state.bot_move_receiver {
-            match rx.try_recv() {
-                Ok(Ok(bot_move)) => {
-                    self.apply_bot_move(bot_move);
-                    self.bot_state.bot_move_receiver = None;
-                    return true;
-                }
-                Ok(Err(e)) => {
-                    log::error!("Bot engine error: {e}");
-                    self.ui_state
-                        .show_message_popup(format!("Chess engine error:\n{e}"), Popups::Error);
-                    self.bot_state.bot_move_receiver = None;
-                }
-                Err(_) => {}
+    /// Starts the engine session for the current bot game. Returns whether it started.
+    pub fn start_bot_engine(&mut self) -> bool {
+        match self.bot_state.start_engine() {
+            Ok(()) => true,
+            Err(error) => {
+                self.show_engine_error(&error);
+                false
             }
         }
-        false
+    }
+
+    /// Requests the next bot move, showing a popup if the engine cannot be used.
+    pub fn request_bot_move(&mut self) {
+        let fen = self.game.logic.game_board.fen_position();
+        if let Err(error) = self.bot_state.request_move(fen) {
+            self.show_engine_error(&error);
+        }
+    }
+
+    /// Polls the bot move channel and applies the move if one is ready. Returns `true` if a move was applied.
+    pub fn check_and_apply_bot_move(&mut self) -> bool {
+        match self.bot_state.poll_move() {
+            Some(BotEvent::Move(bot_move)) => {
+                self.apply_bot_move(bot_move);
+                true
+            }
+            Some(BotEvent::Failed(error)) => {
+                self.show_engine_error(&error);
+                false
+            }
+            None => false,
+        }
+    }
+
+    fn show_engine_error(&mut self, error: &str) {
+        log::error!("Bot engine error: {error}");
+        self.ui_state
+            .show_message_popup(format!("Chess engine error:\n{error}"), Popups::Error);
     }
 
     /// Applies a bot move. Records captures, updates position history, switches turn, and plays the move sound.
@@ -120,7 +136,7 @@ impl App {
             promotion: bot_move.promotion(),
         });
 
-        let Ok(new_position) = current_position.play(&bot_move) else {
+        let Ok(new_position) = current_position.play(bot_move) else {
             log::error!("Failed to play bot move");
             return;
         };

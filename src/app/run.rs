@@ -70,29 +70,20 @@ impl App {
 
     /// Check if bot should start thinking
     fn check_bot_thinking(&mut self) {
-        let bot_thinking = self.bot_state.is_bot_thinking();
-        let bot_will_move = self
-            .game
-            .logic
-            .bot
-            .as_ref()
-            .is_some_and(|bot| bot.bot_will_move);
-
-        if bot_thinking || !bot_will_move {
+        if self.bot_state.is_bot_thinking() {
             return;
         }
 
-        if let Some(bot) = &self.game.logic.bot {
-            self.bot_state.start_bot_thinking(
-                self.game.logic.game_board.fen_position(),
-                bot.depth,
-                bot.difficulty,
-            );
+        let Some(bot) = self.game.logic.bot.as_mut() else {
+            return;
+        };
+
+        if !bot.bot_will_move {
+            return;
         }
 
-        if let Some(bot) = self.game.logic.bot.as_mut() {
-            bot.bot_will_move = false;
-        }
+        bot.bot_will_move = false;
+        self.request_bot_move();
     }
 
     fn check_multiplayer_game_start(&mut self) {

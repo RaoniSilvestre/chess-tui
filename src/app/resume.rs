@@ -109,7 +109,7 @@ impl App {
                 .game_board
                 .move_history
                 .iter()
-                .map(|m| UciMove::from_standard(m).to_string())
+                .map(|&m| UciMove::from_standard(m).to_string())
                 .collect(),
         };
 
@@ -284,25 +284,18 @@ impl App {
                     && player_color == Color::White
                     || (player_color == Color::Black
                         && self.game.logic.player_turn == Color::White);
-                self.game.logic.bot = Some(Bot::new(
-                    &bot_cfg.path,
-                    is_bot_starting,
-                    bot_cfg.depth,
-                    bot_cfg.difficulty,
-                ));
+                self.game.logic.bot =
+                    Some(Bot::new(is_bot_starting, bot_cfg.depth, bot_cfg.difficulty));
 
                 self.ui_state.current_page = Pages::Bot;
                 self.last_saved_move_count = Some(0);
 
+                // A resumed bot game starts a fresh engine session, eagerly.
+                let engine_started = self.start_bot_engine();
+
                 // If it's the bot's turn in the saved position, kick it off.
-                if self.game.logic.player_turn != player_color
-                    && let Some(bot) = &self.game.logic.bot
-                {
-                    self.bot_state.start_bot_thinking(
-                        self.game.logic.game_board.fen_position(),
-                        bot.depth,
-                        bot.difficulty,
-                    );
+                if engine_started && self.game.logic.player_turn != player_color {
+                    self.request_bot_move();
                 }
             }
         }

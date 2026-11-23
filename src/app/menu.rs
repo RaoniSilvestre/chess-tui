@@ -142,7 +142,7 @@ impl App {
         self.game_mode_state.selected_color = None;
         self.game_mode_state.is_random_color = false;
         self.game.logic.bot = None;
-        self.bot_state.bot_move_receiver = None;
+        self.bot_state.shutdown_engine();
 
         // Clean up multiplayer connection if active
         if let Some(opponent) = self.game.logic.opponent.as_mut() {

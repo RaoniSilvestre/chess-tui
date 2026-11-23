@@ -66,7 +66,7 @@ impl GameBoard {
         let chess_move = &self.move_history[move_index];
 
         // Convert to SAN using shakmaty
-        let san = San::from_move(position, chess_move);
+        let san = San::from_move(position, *chess_move);
         san.to_string()
     }
 
@@ -230,7 +230,7 @@ impl GameBoard {
     pub fn fen_position(&self) -> String {
         // Use FEN display from shakmaty
         use shakmaty::fen::Fen;
-        let fen = Fen::from_position(self.position_ref().clone(), shakmaty::EnPassantMode::Legal);
+        let fen = Fen::from_position(self.position_ref(), shakmaty::EnPassantMode::Legal);
         fen.to_string()
     }
 
@@ -313,7 +313,7 @@ impl GameBoard {
                             }
 
                             // Apply the move
-                            match current_position.play(&chess_move) {
+                            match current_position.play(chess_move) {
                                 Ok(new_pos) => {
                                     self.move_history.push(chess_move);
                                     self.position_history.push(new_pos.clone());
@@ -374,11 +374,9 @@ impl GameBoard {
         if let Some(fen_str) = expected_fen
             && let Some(final_position) = self.position_history.last()
         {
-            let final_fen = shakmaty::fen::Fen::from_position(
-                final_position.clone(),
-                shakmaty::EnPassantMode::Legal,
-            )
-            .to_string();
+            let final_fen =
+                shakmaty::fen::Fen::from_position(final_position, shakmaty::EnPassantMode::Legal)
+                    .to_string();
 
             // Compare FEN strings (ignoring move counters which might differ)
             let final_fen_parts: Vec<&str> = final_fen.split(' ').collect();
@@ -511,14 +509,14 @@ impl GameBoard {
             }
 
             // Execute move
-            match chess.play(shakmaty_move) {
+            match chess.play(*shakmaty_move) {
                 Ok(new_chess) => {
                     // Update history
                     self.position_history.push(new_chess);
                     // Reset history navigation when a new move is made
                     self.history_position_index = None;
                     self.original_flip_state = None;
-                    Some(shakmaty_move.clone())
+                    Some(*shakmaty_move)
                 }
                 Err(e) => {
                     log::error!("Failed to play move {} -> {}: {}", from, to, e);
@@ -544,13 +542,13 @@ impl GameBoard {
                         castle_move.to()
                     );
                     // Execute the castling move even though destination doesn't match exactly
-                    match chess_clone.play(castle_move) {
+                    match chess_clone.play(*castle_move) {
                         Ok(new_chess) => {
                             self.position_history.push(new_chess);
                             self.history_position_index = None;
                             self.original_flip_state = None;
                             log::info!("Castling move executed successfully: {:?}", castle_move);
-                            return Some(castle_move.clone());
+                            return Some(*castle_move);
                         }
                         Err(e) => {
                             log::error!("Failed to play castling move: {}", e);

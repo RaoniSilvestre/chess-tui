@@ -1,23 +1,21 @@
-//! Holds the [`Bot`] configuration and the `mpsc::Receiver` used to collect moves computed off-thread.
+//! Holds the [`Bot`](crate::game_logic::bot::Bot) configuration and the engine session used to
+//! compute moves off-thread.
 
-use crate::game_logic::bot::Bot;
-use shakmaty::Move;
-use std::sync::mpsc::{Receiver, channel};
+use crate::game_logic::bot::{BotEvent, BotSession, EngineConfig};
 
-/// Engine configuration and the channel used to receive moves computed off-thread.
+/// Bot settings and the engine session for the current game.
 ///
-/// `start_bot_thinking` spawns a thread that runs the engine and sends the chosen
-/// move back through `bot_move_receiver`. [`crate::app::App`] polls that receiver
-/// each tick via `check_and_apply_bot_move`.
+/// The session is started explicitly at game setup, polled each tick via
+/// [`BotState::poll_move`], and shut down when the game ends or restarts.
 pub struct BotState {
     /// Bot thinking depth for chess engine (used when difficulty is Off)
     pub bot_depth: u8,
     /// Bot difficulty preset: None = Off (full strength), Some(0..=3) = Easy/Medium/Hard/Magnus
     pub bot_difficulty: Option<u8>,
-    /// Bot thinking channel receiver; carries `Ok(move)` or `Err(message)` from engine thread
-    pub bot_move_receiver: Option<Receiver<Result<Move, String>>>,
     /// path of the chess engine
     pub chess_engine_path: Option<String>,
+    /// Engine session for the current game.
+    session: Option<BotSession>,
 }
 
 impl Default for BotState {
@@ -25,52 +23,61 @@ impl Default for BotState {
         Self {
             bot_depth: 10,
             bot_difficulty: None,
-            bot_move_receiver: None,
             chess_engine_path: None,
+            session: None,
         }
     }
 }
 
 impl BotState {
-    /// Start bot thinking in a separate thread
-    pub fn start_bot_thinking(&mut self, fen: String, depth: u8, bot_difficulty: Option<u8>) {
-        // Don't start if already thinking
-        if self.bot_move_receiver.is_some() {
-            return;
-        }
+    /// Starts a fresh engine session from the configured settings.
+    ///
+    /// Any previous session is shut down first.
+    pub fn start_engine(&mut self) -> Result<(), String> {
+        self.shutdown_engine();
 
-        let engine_path = self.chess_engine_path.clone().unwrap_or_default();
+        let path = self
+            .chess_engine_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .ok_or_else(|| {
+                "No chess engine configured. Set one from the settings menu.".to_string()
+            })?
+            .to_string();
 
-        // Create channel for communication
-        let (tx, rx) = channel();
-        self.bot_move_receiver = Some(rx);
+        let config = EngineConfig {
+            path,
+            depth: self.bot_depth,
+            difficulty: self.bot_difficulty,
+        };
 
-        // Spawn thread to compute bot move
-        std::thread::spawn(move || {
-            let bot = Bot::new(&engine_path, false, depth, bot_difficulty);
-            let uci_move = match bot.get_move(&fen) {
-                Ok(m) => m,
-                Err(e) => {
-                    let _ = tx.send(Err(e));
-                    return;
-                }
-            };
-
-            // Convert UCI move to shakmaty Move
-            let position: Option<shakmaty::Chess> = shakmaty::fen::Fen::from_ascii(fen.as_bytes())
-                .ok()
-                .and_then(|fen| fen.into_position(shakmaty::CastlingMode::Standard).ok());
-
-            if let Some(pos) = position
-                && let Ok(chess_move) = uci_move.to_move(&pos)
-            {
-                let _ = tx.send(Ok(chess_move));
-            }
-        });
+        self.session = Some(BotSession::start(config)?);
+        Ok(())
     }
 
-    /// Returns `true` while the engine thread is running and a move has not yet arrived.
+    /// Queues a bot move for `fen` on the current session.
+    pub fn request_move(&mut self, fen: String) -> Result<(), String> {
+        match &mut self.session {
+            Some(session) => session.request_move(fen),
+            None => Err("Bot engine is not running".to_string()),
+        }
+    }
+
+    /// Returns the next engine event, if one is ready.
+    pub fn poll_move(&mut self) -> Option<BotEvent> {
+        self.session.as_mut().and_then(BotSession::poll)
+    }
+
+    /// Whether a bot move has been requested and not yet received.
     pub fn is_bot_thinking(&self) -> bool {
-        self.bot_move_receiver.is_some()
+        self.session.as_ref().is_some_and(BotSession::is_thinking)
+    }
+
+    /// Stops the engine session.
+    pub fn shutdown_engine(&mut self) {
+        if let Some(session) = self.session.take() {
+            session.shutdown();
+        }
     }
 }

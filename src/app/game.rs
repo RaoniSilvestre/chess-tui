@@ -90,6 +90,8 @@ impl App {
         self.lichess_state.puzzle_game = None;
         self.ui_state.end_screen_dismissed = false;
         self.game.logic.game_ended_by_time = false;
+        // A restarted game starts a fresh engine session.
+        self.bot_state.shutdown_engine();
         let bot = self.game.logic.bot.clone();
         let opponent = self.game.logic.opponent.clone();
         // Preserve skin and display mode
@@ -127,6 +129,9 @@ impl App {
             self.game.logic.clock = Clock::new(self.game_mode_state.get_time_control());
         }
 
+        // A restarted bot game gets a fresh engine session, started eagerly.
+        let engine_started = is_bot_game && self.start_bot_engine();
+
         if self
             .game
             .logic
@@ -136,12 +141,8 @@ impl App {
         {
             // Flip the board once so Black player sees from their perspective
             self.game.logic.game_board.flip_the_board();
-            if let Some(bot) = &self.game.logic.bot {
-                self.bot_state.start_bot_thinking(
-                    self.game.logic.game_board.fen_position(),
-                    bot.depth,
-                    bot.difficulty,
-                );
+            if engine_started {
+                self.request_bot_move();
             }
             // Don't set player_turn to Black here - the bot (White) moves first,
             // so player_turn should remain White until after the bot's first move
