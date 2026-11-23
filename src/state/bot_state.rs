@@ -81,3 +81,52 @@ impl BotState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BotState;
+
+    const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+    #[test]
+    fn missing_engine_path_is_reported() {
+        let mut state = BotState::default();
+
+        assert!(state.start_engine().is_err());
+        assert!(!state.is_bot_thinking());
+    }
+
+    #[test]
+    fn blank_engine_path_is_reported() {
+        let mut state = BotState {
+            chess_engine_path: Some("   ".to_string()),
+            ..BotState::default()
+        };
+
+        assert!(state.start_engine().is_err());
+        assert!(!state.is_bot_thinking());
+    }
+
+    #[test]
+    fn request_before_start_is_reported() {
+        let mut state = BotState::default();
+
+        assert!(state.request_move(START_FEN.to_string()).is_err());
+    }
+
+    #[test]
+    fn polling_without_a_session_is_idle() {
+        let mut state = BotState::default();
+
+        assert!(state.poll_move().is_none());
+    }
+
+    #[test]
+    fn shutdown_without_a_session_is_a_noop() {
+        let mut state = BotState::default();
+
+        state.shutdown_engine();
+
+        assert!(!state.is_bot_thinking());
+    }
+}

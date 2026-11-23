@@ -354,3 +354,39 @@ fn elo_for(difficulty: Option<u8>) -> Option<u16> {
         .map(usize::from)
         .and_then(|index| BOT_DIFFICULTY_ELO.get(index).copied())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{elo_for, search_limits};
+    use crate::constants::{BOT_DIFFICULTY_DEPTH, BOT_DIFFICULTY_ELO, BOT_DIFFICULTY_MOVETIME_MS};
+
+    #[test]
+    fn difficulty_off_uses_base_depth_and_no_limits() {
+        assert_eq!(search_limits(12, None), (12, None));
+        assert_eq!(elo_for(None), None);
+    }
+
+    #[test]
+    fn difficulty_presets_map_to_depth_movetime_and_elo() {
+        for index in 0..BOT_DIFFICULTY_DEPTH.len() {
+            let difficulty = Some(index as u8);
+
+            assert_eq!(
+                search_limits(12, difficulty),
+                (
+                    BOT_DIFFICULTY_DEPTH[index] as usize,
+                    Some(BOT_DIFFICULTY_MOVETIME_MS[index] as usize),
+                )
+            );
+            assert_eq!(elo_for(difficulty), Some(BOT_DIFFICULTY_ELO[index]));
+        }
+    }
+
+    #[test]
+    fn unknown_difficulty_falls_back_to_full_strength() {
+        let unknown = Some(BOT_DIFFICULTY_DEPTH.len() as u8);
+
+        assert_eq!(search_limits(12, unknown), (12, None));
+        assert_eq!(elo_for(unknown), None);
+    }
+}
